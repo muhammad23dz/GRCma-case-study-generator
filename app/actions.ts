@@ -4,9 +4,11 @@ import OpenAI from 'openai';
 import { CaseInput, GeneratedReport } from '@/types';
 
 // Initialize OpenAI client with DeepSeek configuration
+const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-73666742f11a4010a1169f1c9477ac04';
+
 const openai = new OpenAI({
   baseURL: 'https://api.deepseek.com',
-  apiKey: 'sk-73666742f11a4010a1169f1c9477ac04',
+  apiKey: apiKey,
 });
 
 export async function generateReportAction(input: CaseInput): Promise<GeneratedReport> {
@@ -25,60 +27,63 @@ export async function generateReportAction(input: CaseInput): Promise<GeneratedR
     The report MUST be in JSON format with the following structure. 
     
     CRITICAL CONTENT RULES:
-    1. **Actionable Steps**: Content MUST provide real, followable steps (e.g., "Step 1: ...", "Step 2: ..."). Do NOT use generic high-level fluff. Be specific and prescriptive.
+    1. **Actionable Steps**: Content MUST provide real, followable steps. Be specific and prescriptive.
     2. **Structured Text**: The 'content' field MUST use HTML tags for structure. Use <ul> and <li> for lists, <p> for paragraphs, and <strong> for emphasis. Do NOT use markdown.
-    3. **Colored Mindmaps**: Each section MUST include a 'mindmap' field containing valid Mermaid.js 'mindmap' syntax. IMPORTANT: You MUST use Mermaid styling to color the nodes (e.g., classes like :::urgent, :::warning, :::ok). Make the mindmaps visually appealing and colorful, not just grey.
+    3. **Action Tables**: Each section MUST include an 'actionTable' field containing an HTML table with step-by-step actions. 
+       - Use proper HTML: <table class="action-table"><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody>...</tbody></table>
+       - Include 3-5 concrete, actionable steps per section
+       - Be specific about owners (roles like CISO, Risk Manager, etc.) and realistic timelines
     4. **Detail & Tone**: Content must be sophisticated, educational, and "Big 4" consulting style.
 
-    Structure & Content Requirements:
+    Structure & Content Requirements (return this exact JSON structure):
     {
       "executiveSummary": { 
         "title": "Executive Summary", 
-        "content": "<p>A high-level strategic overview...</p>",
-        "mindmap": "mindmap\\n  root((Executive Summary))\\n    Strategic Value:::ok\\n    Risk Reduction:::urgent\\n    Business Growth:::warning"
+        "content": "<p>High-level overview...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Review current state</td><td>CISO</td><td>Week 1</td></tr></tbody></table>"
       },
       "driversAndRisks": { 
         "title": "Drivers and Risks", 
-        "content": "<p>Detailed analysis...</p><ul><li><strong>Step 1: Identify...</strong> ...</li></ul>",
-        "mindmap": "mindmap\\n  root((Drivers & Risks))\\n    Internal:::urgent\\n      Operational\\n      Cultural\\n    External:::warning\\n      Regulatory\\n      Market"
+        "content": "<p>Analysis...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Identify key risks</td><td>Risk Team</td><td>Week 2</td></tr></tbody></table>"
       },
       "engagementType": { 
         "title": "Engagement Type", 
         "content": "<p>Description...</p>",
-        "mindmap": "mindmap\\n  root((Engagement))\\n    Scope:::ok\\n    Objectives\\n    Deliverables"
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Define scope</td><td>PM</td><td>Week 1</td></tr></tbody></table>"
       },
       "methodology": { 
         "title": "Methodology", 
-        "content": "<p>Elaborate on HMAMOUCH methodology with steps...</p>",
-        "mindmap": "mindmap\\n  root((Methodology))\\n    Discovery:::ok\\n    Analysis:::warning\\n    Quantification:::urgent\\n    Remediation:::ok"
+        "content": "<p>Methodology details...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Discovery</td><td>Consultant</td><td>Week 1-2</td></tr></tbody></table>"
       },
       "gapAnalysis": { 
         "title": "Gap Analysis", 
-        "content": "<p>Comparison...</p>",
-        "mindmap": "mindmap\\n  root((Gap Analysis))\\n    People:::warning\\n    Process:::urgent\\n    Technology:::ok"
+        "content": "<p>Gap findings...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Identify gaps</td><td>Analyst</td><td>Week 3</td></tr></tbody></table>"
       },
       "maturityFindings": { 
         "title": "Maturity Findings", 
-        "content": "<p>Assessment...</p>",
-        "mindmap": "mindmap\\n  root((Maturity))\\n    Current: Level 2:::urgent\\n    Target: Level 4:::ok\\n    Gaps:::warning"
+        "content": "<p>Maturity assessment...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Assess maturity</td><td>Auditor</td><td>Week 4</td></tr></tbody></table>"
       },
       "roadmap": { 
         "title": "Strategic Roadmap", 
-        "content": "<p>Phased approach with concrete steps...</p>",
-        "mindmap": "mindmap\\n  root((Roadmap))\\n    Phase 1: Foundation:::urgent\\n    Phase 2: Optimization:::warning\\n    Phase 3: Innovation:::ok"
+        "content": "<p>Implementation roadmap...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Phase 1: Foundation</td><td>Program Lead</td><td>Q1 2025</td></tr><tr><td>2</td><td>Phase 2: Optimization</td><td>Program Lead</td><td>Q2 2025</td></tr></tbody></table>"
       },
       "businessImpact": { 
         "title": "Business Impact & ROI", 
-        "content": "<p>Benefits...</p>",
-        "mindmap": "mindmap\\n  root((Impact))\\n    ROI:::ok\\n    Trust:::ok\\n    Efficiency:::ok"
+        "content": "<p>Expected benefits...</p>",
+        "actionTable": "<table class='action-table'><thead><tr><th>Step</th><th>Action</th><th>Owner</th><th>Timeline</th></tr></thead><tbody><tr><td>1</td><td>Calculate ROI</td><td>Finance</td><td>Week 5</td></tr></tbody></table>"
       }
     }
 
     Tone & Style Guidelines:
-    1. **Sophisticated & Professional**: Use vocabulary like 'Strategic alignment', 'Operational resilience', 'Risk appetite', 'Holistic framework'.
-    2. **Educational**: Don't just state facts; explain the *implications*. This report should teach a student or junior consultant how to think about GRC.
-    3. **Specific**: Tailor every section to the ${industry} industry and the specific ${challenge}.
-    4. **JSON Only**: Return ONLY the valid JSON object. No code blocks.
+    1. **Sophisticated & Professional**: Use vocabulary like 'Strategic alignment', 'Operational resilience', 'Risk appetite'.
+    2. **Educational**: Explain implications, not just facts.
+    3. **Specific**: Tailor to ${industry} and ${challenge}.
+    4. **JSON Only**: Return ONLY valid JSON. No code blocks, no markdown.
   `;
 
   try {
@@ -117,9 +122,9 @@ export async function generateReportAction(input: CaseInput): Promise<GeneratedR
           throw new Error(`Invalid content type for section ${key}: ${typeof sections[key].content}`);
         }
       }
-      if (sections[key].mindmap && typeof sections[key].mindmap !== 'string') {
-        if (typeof sections[key].mindmap === 'object') {
-          sections[key].mindmap = String(sections[key].mindmap);
+      if (sections[key].actionTable && typeof sections[key].actionTable !== 'string') {
+        if (typeof sections[key].actionTable === 'object') {
+          sections[key].actionTable = String(sections[key].actionTable);
         }
       }
     }
@@ -130,8 +135,15 @@ export async function generateReportAction(input: CaseInput): Promise<GeneratedR
       sections: sections
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("DeepSeek API Error:", error);
-    throw new Error("Failed to generate report via DeepSeek API");
+    console.error("Error details:", {
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    });
+
+    const errorMessage = error?.message || error?.response?.data?.error || 'Unknown error';
+    throw new Error(`Failed to generate report via DeepSeek API: ${errorMessage}`);
   }
 }

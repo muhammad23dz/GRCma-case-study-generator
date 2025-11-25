@@ -8,7 +8,7 @@ export interface CaseInput {
 export interface ReportSection {
     title: string;
     content: string;
-    mindmap?: string;
+    actionTable?: string; // HTML table with step-by-step actions
 }
 
 export interface GeneratedReport {
