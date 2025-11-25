@@ -4,11 +4,9 @@ import OpenAI from 'openai';
 import { CaseInput, GeneratedReport } from '@/types';
 
 // Initialize OpenAI client with DeepSeek configuration
-const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-73666742f11a4010a1169f1c9477ac04';
-
 const openai = new OpenAI({
   baseURL: 'https://api.deepseek.com',
-  apiKey: apiKey,
+  apiKey: process.env.DEEPSEEK_API_KEY || '',
 });
 
 export async function generateReportAction(input: CaseInput): Promise<GeneratedReport> {
