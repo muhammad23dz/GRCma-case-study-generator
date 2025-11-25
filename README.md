@@ -8,7 +8,8 @@ First, run the development server:
 npm run dev
 # or
 yarn dev
-# or
+# or<img width="1862" height="856" alt="Screenshot 2025-11-25 150334" src="https://github.com/user-attachments/assets/b45db2e6-c6b4-4356-812b-ca1091d421e6" />
+
 pnpm dev
 # or
 bun dev
