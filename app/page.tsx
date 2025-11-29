@@ -16,14 +16,36 @@ type ViewState = 'input' | 'processing' | 'report' | 'history' | 'methodology' |
 export default function Home() {
   const [viewState, setViewState] = useState<ViewState>('input');
   const [report, setReport] = useState<GeneratedReport | null>(null);
-  const [history, setHistory] = useState<GeneratedReport[]>([]);
+  const [history, setHistory] = useState<GeneratedReport[]>(() => {
+    // Load history from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('grcma-history');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse saved history:', e);
+        }
+      }
+    }
+    return [];
+  });
+
+  // Save history to localStorage whenever it changes
+  const updateHistory = (newHistory: GeneratedReport[]) => {
+    setHistory(newHistory);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('grcma-history', JSON.stringify(newHistory));
+    }
+  };
 
   const handleCaseSubmit = async (data: CaseInput) => {
     setViewState('processing');
     try {
       const generatedReport = await generateReport(data);
       setReport(generatedReport);
-      setHistory(prev => [generatedReport, ...prev]);
+      const newHistory = [generatedReport, ...history];
+      updateHistory(newHistory);
       setViewState('report');
     } catch (error: any) {
       console.error("Generation failed", error);
@@ -63,11 +85,12 @@ export default function Home() {
   const handleDeleteReport = (reportId: string) => {
     console.log('handleDeleteReport called with ID:', reportId);
     console.log('Current history:', history);
-    setHistory(prev => {
-      const newHistory = prev.filter(r => r.id !== reportId);
-      console.log('New history after filter:', newHistory);
-      return newHistory;
-    });
+
+    const newHistory = history.filter(r => r.id !== reportId);
+    console.log('New history after filter:', newHistory);
+
+    updateHistory(newHistory);
+
     if (report?.id === reportId) {
       console.log('Currently viewing deleted report, resetting view');
       setReport(null);
@@ -83,14 +106,27 @@ export default function Home() {
         {viewState === 'input' && (
           <div className="animate-fade-in">
             <div className="text-center mb-12">
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-red-400 bg-clip-text text-transparent mb-4 tracking-tight">
-                GRCma Case Study Generator
-              </h1>
-              <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-                Generate comprehensive Governance, Risk, and Compliance reports modeled after top-tier assessment frameworks.
-                <br />
-                <span className="text-sm font-medium text-green-400">Powered by HMAMOUCH</span>
+              <div className="mb-8">
+                <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-gradient-to-r from-green-600/10 to-red-600/10 border border-green-500/20">
+                  <span className="text-xs font-bold tracking-widest uppercase bg-gradient-to-r from-green-400 to-red-400 bg-clip-text text-transparent">
+                    Professional GRC Intelligence Platform
+                  </span>
+                </div>
+                <h1 className="text-7xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-green-600 via-emerald-500 to-red-600 bg-clip-text text-transparent mb-4 tracking-tighter leading-none">
+                  GRC<span className="text-red-500">ma</span>
+                </h1>
+                <h2 className="text-3xl md:text-4xl font-light text-gray-300 mb-8 tracking-wide">
+                  Case Study Generator
+                </h2>
+              </div>
+              <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-6 font-light">
+                Generate comprehensive <span className="text-emerald-400 font-medium">Governance</span>, <span className="text-emerald-400 font-medium">Risk</span>, and <span className="text-red-400 font-medium">Compliance</span> reports modeled after top-tier assessment frameworks.
               </p>
+              <div className="flex items-center justify-center gap-3 mb-8">
+                <div className="h-px w-12 bg-gradient-to-r from-transparent to-emerald-500/50"></div>
+                <span className="text-sm font-semibold text-gray-500 tracking-widest uppercase">Powered by HMAMOUCH</span>
+                <div className="h-px w-12 bg-gradient-to-l from-transparent to-red-500/50"></div>
+              </div>
             </div>
             <CaseInputForm onSubmit={handleCaseSubmit} isSubmitting={false} />
           </div>
