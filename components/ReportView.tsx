@@ -1,102 +1,121 @@
-'use client';
-
 import { GeneratedReport, ReportSection } from '@/types';
 
 interface ReportViewProps {
-    report: GeneratedReport;
-    onReset: () => void;
+  report: GeneratedReport;
+  onReset: () => void;
 }
 
 export default function ReportView({ report, onReset }: ReportViewProps) {
-    const handleDownloadPDF = () => {
-        // Use browser's print dialog to save as PDF
-        window.print();
-    };
+  const handleDownloadPDF = () => {
+    window.print();
+  };
 
-    const renderSection = (section: ReportSection) => (
-        <div key={section.title} className="mb-8 p-6 bg-slate-800/30 rounded-lg border border-green-500/20 print:bg-white print:border-gray-300">
-            <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent print:text-black print:bg-none">
-                {section.title}
-            </h2>
-            <div
-                className="prose prose-invert max-w-none mb-6 print:prose"
-                dangerouslySetInnerHTML={{ __html: section.content }}
-            />
-            {section.actionTable && (
-                <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-3 text-emerald-400 print:text-black">📋 Action Plan</h3>
-                    <div
-                        className="action-table-container overflow-x-auto"
-                        dangerouslySetInnerHTML={{ __html: section.actionTable }}
-                    />
-                </div>
-            )}
+  const renderSection = (section: ReportSection) => (
+    <div key={section.title} className="mb-8 p-8 bg-slate-800/30 rounded-2xl border border-green-500/20 shadow-lg backdrop-blur-sm print:bg-[#1e293b] print:border-green-500/20 print:shadow-none print:break-inside-avoid">
+      <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent print:text-emerald-500">
+        {section.title}
+      </h2>
+      <div
+        className="prose prose-invert prose-lg max-w-none mb-8 text-gray-300 leading-relaxed print:text-gray-300"
+        dangerouslySetInnerHTML={{ __html: section.content }}
+      />
+      {section.actionTable && (
+        <div className="mt-8 bg-slate-900/50 rounded-xl p-6 border border-emerald-500/10 print:bg-[#0f172a] print:border-emerald-500/20">
+          <h3 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 print:text-emerald-600">
+            <span>📋</span> Action Plan
+          </h3>
+          <div
+            className="action-table-container overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: section.actionTable }}
+          />
         </div>
-    );
+      )}
+    </div>
+  );
 
-    return (
-        <div className="max-w-5xl mx-auto">
-            <div className="mb-8 flex justify-between items-center print:hidden">
-                <div>
-                    <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-green-400 via-emerald-400 to-red-400 bg-clip-text text-transparent">
-                        GRC Case Study Report
-                    </h1>
-                    <p className="text-gray-400">
-                        Report ID: {report.id} | Generated: {new Date(report.timestamp).toLocaleString()}
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={handleDownloadPDF}
-                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all shadow-lg hover:shadow-red-500/50 flex items-center gap-2"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Download PDF
-                    </button>
-                    <button
-                        onClick={onReset}
-                        className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-all shadow-lg hover:shadow-green-500/50"
-                    >
-                        Generate New Report
-                    </button>
-                </div>
-            </div>
+  return (
+    <div className="max-w-5xl mx-auto print:max-w-none print:w-full">
+      <div className="mb-8 flex justify-between items-center print:hidden">
+        <div>
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-green-400 via-emerald-400 to-red-400 bg-clip-text text-transparent">
+            GRC Case Study Report
+          </h1>
+          <p className="text-gray-400">
+            Report ID: {report.id} | Generated: {new Date(report.timestamp).toLocaleString()}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleDownloadPDF}
+            className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all shadow-lg hover:shadow-red-500/50 flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download PDF
+          </button>
+          <button
+            onClick={onReset}
+            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-all shadow-lg hover:shadow-green-500/50"
+          >
+            Generate New Report
+          </button>
+        </div>
+      </div>
 
-            {/* Print-only header */}
-            <div className="hidden print:block mb-8">
-                <h1 className="text-4xl font-bold mb-2 text-black">GRC Case Study Report</h1>
-                <p className="text-gray-600">
-                    Report ID: {report.id} | Generated: {new Date(report.timestamp).toLocaleString()}
-                </p>
-                <hr className="my-4" />
-            </div>
+      {/* Print Header */}
+      <div className="hidden print:block mb-8 text-center border-b border-gray-700 pb-8">
+        <h1 className="text-4xl font-bold mb-4 text-emerald-500">
+          GRCma Intelligence Report
+        </h1>
+        <p className="text-xl text-gray-400 mb-4">Comprehensive Governance, Risk & Compliance Analysis</p>
+        <div className="flex justify-center gap-8 text-sm text-gray-500 uppercase tracking-widest">
+          <span>Confidential</span>
+          <span>•</span>
+          <span>{new Date(report.timestamp).toLocaleDateString()}</span>
+          <span>•</span>
+          <span>ID: {report.id}</span>
+        </div>
+      </div>
 
-            <div className="space-y-6">
-                {renderSection(report.sections.executiveSummary)}
-                {renderSection(report.sections.driversAndRisks)}
-                {renderSection(report.sections.engagementType)}
-                {renderSection(report.sections.methodology)}
-                {renderSection(report.sections.gapAnalysis)}
-                {renderSection(report.sections.maturityFindings)}
-                {renderSection(report.sections.roadmap)}
-                {renderSection(report.sections.businessImpact)}
-            </div>
+      <div className="space-y-8 print:space-y-8">
+        {renderSection(report.sections.executiveSummary)}
+        {renderSection(report.sections.driversAndRisks)}
+        {renderSection(report.sections.engagementType)}
+        {renderSection(report.sections.methodology)}
+        {renderSection(report.sections.gapAnalysis)}
+        {renderSection(report.sections.maturityFindings)}
+        {renderSection(report.sections.roadmap)}
+        {renderSection(report.sections.businessImpact)}
+      </div>
 
-            <style jsx global>{`
+      <div className="hidden print:block mt-12 pt-8 border-t border-gray-700 text-center text-gray-500 text-sm">
+        <p>Generated by GRCma Platform • Powered by HMAMOUCH</p>
+      </div>
+
+      <style jsx global>{`
         @media print {
-          body {
-            background: white;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-          .print\\:block {
-            display: block !important;
-          }
+            @page {
+                margin: 0;
+                size: auto;
+            }
+            body {
+                background-color: #0a0a0a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color: #f5f5f5 !important;
+            }
+            /* Hide non-printable elements */
+            nav, header, footer, .print\\:hidden {
+                display: none !important;
+            }
+            /* Ensure background colors are printed */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
         }
-        
+
         .action-table {
           width: 100%;
           border-collapse: collapse;
@@ -106,27 +125,12 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           overflow: hidden;
         }
         
-        @media print {
-          .action-table {
-            background: white;
-            border: 1px solid #ddd;
-          }
-        }
-        
         .action-table thead {
           background: linear-gradient(to right, rgb(34, 197, 94), rgb(16, 185, 129));
         }
         
-        @media print {
-          .action-table thead {
-            background: #22c55e !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-        }
-        
         .action-table th {
-          padding: 0.75rem 1rem;
+          padding: 1rem;
           text-align: left;
           font-weight: 600;
           color: white;
@@ -136,16 +140,9 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
         }
         
         .action-table td {
-          padding: 0.75rem 1rem;
+          padding: 1rem;
           border-top: 1px solid rgba(34, 197, 94, 0.2);
           color: rgb(209, 213, 219);
-        }
-        
-        @media print {
-          .action-table td {
-            color: black;
-            border-top: 1px solid #ddd;
-          }
         }
         
         .action-table tbody tr:hover {
@@ -159,22 +156,10 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           text-align: center;
         }
         
-        @media print {
-          .action-table td:first-child {
-            color: #22c55e;
-          }
-        }
-        
         .prose h3 {
           color: rgb(52, 211, 153);
           margin-top: 1.5rem;
           margin-bottom: 0.75rem;
-        }
-        
-        @media print {
-          .prose h3 {
-            color: black;
-          }
         }
         
         .prose ul {
@@ -186,6 +171,6 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           margin-bottom: 0.5rem;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
