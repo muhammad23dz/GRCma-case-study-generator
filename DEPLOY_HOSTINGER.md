@@ -60,6 +60,13 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 # NextAuth Configuration (Required for security)
 NEXTAUTH_URL=https://your-domain.com
 NEXTAUTH_SECRET=generate_a_long_random_string_here
+
+# Google Authentication (Required for Login)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Security Whitelist (Comma-separated emails)
+ALLOWED_USERS=your.email@gmail.com,colleague@company.com
 ```
 
 *Tip: You can generate a secret by running `openssl rand -base64 32` in a terminal.*
