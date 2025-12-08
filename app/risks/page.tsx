@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import RiskHeatMap from '@/components/RiskHeatMap';
 
 interface Risk {
     id: string;
@@ -170,28 +171,18 @@ export default function RisksPage() {
                         </div>
                     </div>
 
-                    {/* Risk Heatmap */}
-                    <div className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-lg p-6 mb-8">
-                        <h2 className="text-xl font-bold text-white mb-4">Risk Heatmap</h2>
-                        {risks.length > 0 ? (
-                            <div className="grid grid-cols-10 gap-2">
-                                {risks.slice(0, 50).map((risk, idx) => (
-                                    <div
-                                        key={risk.id}
-                                        className={`h-12 rounded ${getCategoryColor(risk.category)} flex items-center justify-center text-xs font-bold cursor-pointer hover:scale-110 transition-transform`}
-                                        title={`${risk.assetId || 'Asset'}: ${risk.score}`}
-                                    >
-                                        {risk.score}
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 text-gray-400">
-                                <p className="text-lg mb-2">No risks assessed yet</p>
-                                <p className="text-sm">Click "+ Assess Risk" above to perform your first AI-powered risk assessment</p>
-                            </div>
-                        )}
-                    </div>
+                    {/* Risk Heat Map - NEW PREMIUM FEATURE */}
+                    {risks.length > 0 && (
+                        <div className="mb-8">
+                            <RiskHeatMap
+                                risks={risks}
+                                onRiskClick={(risk) => {
+                                    // Could open a modal or navigate to detailed view
+                                    console.log('Clicked risk:', risk);
+                                }}
+                            />
+                        </div>
+                    )}
 
                     {/* Risks Table */}
                     <div className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-lg overflow-hidden">

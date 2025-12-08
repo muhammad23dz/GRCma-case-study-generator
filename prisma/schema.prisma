@@ -10,23 +10,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// EXISTING MODELS (NextAuth + Reports)
-// ============================================
-
+// Next-Auth Models
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -47,14 +44,16 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  role          String    @default("viewer") // admin, manager, analyst, viewer
+  role          String    @default("user") // user, admin, manager
   orgId         String?
+  
   accounts      Account[]
   sessions      Session[]
   reports       Report[]
   organization  Organization? @relation(fields: [orgId], references: [id])
   
   @@index([orgId])
+  @@index([role])
 }
 
 model VerificationToken {
@@ -101,69 +100,96 @@ model Control {
   @@index([owner])
 }
 
-model Framework {
-  id           String   @id @default(cuid())
-  name         String   @unique // ISO27001, NIST_CSF, SOC2, GDPR, PCI_DSS
-  version      String
-  jurisdiction String?
-  description  String?
-  
-  mappings     FrameworkMapping[]
-  
-  @@index([name])
-}
-
 model FrameworkMapping {
-  id                 String   @id @default(cuid())
-  controlId          String
-  frameworkId        String
-  frameworkControlId String   // e.g., "AC-2" for NIST, "A.9.2.1" for ISO
-  confidence         Float    // 0-1
-  mappingSource      String   // llm, manual, authoritative
-  createdAt          DateTime @default(now())
+  id           String   @id @default(cuid())
+  controlId    String
+  framework    String   // e.g., "ISO27001", "SOC2", "NIST"
+  requirement  String   // e.g., "A.5.1.1", "CC6.1"
+  description  String?
+  confidence   Float?   // LLM mapping confidence
+  createdAt    DateTime @default(now())
   
-  control            Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
-  framework          Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  control      Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
   
-  @@unique([controlId, frameworkId, frameworkControlId])
   @@index([controlId])
-  @@index([frameworkId])
+  @@index([framework])
 }
 
 // ============================================
-// FEATURE 2: CONTINUOUS RISK ASSESSMENT
+// FEATURE 2: RISK ASSESSMENT
 // ============================================
 
 model Risk {
-  id                 String   @id @default(cuid())
-  assetId            String?  // linked asset/system identifier
-  controlId          String?
-  likelihood         Int      // 0-100
-  impact             Int      // 0-100
-  score              Int      // calculated: likelihood * impact / 100
-  category           String   // Low, Medium, High, Critical
-  narrative          String   // LLM-generated explanation
-  drivers            String   // JSON: [{driver, weight}]
-  recommendedActions String   // JSON: [{action, priority}]
-  llmConfidence      Float?
-  llmProvenance      String?  // JSON: {prompt, model, temperature, timestamp}
-  status             String   @default("open") // open, mitigated, accepted, closed
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  owner              String?  @default("system") // Added for multi-tenancy
-
-  control            Control? @relation(fields: [controlId], references: [id])
-  evidences          Evidence[]
+  id         String    @id @default(cuid())
+  assetId    String?
+  likelihood Int       // 1-5 scale
+  impact     Int       // 1-5 scale
+  score      Int       // likelihood × impact
+  category   String    // e.g., "privacy", "security", "operational"
+  narrative  String    // LLM-generated risk description
+  status     String    @default("open") // open, mitigated, accepted, transferred
+  controlId  String?
+  owner      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   
-  @@index([controlId])
-  @@index([status])
+  control    Control?  @relation(fields: [controlId], references: [id])
+  evidences  Evidence[]
+  
   @@index([category])
+  @@index([status])
   @@index([score])
   @@index([owner])
 }
 
 // ============================================
-// FEATURE 3: EVIDENCE COLLECTION & ATTESTATIONS
+// FEATURE 3: THIRD-PARTY RISK (VENDOR MANAGEMENT)
+// ============================================
+
+model Vendor {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  category            String   // e.g., "cloud provider", "saas", "contractor"
+  riskScore           Int      // 0-100
+  contractStart       DateTime?
+  contractEnd         DateTime?
+  lastAssessmentDate  DateTime?
+  nextAssessmentDate  DateTime?
+  status              String   @default("active") // active, inactive, pending
+  owner               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  assessments         VendorAssessment[]
+  evidences           Evidence[]
+  
+  @@index([category])
+  @@index([status])
+  @@index([riskScore])
+  @@index([owner])
+}
+
+model VendorAssessment {
+  id                String   @id @default(cuid())
+  vendorId          String
+  assessmentDate    DateTime
+  assessor          String
+  questionsAsked    String   // JSON array
+  questionsAnswered String   // JSON array
+  riskScore         Int      // 0-100
+  findings          String?  // LLM summary
+  recommendations   String?  // LLM suggestions
+  status            String   @default("draft") // draft, final, approved
+  
+  vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([vendorId])
+  @@index([assessmentDate])
+}
+
+// ============================================
+// FEATURE 4: EVIDENCE \u0026 COMPLIANCE
 // ============================================
 
 model Evidence {
@@ -171,12 +197,10 @@ model Evidence {
   controlId          String?
   riskId             String?
   vendorId           String?
-  evidenceType       String   // document, scan, log, screenshot, attestation, automated
-  source             String   // manual, aws, azure, scanner, siem
-  fileName           String?
+  evidenceType       String   // document, screenshot, log, certification
+  description        String
   fileUrl            String?
-  fileHash           String?  // SHA-256 for tamper detection
-  extractedData      String?  // JSON: LLM-extracted metadata
+  fileName           String?
   summary            String?  // LLM-generated summary
   verificationStatus String   @default("pending") // pending, verified, rejected
   uploadedBy         String
@@ -222,123 +246,62 @@ model Attestation {
 }
 
 // ============================================
-// FEATURE 4: THIRD-PARTY RISK MANAGEMENT
+// FEATURE 5: PLAYBOOKS \u0026 RUNBOOKS
 // ============================================
 
-model Vendor {
-  id                 String   @id @default(cuid())
-  name               String
-  criticality        String   // low, medium, high, critical
-  services           String   // description of services provided
-  contactEmail       String?
-  riskScore          Int?     // 0-100
-  lastAssessmentDate DateTime?
-  nextReviewDate     DateTime?
-  status             String   @default("active") // active, offboarded, suspended
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  owner              String?  @default("system") // Added for multi-tenancy
+model Playbook {
+  id          String   @id @default(cuid())
+  scenario    String   // e.g., "data breach", "system outage"
+  description String
+  steps       String   // JSON array of action steps
+  llmModel    String?  // Model used to generate
+  createdBy   String
+  createdAt   DateTime @default(now())
   
-  assessments        VendorAssessment[]
-  evidences          Evidence[]
-  
-  @@index([criticality])
-  @@index([status])
-  @@index([riskScore])
-  @@index([owner])
-}
-
-model VendorAssessment {
-  id              String   @id @default(cuid())
-  vendorId        String
-  assessmentType  String   // onboarding, annual, incident_triggered, continuous
-  questionnaire   String   // JSON: questions and answers
-  gaps            String?  // JSON: LLM-identified gaps
-  rating          String?  // pass, conditional, fail
-  remediationPlan String?  // JSON: LLM-generated plan
-  completedAt     DateTime @default(now())
-  
-  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  
-  @@index([vendorId])
-  @@index([assessmentType])
+  @@index([scenario])
 }
 
 // ============================================
-// FEATURE 5: WORKFLOWS & REMEDIATION
+// FEATURE 6: ACTION TRACKING
 // ============================================
 
 model Action {
-  id           String    @id @default(cuid())
-  type         String    // remediation, review, attestation, assessment
-  title        String
-  description  String
-  controlId    String?
-  incidentId   String?
-  owner        String
-  assignee     String?
-  dueDate      DateTime?
-  priority     String    @default("medium") // low, medium, high, critical
-  status       String    @default("open") // open, in_progress, completed, cancelled
-  severity     String    // low, medium, high, critical
-  playbook     String?   // JSON: LLM-generated steps
-  linkedTicket String?   // external ticket ID (Jira, ServiceNow)
-  dependencies String?   // JSON: array of action IDs
-  createdAt    DateTime  @default(now())
-  completedAt  DateTime?
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("open") // open, in_progress, completed, cancelled
+  priority    String    @default("medium") // low, medium, high, critical
+  assignedTo  String?
+  dueDate     DateTime?
+  controlId   String?
+  incidentId  String?
+  owner       String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
   
-  control      Control?  @relation(fields: [controlId], references: [id])
-  incident     Incident? @relation(fields: [incidentId], references: [id])
-  comments     Comment[]
+  control     Control?  @relation(fields: [controlId], references: [id])
+  incident    Incident? @relation(fields: [incidentId], references: [id])
   
-  @@index([controlId])
-  @@index([incidentId])
-  @@index([owner])
-  @@index([assignee])
   @@index([status])
-  @@index([severity])
+  @@index([assignedTo])
+  @@index([dueDate])
   @@index([priority])
-}
-
-model AuditPack {
-  id               String   @id @default(cuid())
-  name             String
-  scope            String   // JSON: {frameworks, controls, date_range}
-  executiveSummary String   // LLM-generated
-  content          String   // JSON: full audit pack data
-  generatedBy      String
-  generatedAt      DateTime @default(now())
-  fileUrl          String?  // PDF export URL
-  
-  @@index([generatedBy])
-  @@index([generatedAt])
+  @@index([owner])
 }
 
 // ============================================
-// ENTERPRISE FEATURES
+// FEATURE 7: POLICY MANAGEMENT
 // ============================================
-
-model Comment {
-  id        String   @id @default(cuid())
-  actionId  String
-  userId    String
-  content   String
-  createdAt DateTime @default(now())
-  
-  action    Action   @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  
-  @@index([actionId])
-}
 
 model Policy {
   id          String   @id @default(cuid())
   title       String
-  version     String
-  content     String   // Markdown or HTML
+  version     String   @default("1.0")
+  content     String   // Full policy text
   status      String   @default("draft") // draft, active, archived
   owner       String
-  reviewDate  DateTime
+  reviewDate  DateTime?
   approvedBy  String?
   approvedAt  DateTime?
   createdAt   DateTime @default(now())
@@ -347,6 +310,10 @@ model Policy {
   @@index([status])
   @@index([owner])
 }
+
+// ============================================
+// FEATURE 8: INCIDENT MANAGEMENT
+// ============================================
 
 model Incident {
   id          String    @id @default(cuid())
@@ -375,4 +342,27 @@ model Organization {
   createdAt DateTime @default(now())
   
   users     User[]
+}
+
+// ============================================
+// PREMIUM FEATURE: AUDIT TRAIL & ACTIVITY LOGGING
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   // Who made the change
+  userName   String
+  userEmail  String
+  entity     String   // "control", "risk", "policy", "vendor", etc.
+  entityId   String
+  action     String   // "created", "updated", "deleted"
+  changes    String   // JSON of before/after values
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([timestamp])
 }
