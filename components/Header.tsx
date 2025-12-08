@@ -24,10 +24,13 @@ export default function Header({ onNavChange }: HeaderProps) {
                 </button>
                 <div className="flex items-center gap-6">
                     <nav>
-                        <ul className="flex space-x-4 text-sm font-medium">
-                            <li><button onClick={() => onNavChange('history')} className="hover:text-emerald-400 transition-colors px-4 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30">Case Studies</button></li>
-                            <li><button onClick={() => onNavChange('methodology')} className="hover:text-emerald-400 transition-colors px-4 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30">Methodology</button></li>
-                            <li><button onClick={() => onNavChange('about')} className="hover:text-gray-300 transition-colors px-4 py-2 rounded-lg hover:bg-white/10 border border-transparent hover:border-white/20">About</button></li>
+                        <ul className="flex space-x-2 text-sm font-medium">
+                            <li><button onClick={() => onNavChange('input')} className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30">Generator</button></li>
+                            <li><a href="/controls" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Controls</a></li>
+                            <li><a href="/risks" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Risks</a></li>
+                            <li><a href="/vendors" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Vendors</a></li>
+                            <li><button onClick={() => onNavChange('history')} className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30">Reports</button></li>
+                            <li><button onClick={() => onNavChange('about')} className="hover:text-gray-300 transition-colors px-3 py-2 rounded-lg hover:bg-white/10 border border-transparent hover:border-white/20">About</button></li>
                         </ul>
                     </nav>
 

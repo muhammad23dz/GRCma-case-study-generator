@@ -7,7 +7,12 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
+
+// ============================================
+// EXISTING MODELS (NextAuth + Reports)
+// ============================================
 
 model Account {
   id                String  @id @default(cuid())
@@ -63,4 +68,219 @@ model Report {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ============================================
+// FEATURE 1: CONTROL LIBRARY & FRAMEWORK MAPPING
+// ============================================
+
+model Control {
+  id                   String   @id @default(cuid())
+  title                String
+  description          String
+  controlType          String   // preventive, detective, corrective, directive
+  owner                String?
+  controlRisk          String?  // low, medium, high, critical
+  evidenceRequirements String?
+  confidence           Float?   // LLM mapping confidence 0-1
+  llmProvenance        String?  // JSON: {prompt, model, temperature, timestamp}
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  mappings             FrameworkMapping[]
+  evidences            Evidence[]
+  risks                Risk[]
+  actions              Action[]
+  
+  @@index([controlType])
+  @@index([owner])
+}
+
+model Framework {
+  id           String   @id @default(cuid())
+  name         String   @unique // ISO27001, NIST_CSF, SOC2, GDPR, PCI_DSS
+  version      String
+  jurisdiction String?
+  description  String?
+  
+  mappings     FrameworkMapping[]
+  
+  @@index([name])
+}
+
+model FrameworkMapping {
+  id                 String   @id @default(cuid())
+  controlId          String
+  frameworkId        String
+  frameworkControlId String   // e.g., "AC-2" for NIST, "A.9.2.1" for ISO
+  confidence         Float    // 0-1
+  mappingSource      String   // llm, manual, authoritative
+  createdAt          DateTime @default(now())
+  
+  control            Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  framework          Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  
+  @@unique([controlId, frameworkId, frameworkControlId])
+  @@index([controlId])
+  @@index([frameworkId])
+}
+
+// ============================================
+// FEATURE 2: CONTINUOUS RISK ASSESSMENT
+// ============================================
+
+model Risk {
+  id                 String   @id @default(cuid())
+  assetId            String?  // linked asset/system identifier
+  controlId          String?
+  likelihood         Int      // 0-100
+  impact             Int      // 0-100
+  score              Int      // calculated: likelihood * impact / 100
+  category           String   // Low, Medium, High, Critical
+  narrative          String   // LLM-generated explanation
+  drivers            String   // JSON: [{driver, weight}]
+  recommendedActions String   // JSON: [{action, priority}]
+  llmConfidence      Float?
+  llmProvenance      String?  // JSON: {prompt, model, temperature, timestamp}
+  status             String   @default("open") // open, mitigated, accepted, closed
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  control            Control? @relation(fields: [controlId], references: [id])
+  evidences          Evidence[]
+  
+  @@index([controlId])
+  @@index([status])
+  @@index([category])
+  @@index([score])
+}
+
+// ============================================
+// FEATURE 3: EVIDENCE COLLECTION & ATTESTATIONS
+// ============================================
+
+model Evidence {
+  id                 String   @id @default(cuid())
+  controlId          String?
+  riskId             String?
+  vendorId           String?
+  evidenceType       String   // document, scan, log, screenshot, attestation, automated
+  source             String   // manual, aws, azure, scanner, siem
+  fileName           String?
+  fileUrl            String?
+  fileHash           String?  // SHA-256 for tamper detection
+  extractedData      String?  // JSON: LLM-extracted metadata
+  summary            String?  // LLM-generated summary
+  verificationStatus String   @default("pending") // pending, verified, rejected
+  uploadedBy         String
+  timestamp          DateTime @default(now())
+  
+  control            Control? @relation(fields: [controlId], references: [id])
+  risk               Risk?    @relation(fields: [riskId], references: [id])
+  vendor             Vendor?  @relation(fields: [vendorId], references: [id])
+  
+  @@index([controlId])
+  @@index([riskId])
+  @@index([vendorId])
+  @@index([evidenceType])
+}
+
+model Attestation {
+  id         String   @id @default(cuid())
+  controlId  String
+  statement  String   // LLM-drafted attestation
+  attestedBy String
+  attestedAt DateTime
+  validUntil DateTime?
+  signature  String?  // digital signature or approval hash
+  status     String   @default("active") // active, expired, revoked
+  createdAt  DateTime @default(now())
+  
+  @@index([controlId])
+  @@index([status])
+}
+
+// ============================================
+// FEATURE 4: THIRD-PARTY RISK MANAGEMENT
+// ============================================
+
+model Vendor {
+  id                 String   @id @default(cuid())
+  name               String
+  criticality        String   // low, medium, high, critical
+  services           String   // description of services provided
+  contactEmail       String?
+  riskScore          Int?     // 0-100
+  lastAssessmentDate DateTime?
+  nextReviewDate     DateTime?
+  status             String   @default("active") // active, offboarded, suspended
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  assessments        VendorAssessment[]
+  evidences          Evidence[]
+  
+  @@index([criticality])
+  @@index([status])
+  @@index([riskScore])
+}
+
+model VendorAssessment {
+  id              String   @id @default(cuid())
+  vendorId        String
+  assessmentType  String   // onboarding, annual, incident_triggered, continuous
+  questionnaire   String   // JSON: questions and answers
+  gaps            String?  // JSON: LLM-identified gaps
+  rating          String?  // pass, conditional, fail
+  remediationPlan String?  // JSON: LLM-generated plan
+  completedAt     DateTime @default(now())
+  
+  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([vendorId])
+  @@index([assessmentType])
+}
+
+// ============================================
+// FEATURE 5: WORKFLOWS & REMEDIATION
+// ============================================
+
+model Action {
+  id           String    @id @default(cuid())
+  type         String    // remediation, review, attestation, assessment
+  title        String
+  description  String
+  controlId    String?
+  owner        String
+  assignee     String?
+  dueDate      DateTime?
+  status       String    @default("open") // open, in_progress, completed, cancelled
+  severity     String    // low, medium, high, critical
+  playbook     String?   // JSON: LLM-generated steps
+  linkedTicket String?   // external ticket ID (Jira, ServiceNow)
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+  
+  control      Control?  @relation(fields: [controlId], references: [id])
+  
+  @@index([controlId])
+  @@index([owner])
+  @@index([assignee])
+  @@index([status])
+  @@index([severity])
+}
+
+model AuditPack {
+  id               String   @id @default(cuid())
+  name             String
+  scope            String   // JSON: {frameworks, controls, date_range}
+  executiveSummary String   // LLM-generated
+  content          String   // JSON: full audit pack data
+  generatedBy      String
+  generatedAt      DateTime @default(now())
+  fileUrl          String?  // PDF export URL
+  
+  @@index([generatedBy])
+  @@index([generatedAt])
 }
