@@ -27,10 +27,22 @@ export default function AdminUsersPage() {
     const fetchUsers = async () => {
         try {
             const res = await fetch('/api/admin/users');
-            const data = await res.json();
-            setUsers(data.users || []);
+            if (!res.ok) {
+                console.error(`Error fetching users: ${res.status} ${res.statusText}`);
+                setUsers([]);
+                return;
+            }
+            const text = await res.text();
+            try {
+                const data = JSON.parse(text);
+                setUsers(data.users || []);
+            } catch (e) {
+                console.error('Failed to parse user data:', text.substring(0, 100)); // Log first 100 chars
+                setUsers([]);
+            }
         } catch (error) {
             console.error('Error fetching users:', error);
+            setUsers([]);
         } finally {
             setLoading(false);
         }
@@ -97,47 +109,54 @@ export default function AdminUsersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.map((user) => (
-                                    <tr key={user.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-3">
-                                                {user.image ? (
-                                                    <img src={user.image} alt={user.name} className="w-8 h-8 rounded-full" />
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-bold">
-                                                        {user.name?.[0] || 'U'}
-                                                    </div>
-                                                )}
-                                                <span className="text-white font-medium">{user.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-gray-300">{user.email}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-1 rounded text-xs border ${getRoleColor(user.role)} capitalize`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <select
-                                                value={user.role}
-                                                onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                disabled={updating === user.id}
-                                                className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                                            >
-                                                <option value="viewer">Viewer</option>
-                                                <option value="analyst">Analyst</option>
-                                                <option value="manager">Manager</option>
-                                                <option value="admin">Admin</option>
-                                            </select>
-                                            {updating === user.id && <span className="ml-2 text-xs text-blue-400 animate-pulse">Saving...</span>}
+                                {users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="p-8 text-center text-gray-400">
+                                            No users found. Are you logged in?
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    users.map((user) => (
+                                        <tr key={user.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-3">
+                                                    {user.image ? (
+                                                        <img src={user.image} alt={user.name} className="w-8 h-8 rounded-full" />
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-bold">
+                                                            {user.name?.[0] || 'U'}
+                                                        </div>
+                                                    )}
+                                                    <span className="text-white font-medium">{user.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-gray-300">{user.email}</td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 rounded text-xs border ${getRoleColor(user.role)} capitalize`}>
+                                                    {user.role}
+                                                </span>
+                                            </td>
+                                            <td className="p-4">
+                                                <select
+                                                    value={user.role}
+                                                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                    disabled={updating === user.id}
+                                                    className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                                                >
+                                                    <option value="viewer">Viewer</option>
+                                                    <option value="analyst">Analyst</option>
+                                                    <option value="manager">Manager</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                                {updating === user.id && <span className="ml-2 text-xs text-blue-400 animate-pulse">Saving...</span>}
+                                            </td>
+                                        </tr>
+                                    )))}
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

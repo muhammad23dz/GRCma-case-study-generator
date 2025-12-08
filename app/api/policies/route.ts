@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
         }
 
         const policies = await prisma.policy.findMany({
+            where: {
+                owner: session.user.email
+            },
             orderBy: { updatedAt: 'desc' }
         });
 
@@ -25,7 +28,7 @@ export async function GET(request: NextRequest) {
 // POST /api/policies
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }

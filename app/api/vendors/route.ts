@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
         }
 
         const vendors = await prisma.vendor.findMany({
+            where: {
+                owner: session.user.email
+            },
             include: {
                 _count: {
                     select: { assessments: true, evidences: true }
@@ -42,7 +45,8 @@ export async function POST(request: NextRequest) {
                 name,
                 criticality,
                 services,
-                contactEmail
+                contactEmail,
+                owner: session.user.email
             }
         });
 

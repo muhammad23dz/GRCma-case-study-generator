@@ -150,7 +150,8 @@ model Risk {
   status             String   @default("open") // open, mitigated, accepted, closed
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
-  
+  owner              String?  @default("system") // Added for multi-tenancy
+
   control            Control? @relation(fields: [controlId], references: [id])
   evidences          Evidence[]
   
@@ -158,6 +159,7 @@ model Risk {
   @@index([status])
   @@index([category])
   @@index([score])
+  @@index([owner])
 }
 
 // ============================================
@@ -188,6 +190,7 @@ model Evidence {
   @@index([riskId])
   @@index([vendorId])
   @@index([evidenceType])
+  @@index([uploadedBy])
 }
 
 model EvidenceFile {
@@ -234,6 +237,7 @@ model Vendor {
   status             String   @default("active") // active, offboarded, suspended
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  owner              String?  @default("system") // Added for multi-tenancy
   
   assessments        VendorAssessment[]
   evidences          Evidence[]
@@ -241,6 +245,7 @@ model Vendor {
   @@index([criticality])
   @@index([status])
   @@index([riskScore])
+  @@index([owner])
 }
 
 model VendorAssessment {

@@ -17,8 +17,9 @@ export async function GET(request: NextRequest) {
 
         const controls = await prisma.control.findMany({
             where: {
+                owner: session.user.email,
                 ...(controlType && { controlType }),
-                ...(owner && { owner }),
+                // ...(owner && { owner }), // Ignore query param, enforce session owner
             },
             include: {
                 mappings: {

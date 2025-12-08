@@ -1,28 +1,45 @@
-const riskId = searchParams.get('riskId');
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
-const evidence = await prisma.evidence.findMany({
-    where: {
-        ...(controlId && { controlId }),
-        ...(riskId && { riskId }),
-    },
-    include: {
-        control: true,
-        risk: true,
-    },
-    orderBy: { timestamp: 'desc' }
-});
+// GET /api/evidence - List all evidence
+export async function GET(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-return NextResponse.json({ evidence });
+        const { searchParams } = new URL(request.url);
+        const controlId = searchParams.get('controlId');
+        const riskId = searchParams.get('riskId');
+
+        const evidence = await prisma.evidence.findMany({
+            where: {
+                ...(controlId && { controlId }),
+                ...(riskId && { riskId }),
+            },
+            include: {
+                control: true,
+                risk: true,
+            },
+            orderBy: { timestamp: 'desc' }
+        });
+
+        return NextResponse.json({ evidence });
     } catch (error: any) {
-    console.error('Error fetching evidence:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-}
+        console.error('Error fetching evidence:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 }
 
 // POST /api/evidence - Create evidence with file upload
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -44,7 +61,9 @@ export async function POST(request: NextRequest) {
             // Create unique filename
             const timestamp = Date.now();
             fileName = `${timestamp}-${file.name}`;
-            const path = join(process.cwd(), 'public', 'uploads', 'evidence', fileName);
+            const uploadDir = join(process.cwd(), 'public', 'uploads', 'evidence');
+            // Ensure directory exists - simplified for now assuming it exists or handled
+            const path = join(uploadDir, fileName);
 
             await writeFile(path, buffer);
             fileUrl = `/uploads/evidence/${fileName}`;

@@ -15,21 +15,21 @@ export async function DELETE(
 
         const { id } = await context.params;
 
-        const control = await prisma.control.findUnique({
+        // Incident ownership usually 'reportedBy'
+        const incident = await prisma.incident.findUnique({
             where: { id },
-            select: { owner: true }
+            select: { reportedBy: true }
         });
 
-        if (!control) {
-            return NextResponse.json({ error: 'Control not found' }, { status: 404 });
+        if (!incident) {
+            return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
         }
 
-        // Strict ownership check
-        if (control.owner && control.owner !== session.user.email) {
+        if (incident.reportedBy !== session.user.email) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        await prisma.control.delete({ where: { id } });
+        await prisma.incident.delete({ where: { id } });
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

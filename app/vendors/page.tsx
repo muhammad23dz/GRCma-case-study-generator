@@ -67,6 +67,21 @@ export default function VendorsPage() {
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this vendor?')) return;
+        try {
+            const res = await fetch(`/api/vendors/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                setVendors(vendors.filter(v => v.id !== id));
+            } else {
+                alert('Failed to delete vendor');
+            }
+        } catch (error) {
+            console.error('Error deleting vendor:', error);
+        }
+    };
+
     const getCriticalityColor = (criticality: string) => {
         switch (criticality) {
             case 'critical': return 'text-red-500';
@@ -186,13 +201,26 @@ export default function VendorsPage() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 text-xs rounded-full ${vendor.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                                                    vendor.status === 'suspended' ? 'bg-red-500/20 text-red-400' :
-                                                        'bg-gray-500/20 text-gray-400'
+                                                vendor.status === 'suspended' ? 'bg-red-500/20 text-red-400' :
+                                                    'bg-gray-500/20 text-gray-400'
                                                 }`}>
                                                 {vendor.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-300">{vendor._count.assessments}</td>
+                                        <td className="px-6 py-4 text-gray-300">
+                                            <div className="flex items-center justify-between">
+                                                <span>{vendor._count.assessments}</span>
+                                                <button
+                                                    onClick={(e) => handleDelete(e, vendor.id)}
+                                                    className="text-gray-500 hover:text-red-400 p-2 rounded hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-all"
+                                                    title="Delete"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

@@ -71,9 +71,37 @@ export default function DashboardPage() {
 
             <div className="flex-grow p-8">
                 <div className="max-w-7xl mx-auto">
-                    <div className="mb-8">
-                        <h1 className="text-4xl font-bold text-white mb-2">Executive Dashboard</h1>
-                        <p className="text-gray-400">Real-time GRC metrics and compliance posture</p>
+                    <div className="mb-8 flex justify-between items-center">
+                        <div>
+                            <h1 className="text-4xl font-bold text-white mb-2">Executive Dashboard</h1>
+                            <p className="text-gray-400">Real-time GRC metrics and compliance posture</p>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (confirm('Are you sure you want to delete ALL your data? This cannot be undone.')) {
+                                    if (confirm('Really sure? All controls, risks, policies, etc. will be lost forever.')) {
+                                        try {
+                                            const res = await fetch('/api/cleanup', { method: 'DELETE' });
+                                            if (res.ok) {
+                                                alert('Dashboard cleaned successfully');
+                                                window.location.reload();
+                                            } else {
+                                                alert('Failed to clean dashboard');
+                                            }
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert('Error cleaning dashboard');
+                                        }
+                                    }
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Reset Dashboard
+                        </button>
                     </div>
 
                     {/* Compliance Score */}

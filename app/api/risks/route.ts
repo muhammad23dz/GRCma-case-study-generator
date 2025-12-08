@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
 
         const risks = await prisma.risk.findMany({
             where: {
+                owner: session.user.email,
                 ...(status && { status }),
                 ...(category && { category }),
             },

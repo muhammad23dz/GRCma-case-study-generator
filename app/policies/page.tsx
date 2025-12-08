@@ -61,6 +61,21 @@ export default function PoliciesPage() {
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this policy?')) return;
+        try {
+            const res = await fetch(`/api/policies/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                setPolicies(policies.filter(p => p.id !== id));
+            } else {
+                alert('Failed to delete policy');
+            }
+        } catch (error) {
+            console.error('Error deleting policy:', error);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
@@ -120,21 +135,34 @@ export default function PoliciesPage() {
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {policies.map((policy) => (
-                                    <tr key={policy.id} className="hover:bg-white/5 transition-colors">
+                                    <tr key={policy.id} className="hover:bg-white/5 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-white">{policy.title}</div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-300">{policy.version}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-3 py-1 text-xs rounded-full ${policy.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                    policy.status === 'draft' ? 'bg-yellow-500/20 text-yellow-400' :
-                                                        'bg-gray-500/20 text-gray-400'
+                                                policy.status === 'draft' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                    'bg-gray-500/20 text-gray-400'
                                                 }`}>
                                                 {policy.status}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-gray-300">{policy.owner}</td>
-                                        <td className="px-6 py-4 text-gray-300">{new Date(policy.reviewDate).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-gray-300">
+                                            <div className="flex items-center justify-between">
+                                                <span>{new Date(policy.reviewDate).toLocaleDateString()}</span>
+                                                <button
+                                                    onClick={(e) => handleDelete(e, policy.id)}
+                                                    className="text-gray-500 hover:text-red-400 p-2 rounded hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-all"
+                                                    title="Delete"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

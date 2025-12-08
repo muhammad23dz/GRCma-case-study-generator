@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
         }
 
         const incidents = await prisma.incident.findMany({
+            where: {
+                reportedBy: session.user.email
+            },
             include: {
                 actions: true
             },
@@ -28,7 +31,7 @@ export async function GET(request: NextRequest) {
 // POST /api/incidents
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }

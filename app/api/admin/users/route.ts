@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         }
 
         const users = await prisma.user.findMany({
+            where: { email: session.user.email },
             orderBy: { name: 'asc' },
             select: {
                 id: true,
@@ -33,7 +34,6 @@ export async function GET(request: NextRequest) {
                 email: true,
                 role: true,
                 image: true,
-                createdAt: false, // User model doesn't have createdAt usually unless added
             }
         });
 
