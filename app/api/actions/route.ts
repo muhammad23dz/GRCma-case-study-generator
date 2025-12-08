@@ -14,14 +14,22 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
         const owner = searchParams.get('owner');
+        const assignee = searchParams.get('assignee');
+        const priority = searchParams.get('priority');
 
         const actions = await prisma.action.findMany({
             where: {
                 ...(status && { status }),
                 ...(owner && { owner }),
+                ...(assignee && { assignee }),
+                ...(priority && { priority }),
             },
             include: {
-                control: true
+                control: true,
+                incident: true,
+                comments: {
+                    orderBy: { createdAt: 'desc' }
+                }
             },
             orderBy: [
                 { severity: 'desc' },
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { type, title, description, controlId, severity, generatePlaybook } = body;
+        const { type, title, description, controlId, incidentId, severity, assignee, dueDate, priority, generatePlaybook } = body;
 
         let playbook = null;
         if (generatePlaybook) {
@@ -58,7 +66,11 @@ export async function POST(request: NextRequest) {
                 title,
                 description,
                 controlId,
+                incidentId,
                 owner: session.user.email!,
+                assignee,
+                dueDate: dueDate ? new Date(dueDate) : null,
+                priority: priority || 'medium',
                 severity,
                 playbook,
                 status: 'open'
