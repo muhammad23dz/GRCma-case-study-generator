@@ -6,7 +6,7 @@ import { grcLLM } from '@/lib/llm/grc-service';
 // POST /api/vendors/:id/assess - LLM-powered vendor assessment
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession();
@@ -16,7 +16,7 @@ export async function POST(
 
         const body = await request.json();
         const { questionnaire, assessmentType } = body;
-        const vendorId = params.id;
+        const { id: vendorId } = await params;
 
         const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
         if (!vendor) {
@@ -52,6 +52,29 @@ export async function POST(
             result: result.data,
             confidence: result.confidence
         });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+// DELETE /api/vendors/:id - Delete vendor
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await getServerSession();
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { id } = await params;
+
+        await prisma.vendor.delete({
+            where: { id }
+        });
+
+        return NextResponse.json({ success: true });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
