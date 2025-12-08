@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 
 interface Control {
     id: string;
@@ -23,6 +22,7 @@ interface Control {
 
 export default function ControlsPage() {
     const { data: session } = useSession();
+    const router = useRouter();
     const [controls, setControls] = useState<Control[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -67,6 +67,19 @@ export default function ControlsPage() {
         }
     };
 
+    const handleDeleteControl = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this control?')) return;
+
+        try {
+            const res = await fetch(`/api/controls/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchControls();
+            }
+        } catch (error) {
+            console.error('Error deleting control:', error);
+        }
+    };
+
     const getRiskColor = (risk?: string) => {
         switch (risk) {
             case 'critical': return 'text-red-500';
@@ -91,7 +104,15 @@ export default function ControlsPage() {
                 {/* Header */}
                 <div className="mb-8 flex justify-between items-center">
                     <div>
-                        <h1 className="text-4xl font-bold text-white mb-2">Control Library</h1>
+                        <div className="flex items-center gap-4 mb-2">
+                            <button
+                                onClick={() => router.push('/')}
+                                className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all flex items-center gap-2"
+                            >
+                                ← Back
+                            </button>
+                            <h1 className="text-4xl font-bold text-white">Control Library</h1>
+                        </div>
                         <p className="text-gray-400">Manage your GRC controls and framework mappings</p>
                     </div>
                     <button
@@ -139,6 +160,7 @@ export default function ControlsPage() {
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Mappings</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Evidence</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Actions</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -161,6 +183,14 @@ export default function ControlsPage() {
                                     <td className="px-6 py-4 text-gray-300">{control.mappings.length}</td>
                                     <td className="px-6 py-4 text-gray-300">{control._count.evidences}</td>
                                     <td className="px-6 py-4 text-gray-300">{control._count.actions}</td>
+                                    <td className="px-6 py-4">
+                                        <button
+                                            onClick={() => handleDeleteControl(control.id)}
+                                            className="px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-all text-sm"
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
