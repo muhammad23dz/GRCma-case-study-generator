@@ -1,46 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { grcLLM } from '@/lib/llm/grc-service';
+const owner = searchParams.get('owner');
+const assignee = searchParams.get('assignee');
+const priority = searchParams.get('priority');
 
-// GET /api/actions - List all actions
-export async function GET(request: NextRequest) {
-    try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const actions = await prisma.action.findMany({
+    where: {
+        ...(status && { status }),
+        ...(owner && { owner }),
+        ...(assignee && { assignee }),
+        ...(priority && { priority }),
+    },
+    include: {
+        control: true,
+        incident: true,
+        comments: {
+            orderBy: { createdAt: 'desc' }
         }
+    },
+    orderBy: [
+        { severity: 'desc' },
+        { dueDate: 'asc' }
+    ]
+});
 
-        const { searchParams } = new URL(request.url);
-        const status = searchParams.get('status');
-        const owner = searchParams.get('owner');
-        const assignee = searchParams.get('assignee');
-        const priority = searchParams.get('priority');
-
-        const actions = await prisma.action.findMany({
-            where: {
-                ...(status && { status }),
-                ...(owner && { owner }),
-                ...(assignee && { assignee }),
-                ...(priority && { priority }),
-            },
-            include: {
-                control: true,
-                incident: true,
-                comments: {
-                    orderBy: { createdAt: 'desc' }
-                }
-            },
-            orderBy: [
-                { severity: 'desc' },
-                { dueDate: 'asc' }
-            ]
-        });
-
-        return NextResponse.json({ actions });
+return NextResponse.json({ actions });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+}
 }
 
 // POST /api/actions - Create action with LLM playbook
