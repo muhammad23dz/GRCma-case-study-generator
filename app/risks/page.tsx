@@ -134,6 +134,37 @@ export default function RisksPage() {
                             <div className="text-gray-400 text-sm">Total Risks</div>
                         </div>
                         <div className="bg-slate-800/50 backdrop-blur-sm border border-emerald-500/20 rounded-lg p-6">
+                            <div className={`text-3xl font-bold ${getScoreColor(avgScore)}`}>{avgScore}</div>
+                            <div className="text-gray-400 text-sm">Avg Risk Score</div>
+                        </div>
+                    </div>
+
+                    {/* Risk Heatmap */}
+                    <div className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-lg p-6 mb-8">
+                        <h2 className="text-xl font-bold text-white mb-4">Risk Heatmap</h2>
+                        {risks.length > 0 ? (
+                            <div className="grid grid-cols-10 gap-2">
+                                {risks.slice(0, 50).map((risk, idx) => (
+                                    <div
+                                        key={risk.id}
+                                        className={`h-12 rounded ${getCategoryColor(risk.category)} flex items-center justify-center text-xs font-bold cursor-pointer hover:scale-110 transition-transform`}
+                                        title={`${risk.assetId || 'Asset'}: ${risk.score}`}
+                                    >
+                                        {risk.score}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-gray-400">
+                                <p className="text-lg mb-2">No risks assessed yet</p>
+                                <p className="text-sm">Click "+ Assess Risk" above to perform your first AI-powered risk assessment</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Risks Table */}
+                    <div className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-lg overflow-hidden">
+                        <table className="w-full">
                             <thead className="bg-slate-900/50">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Asset/System</th>
