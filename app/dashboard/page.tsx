@@ -32,19 +32,31 @@ export default function DashboardPage() {
     const fetchAnalytics = async () => {
         try {
             const res = await fetch('/api/analytics/overview');
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
             const data = await res.json();
             setAnalytics(data);
         } catch (error) {
             console.error('Error fetching analytics:', error);
+            setAnalytics(null);
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading || !analytics) {
+    if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
                 <div className="text-white text-xl">Loading dashboard...</div>
+            </div>
+        );
+    }
+
+    if (!analytics || !analytics.overview) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
+                <div className="text-red-400 text-xl">Failed to load dashboard data. Please try again later.</div>
             </div>
         );
     }
