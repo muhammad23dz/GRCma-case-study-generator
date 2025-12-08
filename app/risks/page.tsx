@@ -67,6 +67,19 @@ export default function RisksPage() {
         }
     };
 
+    const handleDeleteRisk = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this risk?')) return;
+
+        try {
+            const res = await fetch(`/api/risks/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchRisks();
+            }
+        } catch (error) {
+            console.error('Error deleting risk:', error);
+        }
+    };
+
     const getCategoryColor = (category: string) => {
         switch (category) {
             case 'Critical': return 'bg-red-500/20 text-red-400 border-red-500/50';
@@ -173,6 +186,7 @@ export default function RisksPage() {
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Narrative</th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Status</th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Evidence</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
@@ -203,6 +217,14 @@ export default function RisksPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-gray-300">{risk._count.evidences}</td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={() => handleDeleteRisk(risk.id)}
+                                                className="px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-all text-sm"
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
