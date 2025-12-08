@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import CaseInputForm from '@/components/CaseInputForm';
 import ProcessingView from '@/components/ProcessingView';
@@ -14,6 +15,7 @@ import { CaseInput, GeneratedReport } from '@/types';
 type ViewState = 'input' | 'processing' | 'report' | 'history' | 'methodology' | 'about';
 
 export default function Home() {
+  const { data: session } = useSession();
   const [viewState, setViewState] = useState<ViewState>('input');
   const [report, setReport] = useState<GeneratedReport | null>(null);
   const [history, setHistory] = useState<GeneratedReport[]>(() => {
