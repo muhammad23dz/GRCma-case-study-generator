@@ -32,6 +32,7 @@ export default function Header({ onNavChange }: HeaderProps) {
                             <li><Link href="/vendors" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Vendors</Link></li>
                             <li><Link href="/policies" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Policies</Link></li>
                             <li><Link href="/incidents" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Incidents</Link></li>
+                            <li><Link href="/api-docs" className="hover:text-cyan-400 transition-colors px-3 py-2 rounded-lg hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/30 block">Docs</Link></li>
                             <li><Link href="/admin/users" className="hover:text-purple-400 transition-colors px-3 py-2 rounded-lg hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30 block">Admin</Link></li>
                             <li><button onClick={() => onNavChange('input')} className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30">Generator</button></li>
                         </ul>
