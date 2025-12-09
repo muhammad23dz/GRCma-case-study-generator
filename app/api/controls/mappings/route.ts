@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/controls/mappings - List all framework mappings
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -51,7 +50,7 @@ export async function GET(request: NextRequest) {
 // POST /api/controls/mappings - Create new mapping
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -82,7 +81,6 @@ export async function POST(request: NextRequest) {
                 frameworkControlId: requirement,
                 confidence: 1.0, // Manual mapping = 100% confidence
                 mappingSource: 'manual',
-                createdBy: session.user.email,
             },
             include: {
                 control: true,

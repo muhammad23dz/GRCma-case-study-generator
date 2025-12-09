@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/frameworks/:id/requirements - List requirements for a framework
@@ -9,7 +8,7 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -32,14 +31,14 @@ export async function GET(
 
         // For now, return empty requirements array
         // In production, this would query FrameworkRequirement model
-        const requirements = [];
+        const requirements: any[] = [];
 
         // Calculate gap analysis metrics
         const totalRequirements = requirements.length || 100; // Placeholder
         const mappedRequirements = framework._count.mappings;
         const coverage = totalRequirements > 0
-            ? Math.round((mappedRequirements / total Requirements) * 100)
-      : 0;
+            ? Math.round((mappedRequirements / totalRequirements) * 100)
+            : 0;
 
         return NextResponse.json({
             framework,
