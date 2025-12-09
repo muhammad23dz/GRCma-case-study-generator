@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/analytics/overview
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             console.error('Unauthorized access attempt to analytics API');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -21,6 +20,7 @@ export async function GET(request: NextRequest) {
             totalIncidents,
             totalPolicies,
             criticalRisks,
+            highRisks,
             openActions,
             openIncidents
         ] = await Promise.all([
@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
             prisma.action.count(),
             prisma.incident.count(),
             prisma.policy.count(),
-            prisma.risk.count({ where: { category: 'Critical' } }),
+            prisma.risk.count({ where: { score: { gte: 20 } } }), // Critical (4x5, 5x4, 5x5)
+            prisma.risk.count({ where: { score: { gte: 12, lt: 20 } } }), // High (3x4, 4x3, 4x4, etc)
             prisma.action.count({ where: { status: 'open' } }),
             prisma.incident.count({ where: { status: { in: ['open', 'investigating'] } } })
         ]);
@@ -43,16 +44,10 @@ export async function GET(request: NextRequest) {
             ? Math.round((controlsWithEvidence / totalControls) * 100)
             : 0;
 
-        // Risk trends (last 30 days)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const riskTrends = await prisma.risk.groupBy({
+        // Risk trends (by category)
+        const riskDistribution = await prisma.risk.groupBy({
             by: ['category'],
             _count: true,
-            where: {
-                createdAt: { gte: thirtyDaysAgo }
-            }
         });
 
         return NextResponse.json({
@@ -64,11 +59,12 @@ export async function GET(request: NextRequest) {
                 totalIncidents,
                 totalPolicies,
                 criticalRisks,
+                highRisks,
                 openActions,
                 openIncidents,
                 complianceScore
             },
-            riskTrends
+            riskDistribution
         });
     } catch (error: any) {
         console.error('Error fetching analytics:', error);

@@ -151,6 +151,24 @@ const frameworks = [
             { id: 'Art.46', title: 'Transfers subject to appropriate safeguards', category: 'Transfers' },
         ],
     },
+    {
+        name: 'Morrocan Law 09-08',
+        version: '09-08',
+        jurisdiction: 'Morocco',
+        description: 'Protection of Individuals with regard to the Processing of Personal Data (CNDP)',
+        requirements: [
+            { id: 'Art.3', title: 'Consent of the data subject', category: 'Consent' },
+            { id: 'Art.5', title: 'Information necessary for processing', category: 'Principles' },
+            { id: 'Art.12', title: 'Start of collection - Information to provide', category: 'Transparency' },
+            { id: 'Art.13', title: 'Right of access', category: 'Data Subject Rights' },
+            { id: 'Art.14', title: 'Right of rectification', category: 'Data Subject Rights' },
+            { id: 'Art.15', title: 'Right of opposition', category: 'Data Subject Rights' },
+            { id: 'Art.21', title: 'Confidentiality and Security measures', category: 'Security' },
+            { id: 'Art.23', title: 'Security of processing (Risk-based)', category: 'Security' },
+            { id: 'Art.24', title: 'Notification of processing to CNDP', category: 'Compliance' },
+            { id: 'Art.43', title: 'Transfer of data abroad', category: 'Transfers' },
+        ],
+    },
 ];
 
 export async function seedFrameworks() {

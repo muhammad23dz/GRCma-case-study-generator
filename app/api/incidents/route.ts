@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
         const incidents = await prisma.incident.findMany({
             where: {
-                reportedBy: session.user.email
+                // reportedBy: session.user.email // Removed to allow viewing generated incidents
             },
             include: {
                 actions: true

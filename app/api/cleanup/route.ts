@@ -11,49 +11,71 @@ export async function DELETE(request: NextRequest) {
         }
 
         const userEmail = session.user.email;
-        const userId = session.user.id; // needed for Report deletion if linked by ID
+        console.log(`[CLEANUP] Starting cleanup for user: ${userEmail}`);
 
         // Execute deletions in a transaction to ensure atomicity
-        await prisma.$transaction([
-            // Delete Risks
-            prisma.risk.deleteMany({
-                where: { owner: userEmail }
-            }),
-            // Delete Controls
-            prisma.control.deleteMany({
-                where: { owner: userEmail }
-            }),
-            // Delete Vendors 
-            prisma.vendor.deleteMany({
-                where: { owner: userEmail }
-            }),
-            // Delete Policies
-            prisma.policy.deleteMany({
-                where: { owner: userEmail }
-            }),
-            // Delete Incidents
-            prisma.incident.deleteMany({
-                where: { reportedBy: userEmail }
-            }),
-            // Delete Actions
-            prisma.action.deleteMany({
-                where: { owner: userEmail }
-            }),
-            // Delete Evidence
-            prisma.evidence.deleteMany({
+        const result = await prisma.$transaction(async (tx) => {
+            // Delete Evidence first (has foreign keys)
+            const evidenceCount = await tx.evidence.deleteMany({
                 where: { uploadedBy: userEmail }
-            }),
-            // Delete Reports (linked by userId usually, let's check schema if email is used or relation)
-            // Schema says: user User @relation(fields: [userId], references: [id])
-            // So we need to use userId for reports.
-            prisma.report.deleteMany({
-                where: { userId: userId }
-            })
-        ]);
+            });
+            console.log(`[CLEANUP] Deleted ${evidenceCount.count} evidence records`);
 
-        return NextResponse.json({ success: true, message: 'Dashboard cleaned successfully' });
+            // Delete Actions
+            const actionsCount = await tx.action.deleteMany({
+                where: { owner: userEmail }
+            });
+            console.log(`[CLEANUP] Deleted ${actionsCount.count} actions`);
+
+            // Delete Incidents
+            const incidentsCount = await tx.incident.deleteMany({
+                where: { reportedBy: userEmail }
+            });
+            console.log(`[CLEANUP] Deleted ${incidentsCount.count} incidents`);
+
+            // Delete Risks
+            const risksCount = await tx.risk.deleteMany({
+                where: { owner: userEmail }
+            });
+            console.log(`[CLEANUP] Deleted ${risksCount.count} risks`);
+
+            // Delete Controls
+            const controlsCount = await tx.control.deleteMany({
+                where: { owner: userEmail }
+            });
+            console.log(`[CLEANUP] Deleted ${controlsCount.count} controls`);
+
+            // Delete Vendors
+            const vendorsCount = await tx.vendor.deleteMany({
+                where: { owner: userEmail }
+            });
+            console.log(`[CLEANUP] Deleted ${vendorsCount.count} vendors`);
+
+            // Delete Policies
+            const policiesCount = await tx.policy.deleteMany({
+                where: { owner: userEmail }
+            });
+            console.log(`[CLEANUP] Deleted ${policiesCount.count} policies`);
+
+            return {
+                evidence: evidenceCount.count,
+                actions: actionsCount.count,
+                incidents: incidentsCount.count,
+                risks: risksCount.count,
+                controls: controlsCount.count,
+                vendors: vendorsCount.count,
+                policies: policiesCount.count
+            };
+        });
+
+        console.log(`[CLEANUP] Cleanup completed successfully for ${userEmail}`, result);
+        return NextResponse.json({
+            success: true,
+            message: 'Dashboard cleaned successfully',
+            deletedCounts: result
+        });
     } catch (error: any) {
-        console.error('Cleanup error:', error);
+        console.error('[CLEANUP] Cleanup error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

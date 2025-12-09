@@ -184,19 +184,17 @@ model Risk {
 // ============================================
 
 model Vendor {
-  id                  String   @id @default(cuid())
-  name                String
-  description         String?
-  category            String   // e.g., "cloud provider", "saas", "contractor"
-  riskScore           Int      // 0-100
-  contractStart       DateTime?
-  contractEnd         DateTime?
-  lastAssessmentDate  DateTime?
-  nextAssessmentDate  DateTime?
-  status              String   @default("active") // active, inactive, pending
-  owner               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String
+  category             String   @default("Service")  // Infrastructure, Service, Software, etc.
+  services             String?
+  riskScore            Int      @default(0)
+  status               String   // active, suspended, terminated
+  contactEmail         String?
+  lastAssessmentDate   DateTime?
+  owner                String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
   
   assessments         VendorAssessment[]
   evidences           Evidence[]
@@ -237,6 +235,7 @@ model Evidence {
   requirementId      String?  // Link to framework requirement
   evidenceType       String   // document, screenshot, log, certification
   source             String   @default("manual") // manual, automated, auditor
+  auditPeriod        String?  // e.g., "Q4 2025" - STRICT time boxing
   description        String?
   fileUrl            String?
   fileName           String?
@@ -318,7 +317,9 @@ model Playbook {
 model Action {
   id          String    @id @default(cuid())
   title       String
+  type        String    @default("corrective") // corrective, detective, preventive
   description String?
+  playbook    String?   // JSON string of generated steps
   status      String    @default("open") // open, in_progress, completed, cancelled
   priority    String    @default("medium") // low, medium, high, critical
   assignedTo  String?
@@ -415,4 +416,21 @@ model AuditLog {
   @@index([entity])
   @@index([entityId])
   @@index([timestamp])
+}
+
+// ============================================
+// FEATURE 9: PUBLIC TRUST CENTER
+// ============================================
+
+model TrustRequest {
+  id        String   @id @default(cuid())
+  email     String
+  company   String?
+  reason    String?  // e.g., "Vendor Assessment", "Internal Review", "Partnership"
+  status    String   @default("pending") // pending, approved, rejected
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([status])
 }

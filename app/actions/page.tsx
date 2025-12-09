@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
+import PremiumBackground from '@/components/PremiumBackground';
+import { CheckSquare, Clock, Plus, Trash2, Calendar, User, ArrowRight } from 'lucide-react';
 
 interface Action {
     id: string;
@@ -18,6 +20,9 @@ interface Action {
 
 export default function ActionsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const highlightStatus = searchParams.get('status');
+
     const [actions, setActions] = useState<Action[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -86,18 +91,18 @@ export default function ActionsPage() {
 
     const getPriorityColor = (priority: string) => {
         switch (priority) {
-            case 'critical': return 'text-red-400 bg-red-400/10 border-red-400/20';
-            case 'high': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
-            case 'medium': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
-            case 'low': return 'text-green-400 bg-green-400/10 border-green-400/20';
-            default: return 'text-gray-400 bg-gray-400/10 border-gray-400/20';
+            case 'critical': return 'text-red-400 bg-red-500/10 border-red-500/20';
+            case 'high': return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
+            case 'medium': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+            case 'low': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+            default: return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
         }
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
-                <div className="text-white text-xl">Loading actions...</div>
+            <div className="min-h-screen flex items-center justify-center bg-[#0B1120]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
             </div>
         );
     }
@@ -125,191 +130,213 @@ export default function ActionsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col">
+        <div className="min-h-screen text-white selection:bg-emerald-500/30">
+            <PremiumBackground />
             <Header onNavChange={(view) => {
                 if (view === 'input') router.push('/');
             }} />
 
-            <div className="flex-grow p-8">
-                <div className="max-w-7xl mx-auto h-full flex flex-col">
+            <div className="relative z-10 p-8 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
+                <div className="max-w-7xl mx-auto w-full h-full flex flex-col">
                     <div className="mb-8 flex justify-between items-center flex-shrink-0">
                         <div>
-                            <h1 className="text-4xl font-bold text-white mb-2">Action Center</h1>
-                            <p className="text-gray-400">Track tasks, remediation, and workflows</p>
+                            <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Action Center</h1>
+                            <p className="text-slate-400">Track remediation tasks and compliance workflows</p>
                         </div>
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg"
-                        >
-                            + Create Task
-                        </button>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-bold flex items-center gap-2 group"
+                            >
+                                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                                Create Task
+                            </button>
+                        </div>
                     </div>
 
                     {/* Kanban Board */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow ">
-                        {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => (
-                            <div key={status} className="bg-slate-900/50 rounded-xl p-4 flex flex-col h-full border border-white/5">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="uppercase text-sm font-bold text-gray-400 tracking-wider">
-                                        {status.replace('_', ' ')}
-                                    </h3>
-                                    <span className="px-2 py-1 bg-white/10 rounded-full text-xs text-white">
-                                        {columns[status].length}
-                                    </span>
-                                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 flex-grow overflow-hidden pb-4">
+                        {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => {
+                            const isHighlighted = highlightStatus === status;
+                            return (
+                                <div
+                                    key={status}
+                                    className={`bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 flex flex-col h-full border  shadow-xl transition-all ${isHighlighted
+                                        ? 'border-emerald-500/50 ring-1 ring-emerald-500/30 shadow-emerald-500/10'
+                                        : 'border-white/5'
+                                        }`}
+                                >
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="uppercase text-sm font-bold text-slate-400 tracking-wider flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${status === 'open' ? 'bg-orange-500' :
+                                                status === 'in_progress' ? 'bg-blue-500' :
+                                                    'bg-emerald-500'
+                                                } shadow-[0_0_10px_rgba(255,255,255,0.3)]`}></div>
+                                            {status.replace('_', ' ')}
+                                        </h3>
+                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition-colors ${isHighlighted
+                                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                            : 'bg-white/5 text-white border-white/5'
+                                            }`}>
+                                            {columns[status].length}
+                                        </span>
+                                    </div>
 
-                                <div className="space-y-4 overflow-y-auto flex-grow pr-2 scrollbar-thin scrollbar-thumb-white/10">
-                                    {columns[status].map((action) => (
-                                        <div key={action.id} className="bg-slate-800 border border-white/10 rounded-lg p-4 hover:border-blue-500/50 transition-all cursor-pointer group relative">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <span className={`px-2 py-1 text-xs rounded border ${getPriorityColor(action.priority)}`}>
-                                                    {action.priority}
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    {action.dueDate && (
-                                                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                            </svg>
-                                                            {new Date(action.dueDate).toLocaleDateString()}
-                                                        </span>
-                                                    )}
-                                                    <button
-                                                        onClick={(e) => handleDelete(e, action.id)}
-                                                        className="text-gray-500 hover:text-red-400 p-1 rounded hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-all"
-                                                        title="Delete"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <h4 className="text-white font-medium mb-1 group-hover:text-blue-400 transition-colors">
-                                                {action.title}
-                                            </h4>
-                                            <p className="text-sm text-gray-400 mb-3 line-clamp-2">
-                                                {action.description}
-                                            </p>
-                                            <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5 text-xs">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold border border-blue-500/30">
-                                                        {(action.assignee?.[0] || 'U').toUpperCase()}
+                                    <div className="space-y-4 overflow-y-auto flex-grow pr-2 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
+                                        {columns[status].map((action) => (
+                                            <div key={action.id} className="bg-slate-950/50 border border-white/5 rounded-xl p-5 hover:border-emerald-500/30 hover:bg-slate-900/80 transition-all cursor-pointer group relative shadow-md hover:shadow-emerald-500/5 group">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border ${getPriorityColor(action.priority)}`}>
+                                                        {action.priority}
+                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        {action.dueDate && (
+                                                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-white/5">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {new Date(action.dueDate).toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                        <button
+                                                            onClick={(e) => handleDelete(e, action.id)}
+                                                            className="text-slate-600 hover:text-red-400 p-1 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
                                                     </div>
-                                                    <span className="text-gray-400">{action.assignee || 'Unassigned'}</span>
                                                 </div>
-                                                <span className="text-gray-500 capitalize">{action.type}</span>
+                                                <h4 className="text-white font-bold mb-2 group-hover:text-emerald-400 transition-colors text-sm leading-snug">
+                                                    {action.title}
+                                                </h4>
+                                                <p className="text-xs text-slate-400 mb-4 line-clamp-3 leading-relaxed">
+                                                    {action.description}
+                                                </p>
+                                                <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5 text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-bold border border-white/5 text-[10px]">
+                                                            {(action.assignee?.[0] || 'U').toUpperCase()}
+                                                        </div>
+                                                        <span className="text-slate-500 truncate max-w-[80px]">{action.assignee || 'Unassigned'}</span>
+                                                    </div>
+                                                    <span className="text-slate-600 capitalize bg-slate-900 px-2 py-0.5 rounded text-[10px] border border-white/5">{action.type}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                    {columns[status].length === 0 && (
-                                        <div className="text-center py-8 text-gray-600 text-sm border-2 border-dashed border-white/5 rounded-lg">
-                                            No tasks
-                                        </div>
-                                    )}
+                                        ))}
+                                        {columns[status].length === 0 && (
+                                            <div className="flex flex-col items-center justify-center py-12 text-slate-600 border-2 border-dashed border-white/5 rounded-xl bg-slate-950/20">
+                                                <CheckSquare className="w-8 h-8 mb-2 opacity-20" />
+                                                <span className="text-xs font-medium">No tasks</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
-                    {/* Create Modal */}
-                    {showModal && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                            <div className="bg-slate-800 border border-white/10 rounded-lg p-8 max-w-2xl w-full mx-4">
-                                <h2 className="text-2xl font-bold text-white mb-6">Create New Task</h2>
-                                <form onSubmit={handleSubmit}>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
-                                            <input
-                                                type="text"
-                                                value={formData.title}
-                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                                className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                                            <textarea
-                                                value={formData.description}
-                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                                className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                                                rows={4}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
-                                                <select
-                                                    value={formData.priority}
-                                                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                                                    className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                                                >
-                                                    <option value="low">Low</option>
-                                                    <option value="medium">Medium</option>
-                                                    <option value="high">High</option>
-                                                    <option value="critical">Critical</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
-                                                <select
-                                                    value={formData.type}
-                                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                                    className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                                                >
-                                                    <option value="remediation">Remediation</option>
-                                                    <option value="review">Review</option>
-                                                    <option value="attestation">Attestation</option>
-                                                    <option value="assessment">Assessment</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Assignee (Email)</label>
-                                                <input
-                                                    type="email"
-                                                    value={formData.assignee}
-                                                    onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
-                                                    className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                                                    placeholder="user@example.com"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Due Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={formData.dueDate}
-                                                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                                    className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-4 mt-6">
-                                        <button
-                                            type="submit"
-                                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-500 hover:to-cyan-500 transition-all"
-                                        >
-                                            Create Task
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowModal(false)}
-                                            className="flex-1 px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
-        </div>
+
+            {/* Create Modal - Moved outside page container for proper z-index layering */}
+            {showModal && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl relative animate-in slide-in-from-bottom-4 duration-300">
+                        <div className="mb-6">
+                            <h2 className="text-2xl font-bold text-white mb-2">Create New Task</h2>
+                            <p className="text-slate-400 text-sm">Assign a new action item or remediation task.</p>
+                        </div>
+                        <form onSubmit={handleSubmit}>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Title</label>
+                                    <input
+                                        type="text"
+                                        value={formData.title}
+                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-600"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Description</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-600 resize-none font-mono text-sm"
+                                        rows={4}
+                                        required
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Priority</label>
+                                        <select
+                                            value={formData.priority}
+                                            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all appearance-none"
+                                        >
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="critical">Critical</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Type</label>
+                                        <select
+                                            value={formData.type}
+                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all appearance-none"
+                                        >
+                                            <option value="remediation">Remediation</option>
+                                            <option value="review">Review</option>
+                                            <option value="attestation">Attestation</option>
+                                            <option value="assessment">Assessment</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Assignee (Email)</label>
+                                        <input
+                                            type="email"
+                                            value={formData.assignee}
+                                            onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-600"
+                                            placeholder="user@example.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Due Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.dueDate}
+                                            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all calendar-picker-indicator:invert"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-4 mt-8">
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all font-bold shadow-lg shadow-emerald-500/20"
+                                >
+                                    Create Task
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-bold"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )
+            }
+        </div >
     );
 }

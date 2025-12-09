@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import CaseInputForm from '@/components/CaseInputForm';
+import PageTransition from '@/components/PageTransition';
+import PremiumBackground from '@/components/PremiumBackground';
 import ProcessingView from '@/components/ProcessingView';
 import ReportView from '@/components/ReportView';
 import HistoryView from '@/components/HistoryView';
@@ -18,36 +20,37 @@ export default function Home() {
   const { data: session } = useSession();
   const [viewState, setViewState] = useState<ViewState>('input');
   const [report, setReport] = useState<GeneratedReport | null>(null);
-  const [history, setHistory] = useState<GeneratedReport[]>(() => {
-    // Load history from localStorage on initial render
+
+  const [history, setHistory] = useState<GeneratedReport[]>([]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('grcma-history');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          setHistory(JSON.parse(saved));
         } catch (e) {
           console.error('Failed to parse saved history:', e);
         }
       }
     }
-    return [];
-  });
+  }, []);
 
   // Save history to localStorage whenever it changes
-  const updateHistory = (newHistory: GeneratedReport[]) => {
-    setHistory(newHistory);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('grcma-history', JSON.stringify(newHistory));
+  useEffect(() => {
+    if (history.length > 0 && typeof window !== 'undefined') {
+      localStorage.setItem('grcma-history', JSON.stringify(history));
     }
-  };
+  }, [history]);
+
 
   const handleCaseSubmit = async (data: CaseInput) => {
     setViewState('processing');
     try {
-      const generatedReport = await generateReport(data);
+      const generatedReport = await generateReport(data, session?.user?.email || 'anonymous');
       setReport(generatedReport);
       const newHistory = [generatedReport, ...history];
-      updateHistory(newHistory);
+      setHistory(newHistory);
       setViewState('report');
     } catch (error: any) {
       console.error("Generation failed", error);
@@ -91,7 +94,8 @@ export default function Home() {
     const newHistory = history.filter(r => r.id !== reportId);
     console.log('New history after filter:', newHistory);
 
-    updateHistory(newHistory);
+    setHistory(newHistory);
+    localStorage.setItem('grcma-history', JSON.stringify(newHistory)); // Immediate update for deletion
 
     if (report?.id === reportId) {
       console.log('Currently viewing deleted report, resetting view');
@@ -101,12 +105,13 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col font-sans text-gray-100">
+    <div className="min-h-screen flex flex-col font-sans text-gray-100">
+      <PremiumBackground />
       <Header onNavChange={handleNavChange} />
 
       <main className="flex-grow container mx-auto px-4 py-12">
         {viewState === 'input' && (
-          <div className="animate-fade-in">
+          <PageTransition>
             <div className="text-center mb-12">
               <div className="mb-8">
                 <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-gradient-to-r from-green-600/10 to-red-600/10 border border-green-500/20">
@@ -131,7 +136,7 @@ export default function Home() {
               </div>
             </div>
             <CaseInputForm onSubmit={handleCaseSubmit} isSubmitting={false} />
-          </div>
+          </PageTransition>
         )}
 
         {viewState === 'processing' && (
@@ -157,7 +162,7 @@ export default function Home() {
 
       <footer className="bg-slate-900/50 backdrop-blur-sm py-8 border-t border-green-500/20 mt-auto">
         <div className="container mx-auto px-4 text-center text-gray-400 text-sm">
-          <p suppressHydrationWarning>&copy; {new Date().getFullYear()} GRCma. Created by HMAMOUCH.</p>
+          <p suppressHydrationWarning>&copy; {new Date().getFullYear()} GRCma. Created by Mohamed Hmamouch. <a href="/about" className="ml-4 hover:text-emerald-400 transition-colors">About Platform</a></p>
         </div>
       </footer>
     </div>

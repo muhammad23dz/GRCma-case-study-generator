@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma';
 // GET /api/frameworks/:id/requirements - List requirements for a framework
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession();
         if (!session?.user?.email) {

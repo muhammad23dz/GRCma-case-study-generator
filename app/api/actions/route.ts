@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
             include: {
                 control: true,
                 incident: true,
-                // comments: { orderBy: { createdAt: 'desc' } } // Commented out to prevent 500 if relation missing
             },
+            take: 50, // Limit results for performance
             orderBy: [
                 { priority: 'desc' }, // Switched from severity to priority
                 { dueDate: 'asc' }

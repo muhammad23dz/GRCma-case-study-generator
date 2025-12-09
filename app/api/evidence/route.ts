@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
                 requirementId: requirementId || undefined,
                 evidenceType,
                 source,
+                auditPeriod: formData.get('auditPeriod') as string || null,
                 description,
                 fileName,
                 fileUrl,

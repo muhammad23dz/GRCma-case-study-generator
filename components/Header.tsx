@@ -1,8 +1,30 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+    LayoutDashboard,
+    ShieldCheck,
+    AlertTriangle,
+    Building2,
+    BookOpen,
+    GitMerge,
+    BarChart,
+    ScrollText,
+    PlayCircle,
+    Siren,
+    FileText,
+    Settings,
+    Wand2,
+    Menu,
+    X,
+    ChevronDown,
+    LogOut,
+    User,
+    Info
+} from 'lucide-react';
 
 interface HeaderProps {
     onNavChange: (view: 'input' | 'history' | 'methodology' | 'about') => void;
@@ -10,82 +32,200 @@ interface HeaderProps {
 
 export default function Header({ onNavChange }: HeaderProps) {
     const { data: session } = useSession();
-    const [showDropdown, setShowDropdown] = useState(false);
+    const pathname = usePathname();
+    const [scrolled, setScrolled] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
+
+    // Handle scroll effect
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 20);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const navItems = [
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { label: 'Controls', href: '/controls', icon: ShieldCheck },
+        { label: 'Risks', href: '/risks', icon: AlertTriangle },
+        { label: 'Frameworks', href: '/frameworks', icon: BookOpen },
+        { label: 'Mapping', href: '/mapping', icon: GitMerge },
+        { label: 'Gap Analysis', href: '/gap-analysis', icon: BarChart },
+        { label: 'Actions', href: '/actions', icon: PlayCircle },
+        { label: 'Incidents', href: '/incidents', icon: Siren },
+        { label: 'Reports', href: '/reports', icon: FileText },
+    ];
+
+    const isActive = (path: string) => pathname === path;
 
     return (
-        <header className="bg-[#1a0505]/60 backdrop-blur-md border-b border-red-900/30 sticky top-0 z-50 shadow-lg shadow-red-900/5">
-            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                <button onClick={() => onNavChange('input')} className="group relative hover:scale-105 transition-transform duration-500">
-                    <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600/20 to-red-600/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                    <div className="relative flex items-center gap-0.5">
-                        <span className="font-heading text-3xl font-black tracking-tighter bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 bg-clip-text text-transparent drop-shadow-sm">GRC</span>
-                        <span className="font-heading text-3xl font-black tracking-tighter text-red-500 drop-shadow-sm">ma</span>
-                        <div className="h-1.5 w-1.5 rounded-full bg-red-500 mb-1 ml-0.5 animate-pulse"></div>
-                    </div>
-                </button>
-                <div className="flex items-center gap-6">
-                    <nav>
-                        <ul className="flex space-x-2 text-sm font-medium">
-                            <li><Link href="/dashboard" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Dashboard</Link></li>
-                            <li><Link href="/controls" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Controls</Link></li>
-                            <li><Link href="/risks" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Risks</Link></li>
-                            <li><Link href="/vendors" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Vendors</Link></li>
-                            <li><Link href="/frameworks" className="hover:text-purple-400 transition-colors px-3 py-2 rounded-lg hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30 block">Frameworks</Link></li>
-                            <li><Link href="/mapping" className="hover:text-pink-400 transition-colors px-3 py-2 rounded-lg hover:bg-pink-500/10 border border-transparent hover:border-pink-500/30 block">Mapping</Link></li>
-                            <li><Link href="/gap-analysis" className="hover:text-orange-400 transition-colors px-3 py-2 rounded-lg hover:bg-orange-500/10 border border-transparent hover:border-orange-500/30 block">Gap Analysis</Link></li>
-                            <li><Link href="/policies" className="hover:text-emerald-400 transition-colors px-3 py- rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Policies</Link></li>
-                            <li><Link href="/actions" className="hover:text-amber-400 transition-colors px-3 py-2 rounded-lg hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 block">Actions</Link></li>
-                            <li><Link href="/incidents" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 block">Incidents</Link></li>
-                            <li><Link href="/api-docs" className="hover:text-cyan-400 transition-colors px-3 py-2 rounded-lg hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/30 block">Docs</Link></li>
-                            <li><Link href="/admin/users" className="hover:text-purple-400 transition-colors px-3 py-2 rounded-lg hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30 block">Admin</Link></li>
-                            <li><button onClick={() => onNavChange('input')} className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30">Generator</button></li>
-                        </ul>
-                    </nav>
+        <header
+            className={`sticky top-0 z-50 transition-all duration-300 border-b border-white/5 ${scrolled
+                ? 'bg-slate-950/90 backdrop-blur-xl shadow-2xl shadow-black/50 py-3'
+                : 'bg-slate-950/50 backdrop-blur-md py-4'
+                }`}
+        >
+            <div className="container mx-auto px-4 md:px-6">
+                <div className="flex justify-between items-center">
+                    {/* Logo Area */}
+                    <div className="flex items-center gap-8">
+                        <Link href="/" className="group relative flex items-center gap-2">
+                            <div className="absolute -inset-2 bg-emerald-500/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                            <div className="relative flex items-center tracking-tighter">
+                                <ShieldCheck className="w-8 h-8 text-emerald-500 mr-2" />
+                                <span className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent filter drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                                    GRC
+                                </span>
+                                <span className="text-3xl font-black bg-gradient-to-r from-red-500 to-rose-600 bg-clip-text text-transparent filter drop-shadow-[0_0_10px_rgba(244,63,94,0.3)]">
+                                    ma
+                                </span>
+                            </div>
+                        </Link>
 
-                    {session?.user && (
-                        <div className="relative">
+                        {/* Desktop Navigation */}
+                        <nav className="hidden xl:flex items-center gap-1">
+                            {navItems.map((item) => {
+                                const active = isActive(item.href);
+                                const Icon = item.icon;
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 group ${active
+                                            ? 'text-white bg-white/5'
+                                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        <Icon className={`w-4 h-4 transition-colors ${active ? 'text-emerald-400' : 'text-slate-500 group-hover:text-emerald-400'}`} />
+                                        {item.label}
+                                        {active && (
+                                            <div className="absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] rounded-full transform translate-y-[1px]" />
+                                        )}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+
+                    {/* Right User Area */}
+                    <div className="flex items-center gap-4">
+                        {/* More Menu (Desktop) for overflow items could go here */}
+                        <div className="hidden md:flex items-center gap-2">
                             <button
-                                onClick={() => setShowDropdown(!showDropdown)}
-                                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-all border border-white/10 hover:border-white/20"
+                                onClick={() => onNavChange('input')}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-emerald-500/20 transition-all hover:scale-105"
                             >
-                                {session.user.image ? (
-                                    <img
-                                        src={session.user.image}
-                                        alt={session.user.name || 'User'}
-                                        className="w-8 h-8 rounded-full ring-2 ring-emerald-500/50"
-                                    />
-                                ) : (
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white font-bold">
-                                        {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
+                                <Wand2 className="w-4 h-4" />
+                                AI Generator
+                            </button>
+                        </div>
+
+                        {/* User Profile */}
+                        {session?.user && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setProfileOpen(!profileOpen)}
+                                    className="flex items-center gap-3 pl-3 pr-2 py-1.5 rounded-full bg-slate-900/50 border border-white/10 hover:border-emerald-500/50 transition-all group"
+                                >
+                                    {session.user.image ? (
+                                        <div className="relative w-8 h-8">
+                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+                                            <img
+                                                src={session.user.image}
+                                                alt={session.user.name || 'User'}
+                                                className="relative w-full h-full rounded-full object-cover border-2 border-slate-900 bg-slate-800"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="relative w-8 h-8">
+                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+                                            <div className="relative w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-emerald-400 font-bold border-2 border-slate-900">
+                                                {session.user.name?.charAt(0) || 'U'}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {profileOpen && (
+                                    <div className="absolute right-0 mt-3 w-64 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 animate-in fade-in slide-in-from-top-2">
+                                        <div className="px-4 py-3 mb-2 border-b border-white/5">
+                                            <p className="text-sm font-medium text-white">{session.user.name}</p>
+                                            <p className="text-xs text-slate-400 truncate">{session.user.email}</p>
+                                        </div>
+                                        <Link href="/admin/users" className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                                            <Settings className="w-4 h-4" />
+                                            Admin Settings
+                                        </Link>
+                                        <Link
+                                            href="/about"
+                                            onClick={() => setProfileOpen(false)}
+                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                        >
+                                            <Info className="w-4 h-4" />
+                                            About GRCma
+                                        </Link>
+                                        <button
+                                            onClick={() => signOut()}
+                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Sign Out
+                                        </button>
                                     </div>
                                 )}
-                                <span className="text-sm font-medium hidden md:block">{session.user.name || session.user.email}</span>
-                                <svg className={`w-4 h-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
+                            </div>
+                        )}
 
-                            {showDropdown && (
-                                <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
-                                    <div className="px-4 py-3 border-b border-white/10">
-                                        <p className="text-sm font-medium text-white">{session.user.name}</p>
-                                        <p className="text-xs text-gray-400 truncate">{session.user.email}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => signOut()}
-                                        className="w-full px-4 py-3 text-left text-sm hover:bg-red-500/10 transition-colors flex items-center gap-2 text-red-400 hover:text-red-300"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                        </svg>
-                                        Sign Out
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        {/* Mobile Menu Toggle */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="xl:hidden p-2 text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                        >
+                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            {/* Mobile Menu Overlay */}
+            {mobileMenuOpen && (
+                <div className="xl:hidden absolute top-full left-0 w-full bg-slate-950/95 backdrop-blur-xl border-b border-white/10 shadow-2xl animate-in slide-in-from-top-5">
+                    <nav className="p-4 flex flex-col gap-2">
+                        {navItems.map((item) => {
+                            const Icon = item.icon;
+                            const active = isActive(item.href);
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${active
+                                        ? 'bg-emerald-500/10 text-emerald-400'
+                                        : 'text-slate-300 hover:text-white hover:bg-white/5'
+                                        }`}
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    {item.label}
+                                </Link>
+                            );
+                        })}
+                        <div className="h-px bg-white/5 my-2" />
+                        <button
+                            onClick={() => {
+                                onNavChange('input');
+                                setMobileMenuOpen(false);
+                            }}
+                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-purple-400 hover:bg-purple-500/10"
+                        >
+                            <Wand2 className="w-5 h-5" />
+                            AI Generator
+                        </button>
+                    </nav>
+                </div>
+            )}
         </header>
     );
 }

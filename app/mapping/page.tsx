@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
+import PremiumBackground from '@/components/PremiumBackground';
+import { Link, ArrowRight, Trash2, Filter, X, Shield, CheckCircle2, Search, Plus } from 'lucide-react';
 
 interface Control {
     id: string;
@@ -25,16 +27,33 @@ interface FrameworkMapping {
 export default function ControlMappingPage() {
     const { data: session } = useSession();
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // URL Params for Deep Linking
+    const filterFramework = searchParams.get('framework');
+    const filterRequirement = searchParams.get('requirement');
+
     const [controls, setControls] = useState<Control[]>([]);
     const [mappings, setMappings] = useState<FrameworkMapping[]>([]);
     const [loading, setLoading] = useState(true);
     const [showMapModal, setShowMapModal] = useState(false);
     const [selectedControl, setSelectedControl] = useState<Control | null>(null);
     const [newMapping, setNewMapping] = useState({
-        framework: 'ISO27001',
-        requirement: '',
+        framework: filterFramework || 'ISO27001',
+        requirement: filterRequirement || '',
         description: '',
     });
+
+    // Update state if URL params change
+    useEffect(() => {
+        if (filterFramework || filterRequirement) {
+            setNewMapping(prev => ({
+                ...prev,
+                framework: filterFramework || prev.framework,
+                requirement: filterRequirement || prev.requirement
+            }));
+        }
+    }, [filterFramework, filterRequirement]);
 
     const frameworks = [
         { id: 'ISO27001', name: 'ISO 27001:2022' },
@@ -119,8 +138,8 @@ export default function ControlMappingPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center">
-                <div className="text-white text-xl">Loading...</div>
+            <div className="min-h-screen flex items-center justify-center bg-[#0B1120]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
             </div>
         );
     }
@@ -128,179 +147,248 @@ export default function ControlMappingPage() {
     const stats = getMappingStats();
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col">
+        <div className="min-h-screen text-white selection:bg-emerald-500/30">
+            <PremiumBackground />
             <Header onNavChange={(view) => {
                 if (view === 'input') router.push('/');
             }} />
 
-            <div className="flex-grow p-8">
+            <div className="relative z-10 p-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
-                    <div className="mb-8">
-                        <h1 className="text-4xl font-bold text-white mb-2">Control-Framework Mapping</h1>
-                        <p className="text-gray-400">Map your controls to framework requirements for compliance tracking</p>
+                    <div className="mb-10">
+                        <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Control Mapping</h1>
+                        <p className="text-slate-400">Map your controls to framework requirements for unified compliance.</p>
                     </div>
+
+                    {/* Active Filter Banner */}
+                    {(filterFramework || filterRequirement) && (
+                        <div className="mb-8 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                                    <Filter className="w-5 h-5" />
+                                </div>
+                                <span className="text-slate-300">
+                                    Showing mappings for
+                                    {filterFramework && <span className="text-emerald-400 font-bold ml-2 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">{getFrameworkName(filterFramework)}</span>}
+                                    {filterRequirement && <span className="text-emerald-400 font-bold ml-2 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Req {filterRequirement}</span>}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => router.push('/mapping')}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-xl transition-all font-medium border border-white/5 hover:border-white/10"
+                            >
+                                Clear Filters
+                            </button>
+                        </div>
+                    )}
 
                     {/* Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                        <div className="bg-slate-800/50 backdrop-blur-sm border border-emerald-500/20 rounded-lg p-6">
-                            <div className="text-3xl font-bold text-emerald-400">{controls.length}</div>
-                            <div className="text-gray-400 text-sm">Total Controls</div>
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:bg-white/5 transition-colors group">
+                            <div className="text-3xl font-bold text-emerald-400 mb-1">{controls.length}</div>
+                            <div className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Controls</div>
                         </div>
-                        <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-lg p-6">
-                            <div className="text-3xl font-bold text-blue-400">{mappings.length}</div>
-                            <div className="text-gray-400 text-sm">Total Mappings</div>
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:bg-white/5 transition-colors group">
+                            <div className="text-3xl font-bold text-blue-400 mb-1">{mappings.length}</div>
+                            <div className="text-slate-400 text-xs font-medium uppercase tracking-wider">Active Mappings</div>
                         </div>
                         {Object.entries(stats).slice(0, 3).map(([fw, count]) => (
-                            <div key={fw} className="bg-slate-800/50 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6">
-                                <div className="text-2xl font-bold text-purple-400">{count}</div>
-                                <div className="text-gray-400 text-xs">{getFrameworkName(fw)}</div>
+                            <div key={fw} className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:bg-white/5 transition-colors group">
+                                <div className="text-2xl font-bold text-white mb-1">{count}</div>
+                                <div className="text-slate-500 text-xs font-medium uppercase tracking-wider">{getFrameworkName(fw)}</div>
                             </div>
                         ))}
                     </div>
 
-                    {/* Controls with Mappings */}
-                    <div className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-lg overflow-hidden">
-                        <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white">Controls & Framework Mappings</h2>
+                    {/* Controls with Mappings Table */}
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+                        <div className="px-6 py-5 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                <Link className="w-5 h-5 text-emerald-500" />
+                                Controls & Mappings
+                            </h2>
                         </div>
 
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-slate-900/50">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Control</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Type</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Mapped To</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Actions</th>
+                                <thead>
+                                    <tr className="border-b border-white/5 bg-slate-950/20">
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Control</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Mapped To</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {controls.map((control) => {
-                                        const controlMappings = mappings.filter(m => m.control.id === control.id);
+                                    {controls
+                                        .filter(control => {
+                                            if (!filterFramework && !filterRequirement) return true;
+                                            const matches = mappings.filter(m => m.control.id === control.id);
+                                            const hasMatchingMapping = matches.some(m =>
+                                                (!filterFramework || m.framework === filterFramework) &&
+                                                (!filterRequirement || m.requirement === filterRequirement)
+                                            );
+                                            return true;
+                                        })
+                                        .sort((a, b) => {
+                                            if (!filterFramework && !filterRequirement) return 0;
+                                            const aMatches = mappings.some(m => m.control.id === a.id && (!filterFramework || m.framework === filterFramework) && (!filterRequirement || m.requirement === filterRequirement));
+                                            const bMatches = mappings.some(m => m.control.id === b.id && (!filterFramework || m.framework === filterFramework) && (!filterRequirement || m.requirement === filterRequirement));
+                                            return (aMatches === bMatches) ? 0 : aMatches ? -1 : 1;
+                                        })
+                                        .map((control) => {
+                                            const controlMappings = mappings.filter(m => m.control.id === control.id);
+                                            const isMatch = filterFramework && controlMappings.some(m =>
+                                                m.framework === filterFramework &&
+                                                (!filterRequirement || m.requirement === filterRequirement)
+                                            );
 
-                                        return (
-                                            <tr key={control.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="font-medium text-white">{control.title}</div>
-                                                    <div className="text-sm text-gray-400 truncate max-w-md">{control.description}</div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400">
-                                                        {control.controlType}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {controlMappings.length > 0 ? (
-                                                        <div className="space-y-1">
-                                                            {controlMappings.map(mapping => (
-                                                                <div key={mapping.id} className="flex items-center gap-2">
-                                                                    <span className="px-2 py-1 text-xs rounded bg-purple-500/20 text-purple-400">
-                                                                        {mapping.framework}
-                                                                    </span>
-                                                                    <span className="text-sm text-gray-300">{mapping.requirement}</span>
-                                                                    <button
-                                                                        onClick={() => handleDeleteMapping(mapping.id)}
-                                                                        className="text-red-400 hover:text-red-300 text-xs"
-                                                                    >
-                                                                        ✕
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-gray-500 text-sm">No mappings</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedControl(control);
-                                                            setShowMapModal(true);
-                                                        }}
-                                                        className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-500 transition-all text-sm"
-                                                    >
-                                                        + Map
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                            return (
+                                                <tr key={control.id} className={`transition-all group border-l-[3px] ${isMatch ? 'bg-emerald-500/5 border-emerald-500' : 'hover:bg-white/5 border-transparent'}`}>
+                                                    <td className="px-6 py-5">
+                                                        <div className="font-semibold text-white mb-1 ${isMatch ? 'text-emerald-400' : 'group-hover:text-emerald-400 transition-colors'}">{control.title}</div>
+                                                        <div className="text-sm text-slate-400 max-w-2xl">{control.description}</div>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 border border-white/5">
+                                                            {control.controlType}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        {controlMappings.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {controlMappings.map(mapping => (
+                                                                    <div key={mapping.id} className="flex items-center gap-2 bg-slate-800/50 border border-white/5 rounded-lg px-2 py-1">
+                                                                        <span className="text-xs font-bold text-purple-400">
+                                                                            {mapping.framework}
+                                                                        </span>
+                                                                        <div className="w-px h-3 bg-white/10"></div>
+                                                                        <span className="text-xs text-slate-300 font-mono">{mapping.requirement}</span>
+                                                                        <button
+                                                                            onClick={() => handleDeleteMapping(mapping.id)}
+                                                                            className="ml-1 text-slate-500 hover:text-red-400 transition-colors"
+                                                                        >
+                                                                            <X className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-600 text-sm italic">Unmapped</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedControl(control);
+                                                                setShowMapModal(true);
+                                                            }}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white rounded-lg transition-all text-sm font-medium border border-emerald-500/20 hover:border-emerald-500"
+                                                        >
+                                                            <Plus className="w-4 h-4" />
+                                                            Map
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    {/* Mapping Modal */}
-                    {showMapModal && selectedControl && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                            <div className="bg-slate-800 border border-white/10 rounded-lg p-8 max-w-2xl w-full mx-4">
-                                <h2 className="text-2xl font-bold text-white mb-6">Map Control to Framework</h2>
-                                <div className="mb-4 p-4 bg-slate-900/50 rounded-lg">
-                                    <div className="font-medium text-white">{selectedControl.title}</div>
-                                    <div className="text-sm text-gray-400">{selectedControl.description}</div>
-                                </div>
-
-                                <form onSubmit={handleMapControl}>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Framework</label>
-                                            <select
-                                                value={newMapping.framework}
-                                                onChange={(e) => setNewMapping({ ...newMapping, framework: e.target.value })}
-                                                className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                                            >
-                                                {frameworks.map(fw => (
-                                                    <option key={fw.id} value={fw.id}>{fw.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Requirement ID</label>
-                                            <input
-                                                type="text"
-                                                value={newMapping.requirement}
-                                                onChange={(e) => setNewMapping({ ...newMapping, requirement: e.target.value })}
-                                                placeholder="e.g., A.5.1, CC6.1, PR.AC-1"
-                                                className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Implementation Notes</label>
-                                            <textarea
-                                                value={newMapping.description}
-                                                onChange={(e) => setNewMapping({ ...newMapping, description: e.target.value })}
-                                                placeholder="How does this control satisfy the requirement?"
-                                                className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                                                rows={3}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-4 mt-6">
-                                        <button
-                                            type="submit"
-                                            className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg hover:from-emerald-500 hover:to-green-500 transition-all"
-                                        >
-                                            Create Mapping
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowMapModal(false);
-                                                setSelectedControl(null);
-                                            }}
-                                            className="flex-1 px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
+
+            {/* Mapping Modal (Premium) - Moved outside z-10 context */}
+            {showMapModal && selectedControl && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl relative animate-in slide-in-from-bottom-4 duration-300">
+                        <button
+                            onClick={() => {
+                                setShowMapModal(false);
+                                setSelectedControl(null);
+                            }}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+
+                        <div className="mb-6">
+                            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 mb-4">
+                                <Link className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2">Map Control to Framework</h2>
+                            <p className="text-slate-400 text-sm">Create a relationship between this control and a compliance requirement.</p>
+                        </div>
+
+                        <div className="mb-6 p-4 bg-slate-950 rounded-xl border border-white/5">
+                            <div className="font-bold text-white mb-1">{selectedControl.title}</div>
+                            <div className="text-sm text-slate-400">{selectedControl.description}</div>
+                        </div>
+
+                        <form onSubmit={handleMapControl}>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Framework</label>
+                                        <select
+                                            value={newMapping.framework}
+                                            onChange={(e) => setNewMapping({ ...newMapping, framework: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all"
+                                        >
+                                            {frameworks.map(fw => (
+                                                <option key={fw.id} value={fw.id}>{fw.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Requirement ID</label>
+                                        <input
+                                            type="text"
+                                            value={newMapping.requirement}
+                                            onChange={(e) => setNewMapping({ ...newMapping, requirement: e.target.value })}
+                                            placeholder="e.g., A.5.1, CC6.1"
+                                            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-slate-600"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Implementation Notes</label>
+                                    <textarea
+                                        value={newMapping.description}
+                                        onChange={(e) => setNewMapping({ ...newMapping, description: e.target.value })}
+                                        placeholder="How does this control satisfy the requirement?"
+                                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-600 resize-none"
+                                        rows={3}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-4 mt-8">
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all font-bold shadow-lg shadow-emerald-500/20"
+                                >
+                                    Create Mapping
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowMapModal(false);
+                                        setSelectedControl(null);
+                                    }}
+                                    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-bold"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

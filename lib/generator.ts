@@ -1,7 +1,7 @@
 import { CaseInput, GeneratedReport } from '@/types';
 import { generateReportAction } from '@/app/actions';
 
-export async function generateReport(input: CaseInput): Promise<GeneratedReport> {
+export async function generateReport(input: CaseInput, userEmail: string): Promise<GeneratedReport> {
     // Call the server action which handles the DeepSeek API
-    return await generateReportAction(input);
+    return await generateReportAction(input, userEmail);
 }

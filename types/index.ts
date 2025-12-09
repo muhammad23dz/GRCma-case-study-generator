@@ -149,10 +149,10 @@ export interface LLMResponse<T> {
 
 // Existing types (preserved)
 export interface CaseInput {
-    industry: string;
-    challenge: string;
-    currentPosture: string;
-    desiredOutcome: string;
+    companyName: string;
+    targetFramework: string;
+    companySize: string;
+    keyChallenge: string;
 }
 
 export interface GeneratedReport {
