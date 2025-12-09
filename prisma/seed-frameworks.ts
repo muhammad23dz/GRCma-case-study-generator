@@ -158,27 +158,50 @@ export async function seedFrameworks() {
 
     for (const fw of frameworks) {
         // Check if framework exists
-        const existing = await prisma.framework.findUnique({
+        let framework = await prisma.framework.findUnique({
             where: { name: fw.name },
         });
 
-        if (existing) {
-            console.log(`✓ Framework "${fw.name}" already exists, skipping...`);
-            continue;
+        if (!framework) {
+            framework = await prisma.framework.create({
+                data: {
+                    name: fw.name,
+                    version: fw.version,
+                    jurisdiction: fw.jurisdiction,
+                    description: fw.description,
+                },
+            });
+            console.log(`✓ Created framework: ${fw.name}`);
+        } else {
+            console.log(`✓ Framework "${fw.name}" exists, checking requirements...`);
         }
 
-        // Create framework
-        const framework = await prisma.framework.create({
-            data: {
-                name: fw.name,
-                version: fw.version,
-                jurisdiction: fw.jurisdiction,
-                description: fw.description,
-            },
-        });
-
-        console.log(`✓ Created framework: ${fw.name}`);
-        console.log(`  Requirements: ${fw.requirements.length}`);
+        // Create/Update requirements
+        let reqCount = 0;
+        for (const req of fw.requirements) {
+            await prisma.frameworkRequirement.upsert({
+                where: {
+                    frameworkId_requirementId: {
+                        frameworkId: framework.id,
+                        requirementId: req.id
+                    }
+                },
+                update: {
+                    title: req.title,
+                    category: req.category,
+                },
+                create: {
+                    frameworkId: framework.id,
+                    requirementId: req.id,
+                    title: req.title,
+                    description: req.title, // Use title as description for now
+                    category: req.category,
+                    priority: 'medium'
+                }
+            });
+            reqCount++;
+        }
+        console.log(`  ✓ Synced ${reqCount} requirements for ${fw.name}`);
     }
 
     console.log('✅ Framework seeding complete!');

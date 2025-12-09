@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -8,7 +7,7 @@ import { join } from 'path';
 // GET /api/evidence - List all evidence
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -16,15 +15,22 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const controlId = searchParams.get('controlId');
         const riskId = searchParams.get('riskId');
+        const requirementId = searchParams.get('requirementId');
 
         const evidence = await prisma.evidence.findMany({
             where: {
                 ...(controlId && { controlId }),
                 ...(riskId && { riskId }),
+                ...(requirementId && { requirementId }),
             },
             include: {
                 control: true,
                 risk: true,
+                requirement: {
+                    include: {
+                        framework: true
+                    }
+                },
             },
             orderBy: { timestamp: 'desc' }
         });
@@ -39,7 +45,7 @@ export async function GET(request: NextRequest) {
 // POST /api/evidence - Create evidence with file upload
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -48,8 +54,10 @@ export async function POST(request: NextRequest) {
         const file = formData.get('file') as File | null;
         const controlId = formData.get('controlId') as string | null;
         const riskId = formData.get('riskId') as string | null;
+        const requirementId = formData.get('requirementId') as string | null;
         const evidenceType = formData.get('evidenceType') as string;
-        const source = formData.get('source') as string;
+        const source = formData.get('source') as string || 'manual';
+        const description = formData.get('description') as string || '';
 
         let fileUrl = null;
         let fileName = null;
@@ -60,9 +68,12 @@ export async function POST(request: NextRequest) {
 
             // Create unique filename
             const timestamp = Date.now();
-            fileName = `${timestamp}-${file.name}`;
+            fileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
             const uploadDir = join(process.cwd(), 'public', 'uploads', 'evidence');
-            // Ensure directory exists - simplified for now assuming it exists or handled
+
+            // Ensure directory exists
+            await mkdir(uploadDir, { recursive: true });
+
             const path = join(uploadDir, fileName);
 
             await writeFile(path, buffer);
@@ -71,13 +82,16 @@ export async function POST(request: NextRequest) {
 
         const evidence = await prisma.evidence.create({
             data: {
-                controlId,
-                riskId,
+                controlId: controlId || undefined,
+                riskId: riskId || undefined,
+                requirementId: requirementId || undefined,
                 evidenceType,
                 source,
+                description,
                 fileName,
                 fileUrl,
                 uploadedBy: session.user.email,
+                status: 'draft', // Default status
             }
         });
 

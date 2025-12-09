@@ -100,19 +100,56 @@ model Control {
   @@index([owner])
 }
 
-model FrameworkMapping {
+model Framework {
   id           String   @id @default(cuid())
-  controlId    String
-  framework    String   // e.g., "ISO27001", "SOC2", "NIST"
-  requirement  String   // e.g., "A.5.1.1", "CC6.1"
+  name         String   @unique // ISO27001, NIST_CSF, SOC2, GDPR, PCI_DSS
+  version      String
+  jurisdiction String?
   description  String?
-  confidence   Float?   // LLM mapping confidence
-  createdAt    DateTime @default(now())
   
-  control      Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  mappings     FrameworkMapping[]
+  requirements FrameworkRequirement[]
   
+  @@index([name])
+}
+
+model FrameworkRequirement {
+  id             String   @id @default(cuid())
+  frameworkId    String
+  requirementId  String   // e.g., "A.5.1", "CC6.1", "PR.AC-1"
+  title          String
+  description    String
+  category       String?  // Control domain/category
+  priority       String   @default("medium") // critical, high, medium, low
+  createdAt      DateTime @default(now())
+  
+  framework      Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  mappings       FrameworkMapping[]
+  evidences      Evidence[]
+  
+  @@unique([frameworkId, requirementId])
+  @@index([frameworkId])
+  @@index([category])
+}
+
+model FrameworkMapping {
+  id                 String   @id @default(cuid())
+  controlId          String
+  frameworkId        String
+  frameworkControlId String   // e.g., "AC-2" for NIST, "A.9.2.1" for ISO
+  requirementId      String?  // Link to specific requirement
+  description        String?
+  confidence         Float?   // LLM mapping confidence
+  mappingSource      String?  // manual, llm
+  createdAt          DateTime @default(now())
+  
+  control            Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  framework          Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  requirement        FrameworkRequirement? @relation(fields: [requirementId], references: [id])
+  
+  @@unique([controlId, frameworkId, frameworkControlId])
   @@index([controlId])
-  @@index([framework])
+  @@index([frameworkId])
 }
 
 // ============================================
@@ -189,7 +226,7 @@ model VendorAssessment {
 }
 
 // ============================================
-// FEATURE 4: EVIDENCE \u0026 COMPLIANCE
+// FEATURE 4: EVIDENCE & COMPLIANCE
 // ============================================
 
 model Evidence {
@@ -197,24 +234,37 @@ model Evidence {
   controlId          String?
   riskId             String?
   vendorId           String?
+  requirementId      String?  // Link to framework requirement
   evidenceType       String   // document, screenshot, log, certification
-  description        String
+  source             String   @default("manual") // manual, automated, auditor
+  description        String?
   fileUrl            String?
   fileName           String?
   summary            String?  // LLM-generated summary
   verificationStatus String   @default("pending") // pending, verified, rejected
+  
+  // Review Workflow
+  status             String   @default("draft") // draft, under_review, approved, rejected
+  reviewer           String?
+  reviewedAt         DateTime?
+  reviewNotes        String?
+  nextReviewDate     DateTime?
+  
   uploadedBy         String
   timestamp          DateTime @default(now())
   
   control            Control? @relation(fields: [controlId], references: [id])
   risk               Risk?    @relation(fields: [riskId], references: [id])
   vendor             Vendor?  @relation(fields: [vendorId], references: [id])
+  requirement        FrameworkRequirement? @relation(fields: [requirementId], references: [id])
   
   @@index([controlId])
   @@index([riskId])
   @@index([vendorId])
+  @@index([requirementId])
   @@index([evidenceType])
   @@index([uploadedBy])
+  @@index([status])
 }
 
 model EvidenceFile {
@@ -246,7 +296,7 @@ model Attestation {
 }
 
 // ============================================
-// FEATURE 5: PLAYBOOKS \u0026 RUNBOOKS
+// FEATURE 5: PLAYBOOKS & RUNBOOKS
 // ============================================
 
 model Playbook {
@@ -345,18 +395,18 @@ model Organization {
 }
 
 // ============================================
-// PREMIUM FEATURE: AUDIT TRAIL & ACTIVITY LOGGING
+// PREMIUM FEATURE: AUDIT TRAIL
 // ============================================
 
 model AuditLog {
   id         String   @id @default(cuid())
-  userId     String   // Who made the change
+  userId     String
   userName   String
   userEmail  String
-  entity     String   // "control", "risk", "policy", "vendor", etc.
+  entity     String
   entityId   String
-  action     String   // "created", "updated", "deleted"
-  changes    String   // JSON of before/after values
+  action     String
+  changes    String
   ipAddress  String?
   userAgent  String?
   timestamp  DateTime @default(now())

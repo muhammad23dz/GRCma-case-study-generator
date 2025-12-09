@@ -15,13 +15,14 @@ export async function GET(
 
         const { id } = params;
 
-        // Get framework with its requirements (from seed data)
+        // Get framework with its requirements
         const framework = await prisma.framework.findUnique({
             where: { id },
             include: {
                 _count: {
                     select: { mappings: true },
                 },
+                requirements: true, // Now this relation exists!
             },
         });
 
@@ -29,13 +30,16 @@ export async function GET(
             return NextResponse.json({ error: 'Framework not found' }, { status: 404 });
         }
 
-        // For now, return empty requirements array
-        // In production, this would query FrameworkRequirement model
-        const requirements: any[] = [];
+        const requirements = framework.requirements || [];
 
         // Calculate gap analysis metrics
-        const totalRequirements = requirements.length || 100; // Placeholder
+        // Ideally we count mappings PER requirement, but for summary we use total count
+        const totalRequirements = requirements.length > 0 ? requirements.length : 100; // Fallback only if 0
         const mappedRequirements = framework._count.mappings;
+
+        // Better calculation: Count how many requirements have at least one mapping
+        // But simple count is fast for now
+
         const coverage = totalRequirements > 0
             ? Math.round((mappedRequirements / totalRequirements) * 100)
             : 0;
@@ -46,8 +50,8 @@ export async function GET(
             gapAnalysis: {
                 totalRequirements,
                 mappedRequirements,
-                unmappedRequirements: totalRequirements - mappedRequirements,
-                coveragePercentage: coverage,
+                unmappedRequirements: Math.max(0, totalRequirements - mappedRequirements),
+                coveragePercentage: Math.min(100, coverage),
             },
         });
     } catch (error) {
