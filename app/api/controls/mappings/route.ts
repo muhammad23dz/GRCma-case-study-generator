@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
                 controlId,
                 frameworkId: frameworkRecord.id,
                 frameworkControlId: requirement,
-                confidence: 1.0, // Manual mapping = 100% confidence
+                confidence: 1.0,
                 mappingSource: 'manual',
             },
             include: {
