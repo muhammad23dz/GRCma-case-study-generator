@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import AboutView from '@/components/AboutView';
@@ -10,11 +10,9 @@ export default function AboutPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col font-sans text-gray-100">
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <main className="flex-grow container mx-auto px-4 py-12">
+            <main className="flex-grow container mx-auto px-4 pt-32 pb-12">
                 <AboutView />
             </main>
 

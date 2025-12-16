@@ -62,11 +62,9 @@ export default function ApiDocsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col">
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="flex-grow p-8">
+            <div className="flex-grow p-8 pt-32">
                 <div className="max-w-7xl mx-auto">
                     <div className="mb-8">
                         <h1 className="text-4xl font-bold text-white mb-2">API Documentation</h1>
@@ -78,8 +76,8 @@ export default function ApiDocsPage() {
                             <div key={idx} className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-lg p-6 hover:border-blue-500/30 transition-colors">
                                 <div className="flex items-center gap-4 mb-2">
                                     <span className={`px-3 py-1 rounded-md text-sm font-bold ${ep.method === 'GET' ? 'bg-blue-500/20 text-blue-400' :
-                                            ep.method === 'POST' ? 'bg-green-500/20 text-green-400' :
-                                                'bg-yellow-500/20 text-yellow-400'
+                                        ep.method === 'POST' ? 'bg-green-500/20 text-green-400' :
+                                            'bg-yellow-500/20 text-yellow-400'
                                         }`}>
                                         {ep.method}
                                     </span>

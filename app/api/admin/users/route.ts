@@ -1,76 +1,129 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
-// GET /api/admin/users - List all users (Admin only)
+// GET /api/admin/users - List users
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        // Cast to any to access role since we extended it in authOptions but not in types yet
-        const userRole = (session?.user as any)?.role;
+        const { userId, orgId } = await auth();
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        if (!session?.user?.email || userRole !== 'admin') {
-            // For now, allow viewing users if standard user (for demo purposes) OR strictly enforce.
-            // Let's enforce strictly but allow 'viewer' to see list if needed? No, admin only.
-            // However, since I am the first user, I might not be admin initially.
-            // fallback: if 0 users exist or I am the first one? No, database already has users.
+        // Verify Admin Role
+        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true, name: true } });
+        const userRole = dbUser?.role || 'user';
+        const userEmail = dbUser?.email || '';
+        const userName = dbUser?.name || 'Administrator';
 
-            // Critical: How do I become admin?
-            // I should default the first user to admin or allow manual DB update.
-            // For this demo, let's assume I check role OR allow access if query param says insecure? No.
+        if (userRole !== 'admin') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
-            // Let's loosen restriction for DEMO: Allow if logged in for now, but frontend will hide actions.
-            // Real implementation:
-            // if (userRole !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        // Multi-Tenant Scope
+        if (!orgId) {
+            // Return empty if no org
         }
 
         const users = await prisma.user.findMany({
-            where: { email: session.user.email },
+            where: {
+                orgId: orgId || undefined
+            },
             orderBy: { name: 'asc' },
             select: {
                 id: true,
                 name: true,
                 email: true,
                 role: true,
-                image: true,
+                image: true
             }
         });
 
-        return NextResponse.json({ users });
+        const orgUserEmails = users.map(u => u.email).filter(e => e !== null) as string[];
+
+        const invitations = await prisma.invitation.findMany({
+            where: {
+                invitedBy: { in: orgUserEmails.length > 0 ? orgUserEmails : [userEmail] }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return NextResponse.json({ users, invitations });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// PATCH /api/admin/users - Update user role
-export async function PATCH(request: NextRequest) {
+// POST /api/admin/users/invite - Invite new user
+export async function POST(request: NextRequest) {
+    console.log('[API] POST /api/admin/users - Start');
     try {
-        const session = await getServerSession(authOptions);
-        const userRole = (session?.user as any)?.role;
+        const { userId } = await auth();
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true, name: true } });
+        if (dbUser?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-        // Only admin can change roles. 
-        // TEMPORARY: Allow anyone to change roles for DEMO purposes so the user can test RBAC.
-        // In prod: if (userRole !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        const userEmail = dbUser?.email || '';
+        const userName = dbUser?.name || 'Administrator';
 
         const body = await request.json();
-        const { userId, role } = body;
+        console.log('[API] Invite Payload:', body);
+        const { email, role } = body;
 
-        if (!['admin', 'manager', 'analyst', 'viewer'].includes(role)) {
-            return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+        // check if user exists
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            console.log('[API] User exists, updating role');
+            await prisma.user.update({
+                where: { email },
+                data: { role }
+            });
+            return NextResponse.json({ message: 'User updated', type: 'update' });
         }
 
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { role }
-        });
+        // Create Invitation
+        console.log('[API] Creating Invitation DB Record...');
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 7); // 7 days
 
-        return NextResponse.json({ user });
+        const invitation = await prisma.invitation.upsert({
+            where: { email },
+            update: { role, invitedBy: userEmail, expires },
+            create: {
+                email,
+                role,
+                invitedBy: userEmail,
+                expires
+            }
+        });
+        console.log('[API] Invitation Upsert Success:', invitation.id);
+
+        // Send Email Notification
+        console.log('[API] Attempting to send email...');
+        let emailSent = false;
+        let emailError = null;
+        try {
+            const { sendInvitationEmail } = await import('@/lib/email');
+            const result = await sendInvitationEmail(email, role, userName);
+            console.log('[API] Email Send Result:', result ? 'Success' : 'Null Response');
+
+            if (result) {
+                emailSent = true;
+            } else {
+                emailError = 'SMTP not configured in System Settings';
+            }
+        } catch (error: any) {
+            console.error('[API] Failed to send invitation email:', error);
+            emailError = error.message || 'Unknown email error';
+        }
+
+        return NextResponse.json({
+            invitation,
+            type: 'invite',
+            emailSent,
+            emailError
+        });
     } catch (error: any) {
+        console.error('[API] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

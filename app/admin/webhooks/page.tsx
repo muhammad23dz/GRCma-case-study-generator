@@ -14,11 +14,9 @@ export default function WebhooksPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col">
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="flex-grow p-8">
+            <div className="flex-grow p-8 pt-32">
                 <div className="max-w-7xl mx-auto">
                     <div className="mb-8 flex justify-between items-center">
                         <div>

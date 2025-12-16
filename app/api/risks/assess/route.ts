@@ -1,14 +1,15 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { grcLLM } from '@/lib/llm/grc-service';
 
 // POST /api/risks/assess - LLM-powered risk assessment
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { userId } = auth();
+        if (!userId) {
+            return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const body = await request.json();
@@ -60,10 +61,10 @@ export async function POST(request: NextRequest) {
                     data: {
                         type: 'remediation',
                         title: action.action,
-                        description: `Auto-generated from risk assessment: ${result.data.narrative}`,
+                        description: `Auto - generated from risk assessment: ${result.data.narrative} `,
                         controlId,
                         owner: session.user.email!,
-                        severity: action.priority,
+                        priority: action.priority,
                         status: 'open'
                     }
                 });

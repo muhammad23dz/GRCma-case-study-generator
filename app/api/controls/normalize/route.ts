@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { grcLLM } from '@/lib/llm/grc-service';
 
 // POST /api/controls/normalize - LLM-powered control normalization
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
+        const userEmail = dbUser?.email || '';
 
         const body = await request.json();
         const { controlText, targetFrameworks } = body;
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
                     evidenceRequirements: result.data.evidenceRequirements,
                     confidence: result.confidence,
                     llmProvenance: JSON.stringify(result.provenance),
-                    owner: session.user.email
+                    owner: userEmail
                 }
             });
 

@@ -1,8 +1,11 @@
 import { Linkedin } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@clerk/nextjs';
+
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 export default function AboutView() {
-    const { data: session } = useSession();
+    const { user } = useUser();
+    const { t } = useLanguage();
 
     return (
         <div className="max-w-4xl mx-auto animate-fade-in">
@@ -12,10 +15,10 @@ export default function AboutView() {
                     <span className="text-6xl">🛡️</span>
                 </div>
                 <h2 className="text-5xl font-bold bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 bg-clip-text text-transparent mb-6">
-                    About GRCma
+                    {t('about_title')}
                 </h2>
                 <p className="text-xl text-gray-400 leading-relaxed max-w-2xl mx-auto">
-                    A next-generation Governance, Risk, and Compliance intelligence platform designed to streamline audit workflows and ensure regulatory alignment.
+                    {t('about_desc')}
                 </p>
             </div>
 
@@ -31,7 +34,7 @@ export default function AboutView() {
                         />
                     </div>
                     <div className="text-center md:text-left flex-grow">
-                        <div className="text-sm font-semibold text-emerald-500 uppercase tracking-widest mb-2">GRC Specialist & Creator</div>
+                        <div className="text-sm font-semibold text-emerald-500 uppercase tracking-widest mb-2">{t('about_role')}</div>
                         <h3 className="text-3xl font-bold text-white mb-4">Mohamed Hmamouch</h3>
                         <p className="text-gray-300 mb-6 leading-relaxed">
                             Revolutionizing the GRC landscape by fusing deep regulatory mastery with cutting-edge intelligence. GRCma transforms compliance from a static burden into a dynamic competitive advantage. This is where precision meets power, redefining how modern enterprises navigate risk.
@@ -55,30 +58,30 @@ export default function AboutView() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-slate-900/50 border border-white/5 p-6 rounded-xl hover:border-emerald-500/30 transition-all">
                     <div className="text-emerald-400 text-2xl mb-4">⚡</div>
-                    <h4 className="text-white font-bold mb-2">Automated Insights</h4>
+                    <h4 className="text-white font-bold mb-2">{t('about_feat_1')}</h4>
                     <p className="text-sm text-gray-400">
-                        Leveraging AI to generate compliance reports, gap analyses, and remediation actions instantly.
+                        {t('about_feat_1_desc')}
                     </p>
                 </div>
                 <div className="bg-slate-900/50 border border-white/5 p-6 rounded-xl hover:border-blue-500/30 transition-all">
                     <div className="text-blue-400 text-2xl mb-4">🔒</div>
-                    <h4 className="text-white font-bold mb-2">Security First</h4>
+                    <h4 className="text-white font-bold mb-2">{t('about_feat_2')}</h4>
                     <p className="text-sm text-gray-400">
-                        Built with enterprise security standards, including RBAC, audit logging, and secure data handling.
+                        {t('about_feat_2_desc')}
                     </p>
                 </div>
                 <div className="bg-slate-900/50 border border-white/5 p-6 rounded-xl hover:border-purple-500/30 transition-all">
                     <div className="text-purple-400 text-2xl mb-4">🎨</div>
-                    <h4 className="text-white font-bold mb-2">Modern UX</h4>
+                    <h4 className="text-white font-bold mb-2">{t('about_feat_3')}</h4>
                     <p className="text-sm text-gray-400">
-                        A premium, responsive interface designed for clarity, speed, and ease of use across all devices.
+                        {t('about_feat_3_desc')}
                     </p>
                 </div>
             </div>
 
             {/* Footer Note */}
             <div className="text-center mt-16 text-gray-500 text-sm">
-                <p>&copy; {new Date().getFullYear()} GRCma Platform. All rights reserved.</p>
+                <p>&copy; {new Date().getFullYear()} {t('about_footer')}</p>
             </div>
         </div>
     );

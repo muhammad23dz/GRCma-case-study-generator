@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
 import { Link, ArrowRight, Trash2, Filter, X, Shield, Plus, FileText, CheckCircle2, XCircle, Clock, Eye, Upload, FileCheck, Lock } from 'lucide-react';
+import { canDeleteRecords, canApprove } from '@/lib/permissions';
 
 interface Evidence {
     id: string;
@@ -23,6 +25,7 @@ interface Evidence {
         title: string;
         framework: { name: string; version: string };
     };
+    controlTests?: Array<{ id: string; result: string }>;
     reviewNotes?: string;
 }
 
@@ -39,6 +42,7 @@ interface Requirement {
 }
 
 export default function EvidencePage() {
+    const { user } = useUser();
     const router = useRouter();
     const [evidenceList, setEvidenceList] = useState<Evidence[]>([]);
     const [loading, setLoading] = useState(true);
@@ -210,11 +214,9 @@ export default function EvidencePage() {
     return (
         <div className="min-h-screen text-white selection:bg-emerald-500/30">
             <PremiumBackground />
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="relative z-10 p-8">
+            <div className="relative z-10 p-8 pt-32">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -222,13 +224,32 @@ export default function EvidencePage() {
                             <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Audit Locker</h1>
                             <p className="text-slate-400">Manage compliance evidence, approvals, and mapping</p>
                         </div>
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-bold flex items-center gap-2 group"
-                        >
-                            <Upload className="w-5 h-5 group-hover:animate-bounce" />
-                            Upload Evidence
-                        </button>
+                        <div className="flex gap-2">
+                            {/* Delete All - Admin Only */}
+                            {evidenceList.length > 0 && canDeleteRecords((session?.user as any)?.role) && (
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm(`Delete ALL ${evidenceList.length} evidence items? This cannot be undone.`)) return;
+                                        try {
+                                            await Promise.all(evidenceList.map(e => fetch(`/api/evidence/${e.id}`, { method: 'DELETE' })));
+                                            fetchEvidence();
+                                        } catch (error) {
+                                            console.error('Error deleting evidence:', error);
+                                        }
+                                    }}
+                                    className="px-6 py-3 bg-red-950/30 border border-red-500/20 hover:bg-red-900/50 text-red-400 rounded-xl font-bold transition-all"
+                                >
+                                    Delete All
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-bold flex items-center gap-2 group"
+                            >
+                                <Upload className="w-5 h-5 group-hover:animate-bounce" />
+                                Upload Evidence
+                            </button>
+                        </div>
                     </div>
 
                     {/* Evidence Grid */}
@@ -289,6 +310,20 @@ export default function EvidencePage() {
                                         </div>
                                     )}
 
+                                    {item.controlTests && item.controlTests.length > 0 && (
+                                        <div className="pt-1 mb-2">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <CheckCircle2 className="w-3 h-3 text-purple-400" />
+                                                <span className="text-xs text-purple-400 font-bold uppercase tracking-wider">
+                                                    Linked Tests
+                                                </span>
+                                            </div>
+                                            <div className="text-xs text-slate-300 bg-slate-950/50 border border-white/5 p-2 rounded-lg">
+                                                <span className="font-bold text-white">{item.controlTests.length}</span> tests verified this evidence
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {item.requirement ? (
                                         <div className="pt-1">
                                             <div className="flex items-center gap-2 mb-1">
@@ -332,7 +367,7 @@ export default function EvidencePage() {
                                         </button>
                                     )}
 
-                                    {item.status === 'under_review' && (
+                                    {item.status === 'under_review' && canApprove(user?.role) && (
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => handleStatusUpdate(item.id, 'approved')}
@@ -349,6 +384,41 @@ export default function EvidencePage() {
                                                 Reject
                                             </button>
                                         </div>
+                                    )}
+                                    {/* Delete Item - Admin Only */}
+                                    {canDeleteRecords(user?.role) && (
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                console.log('Delete clicked for', item.id);
+                                                if (confirm('Delete this evidence?')) {
+                                                    try {
+                                                        const res = await fetch(`/api/evidence/${item.id}?owner=${user?.primaryEmailAddress?.emailAddress || ''}`, { method: 'DELETE' });
+                                                        console.log('Delete response status:', res.status);
+                                                        if (res.ok) {
+                                                            console.log('Delete success');
+                                                            fetchEvidence();
+                                                        } else {
+                                                            const text = await res.text();
+                                                            console.error('Delete failed raw response:', text);
+                                                            try {
+                                                                const err = JSON.parse(text);
+                                                                console.error('Delete failed parsed:', err);
+                                                                alert(`Failed to delete: ${err.error || 'Unknown error'}`);
+                                                            } catch (e) {
+                                                                alert(`Failed to delete (Status ${res.status}): ${text.substring(0, 100)}`);
+                                                            }
+                                                        }
+                                                    } catch (error) {
+                                                        console.error('Delete network error', error);
+                                                        alert('Network error deleting item');
+                                                    }
+                                                }
+                                            }}
+                                            className="w-full px-4 py-2 bg-slate-950 border border-white/5 text-slate-500 hover:text-red-400 hover:bg-red-900/10 rounded-xl transition-all text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 mt-2"
+                                        >
+                                            <Trash2 className="w-3 h-3" /> Delete Item
+                                        </button>
                                     )}
                                 </div>
                             </div>

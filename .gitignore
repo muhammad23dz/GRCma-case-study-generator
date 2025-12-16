@@ -17,6 +17,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+debug.log
 
 # local env files
 .env
@@ -25,6 +26,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.neon
 
 # vercel
 .vercel
@@ -47,3 +49,17 @@ next-env.d.ts
 /public/uploads/
 
 /lib/generated/prisma
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+# backup and debug files
+/backup/
+debug*.js
+debug*.log
+check_*.js
+check_*.ts
+fix-*.js
+restore_*.js
+seed_*.ts
+prisma.config.ts.bak

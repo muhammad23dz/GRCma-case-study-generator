@@ -1,5 +1,11 @@
 // Extended types for GRC features
 
+export interface User {
+    id: string;
+    role: string;
+    isSubscribed?: boolean;
+}
+
 export interface Control {
     id: string;
     title: string;
@@ -145,6 +151,11 @@ export interface LLMResponse<T> {
     data: T;
     confidence: number;
     provenance: LLMProvenance;
+    usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
+    };
 }
 
 // Existing types (preserved)
@@ -159,4 +170,25 @@ export interface GeneratedReport {
     id: string;
     sections: any;
     timestamp: string;
+}
+
+export interface Incident {
+    id: string;
+    title: string;
+    description: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    status: 'open' | 'investigating' | 'mitigated' | 'resolved' | 'closed';
+    occurredAt: Date;
+    owner: string;
+}
+
+export interface ReportSection {
+    title: string;
+    content: string;
+    actionTable?: string;
+}
+
+export interface LLMConfig {
+    provider: 'openai' | 'deepseek' | 'anthropic' | 'google' | 'mistral';
+    apiKey: string;
 }

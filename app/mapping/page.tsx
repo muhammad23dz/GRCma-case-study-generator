@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@clerk/nextjs';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
@@ -25,7 +25,7 @@ interface FrameworkMapping {
 }
 
 export default function ControlMappingPage() {
-    const { data: session } = useSession();
+    const { user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -149,11 +149,9 @@ export default function ControlMappingPage() {
     return (
         <div className="min-h-screen text-white selection:bg-emerald-500/30">
             <PremiumBackground />
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="relative z-10 p-8">
+            <div className="relative z-10 p-8 pt-32">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="mb-10">

@@ -1,29 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
-import { Shield, Globe, Lock as LockIcon, FileText, Scale, Book, Eye, LayoutGrid, ArrowRight, X } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Book, Download, Plus, Check, Loader2, RefreshCw } from 'lucide-react';
+import PageTransition from '@/components/PageTransition';
 
-interface Framework {
+interface FrameworkStat {
     id: string;
     name: string;
     version: string;
-    jurisdiction: string | null;
-    description: string | null;
-    _count: {
-        mappings: number;
-    };
+    totalRequirements: number;
+    coveredRequirements: number;
+    coverage: number;
+    gap: number;
 }
 
 export default function FrameworksPage() {
-    const { data: session } = useSession();
-    const router = useRouter();
-    const [frameworks, setFrameworks] = useState<Framework[]>([]);
+    const [frameworks, setFrameworks] = useState<FrameworkStat[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedFramework, setSelectedFramework] = useState<Framework | null>(null);
+    const [seeding, setSeeding] = useState(false);
 
     useEffect(() => {
         fetchFrameworks();
@@ -31,23 +27,9 @@ export default function FrameworksPage() {
 
     const fetchFrameworks = async () => {
         try {
-            const res = await fetch('/api/frameworks');
+            const res = await fetch('/api/frameworks/stats');
             const data = await res.json();
-            const loadedFrameworks = data.frameworks || [];
-
-            // Custom Sort: Moroccan Law First (Law 09-08 or 08-09)
-            const sorted = loadedFrameworks.sort((a: Framework, b: Framework) => {
-                const nameA = a.name.toLowerCase();
-                const nameB = b.name.toLowerCase();
-                const isLawA = nameA.includes('09-08') || nameA.includes('08-09');
-                const isLawB = nameB.includes('09-08') || nameB.includes('08-09');
-
-                if (isLawA && !isLawB) return -1;
-                if (!isLawA && isLawB) return 1;
-                return 0;
-            });
-
-            setFrameworks(sorted);
+            setFrameworks(data.stats || []);
         } catch (error) {
             console.error('Error fetching frameworks:', error);
         } finally {
@@ -55,33 +37,92 @@ export default function FrameworksPage() {
         }
     };
 
-    const getFrameworkIcon = (name: string) => {
-        const lower = name.toLowerCase();
-        if (lower.includes('09-08') || lower.includes('08-09')) return <Scale className="w-8 h-8 text-emerald-400" />;
-        if (name.includes('ISO')) return <LockIcon className="w-8 h-8 text-blue-400" />;
-        if (name.includes('SOC')) return <Shield className="w-8 h-8 text-purple-400" />;
-        if (name.includes('NIST')) return <Globe className="w-8 h-8 text-orange-400" />;
-        if (name.includes('GDPR')) return <FileText className="w-8 h-8 text-teal-400" />;
-        return <Book className="w-8 h-8 text-gray-400" />;
+    const handleSeed = async () => {
+        setSeeding(true);
+        try {
+            // Seed common frameworks
+            const common = [
+                { name: 'ISO 27001', version: '2022', description: 'Information Security Management' },
+                { name: 'SOC 2', version: 'Type II', description: 'Service Organization Control' },
+                { name: 'NIST CSF', version: '2.0', description: 'Cybersecurity Framework' },
+                { name: 'GDPR', version: 'EU 2016/679', description: 'General Data Protection Regulation' }
+            ];
+
+            await Promise.all(common.map(fw =>
+                fetch('/api/frameworks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fw)
+                })
+            ));
+
+            fetchFrameworks();
+        } catch (error) {
+            console.error('Error seeding frameworks:', error);
+        } finally {
+            setSeeding(false);
+        }
     };
 
-    const getFrameworkColor = (name: string) => {
-        const lower = name.toLowerCase();
-        if (lower.includes('09-08') || lower.includes('08-09')) return 'from-emerald-500/20 to-green-600/20 border-emerald-500/30';
-        if (name.includes('ISO')) return 'from-blue-500/20 to-cyan-600/20 border-blue-500/30';
-        if (name.includes('SOC')) return 'from-purple-500/20 to-pink-600/20 border-purple-500/30';
-        if (name.includes('NIST')) return 'from-orange-500/20 to-red-600/20 border-orange-500/30';
-        if (name.includes('GDPR')) return 'from-teal-500/20 to-green-600/20 border-teal-500/30';
-        return 'from-slate-700/50 to-gray-700/50 border-white/10';
+    const getCoverageColor = (coverage: number) => {
+        if (coverage >= 90) return 'text-emerald-500 stroke-emerald-500';
+        if (coverage >= 70) return 'text-emerald-400 stroke-emerald-400';
+        if (coverage >= 50) return 'text-yellow-500 stroke-yellow-500';
+        if (coverage >= 30) return 'text-orange-500 stroke-orange-500';
+        return 'text-red-500 stroke-red-500';
+    };
+
+    const ComplianceShield = ({ stat }: { stat: FrameworkStat }) => {
+        const radius = 60;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (stat.coverage / 100) * circumference;
+
+        return (
+            <div className="relative group cursor-pointer">
+                {/* Glow Effect */}
+                <div className={`absolute inset-0 rounded-full blur-[40px] opacity-20 group-hover:opacity-40 transition-opacity ${stat.coverage > 50 ? 'bg-emerald-500' : 'bg-red-500'
+                    }`}></div>
+
+                {/* SVG Ring */}
+                <svg className="w-48 h-48 transform -rotate-90 relative z-10 mx-auto">
+                    {/* Background Ring */}
+                    <circle
+                        cx="96"
+                        cy="96"
+                        r={radius}
+                        className="stroke-slate-800"
+                        strokeWidth="12"
+                        fill="transparent"
+                    />
+                    {/* Progress Ring */}
+                    <circle
+                        cx="96"
+                        cy="96"
+                        r={radius}
+                        className={`${getCoverageColor(stat.coverage)} transition-all duration-1000 ease-out`}
+                        strokeWidth="12"
+                        fill="transparent"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                    />
+                </svg>
+
+                {/* Center Content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                    <span className={`text-4xl font-black ${getCoverageColor(stat.coverage).replace('stroke-', '')}`}>
+                        {stat.coverage}%
+                    </span>
+                    <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Matched</span>
+                </div>
+            </div>
+        );
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0B1120] flex items-center justify-center">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center font-bold text-xs text-emerald-500">GRC</div>
-                </div>
+            <div className="min-h-screen flex items-center justify-center bg-[#0B1120]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
             </div>
         );
     }
@@ -89,168 +130,128 @@ export default function FrameworksPage() {
     return (
         <div className="min-h-screen text-white selection:bg-emerald-500/30">
             <PremiumBackground />
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="relative z-10 p-8">
-                <div className="max-w-7xl mx-auto">
-                    {/* Hero Section */}
-                    <div className="mb-12 text-center md:text-left">
-                        <h1 className="text-5xl font-black mb-4 tracking-tight">
-                            <span className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                                Framework Library
-                            </span>
-                        </h1>
-                        <p className="text-lg text-slate-400 max-w-2xl font-light leading-relaxed">
-                            Accelerate your compliance journey with our pre-built, expert-validated framework templates.
-                            Map controls, track gaps, and automate evidence collection instantly.
-                        </p>
-                    </div>
+            <div className="relative z-10 p-8 pt-32">
+                <PageTransition className="max-w-7xl mx-auto">
 
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-                        {[
-                            { label: 'Active Frameworks', value: frameworks.length, color: 'emerald', icon: Book },
-                            { label: 'Total Controls', value: frameworks.reduce((sum, f) => sum + f._count.mappings, 0), color: 'blue', icon: Shield },
-                            { label: 'Certifications', value: frameworks.filter(f => f.name.includes('SOC') || f.name.includes('ISO')).length, color: 'purple', icon: LockIcon },
-                            { label: 'Privacy Laws', value: frameworks.filter(f => f.name.includes('GDPR') || f.name.includes('CCPA')).length, color: 'orange', icon: Eye },
-                        ].map((stat, i) => (
-                            <div key={i} className="relative group p-6 bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 hover:border-white/10 transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-                                <div className={`absolute -right-6 -top-6 w-24 h-24 bg-${stat.color}-500/10 rounded-full blur-xl group-hover:bg-${stat.color}-500/20 transition-all`}></div>
-                                <div className="relative z-10">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className={`p-2 rounded-lg bg-${stat.color}-500/10 text-${stat.color}-400`}>
-                                            <stat.icon className="w-5 h-5" />
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                                    <div className="text-sm text-slate-400 font-medium">{stat.label}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {frameworks.map((framework) => (
-                            <div
-                                key={framework.id}
-                                className={`group relative p-1 rounded-2xl bg-gradient-to-br ${getFrameworkColor(framework.name)} transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-1 cursor-pointer`}
-                                onClick={() => setSelectedFramework(framework)}
+                    {/* Header */}
+                    <div className="mb-12 flex items-end justify-between">
+                        <div>
+                            <h1 className="text-4xl font-black text-white mb-2 tracking-tight flex items-center gap-3">
+                                <ShieldCheck className="w-10 h-10 text-emerald-500" />
+                                Framework Intelligence
+                            </h1>
+                            <p className="text-slate-400">Gap analysis and compliance monitoring across {frameworks.length} frameworks.</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSeed}
+                                disabled={seeding}
+                                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl border border-emerald-400/20 flex items-center gap-2 font-bold transition-all shadow-lg shadow-emerald-500/20"
                             >
-                                <div className="relative h-full bg-slate-950/90 backdrop-blur-xl p-6 rounded-xl overflow-hidden">
-                                    {/* Hover Glow */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 via-transparent"></div>
-
-                                    <div className="relative z-10 flex flex-col h-full">
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="p-3 bg-slate-900 rounded-xl border border-white/5 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                                {getFrameworkIcon(framework.name)}
-                                            </div>
-                                            <span className="px-3 py-1 bg-slate-900 rounded-full border border-white/5 text-xs font-semibold text-slate-400 group-hover:text-emerald-400 transition-colors">
-                                                v{framework.version}
-                                            </span>
-                                        </div>
-
-                                        <h3 className="text-xl font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">
-                                            {framework.name}
-                                        </h3>
-
-                                        <p className="text-sm text-slate-400 line-clamp-2 mb-6 flex-grow">
-                                            {framework.description || `Comprehensive compliance framework for ${framework.name} requirements.`}
-                                        </p>
-
-                                        <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
-                                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                <LayoutGrid className="w-3 h-3" />
-                                                <span>{framework._count.mappings} Controls</span>
-                                            </div>
-                                            <button className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-                                                <ArrowRight className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                Activate Common Frameworks
+                            </button>
+                            <button className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-white/10 flex items-center gap-2 font-bold transition-all">
+                                <Download className="w-4 h-4" /> Export Report
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-
-            {/* Premium Modal */}
-            {
-                selectedFramework && (
-                    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-                        <div
-                            className="bg-slate-900 border border-white/10 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl relative animate-in slide-in-from-bottom-4 duration-300"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Modal Header Effect */}
-                            <div className={`absolute top-0 left-0 w-full h-32 bg-gradient-to-b ${getFrameworkColor(selectedFramework.name).split(' ')[0]} opacity-30`}></div>
-
-                            <div className="relative p-8">
-                                <button
-                                    onClick={() => setSelectedFramework(null)}
-                                    className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-
-                                <div className="flex items-center gap-6 mb-8">
-                                    <div className="p-4 bg-slate-950 rounded-2xl border border-white/10 shadow-xl">
-                                        {getFrameworkIcon(selectedFramework.name)}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-3xl font-bold text-white mb-1">{selectedFramework.name}</h2>
-                                        <div className="flex items-center gap-2 text-slate-400">
-                                            <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-xs">v{selectedFramework.version}</span>
-                                            <span>•</span>
-                                            <span>{selectedFramework.jurisdiction || 'Global Standard'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-8">
-                                    <div className="p-4 rounded-xl bg-slate-950/50 border border-white/5">
-                                        <div className="text-sm text-slate-500 mb-1">Mapped Controls</div>
-                                        <div className="text-2xl font-bold text-white">{selectedFramework._count.mappings}</div>
-                                    </div>
-                                    <div className="p-4 rounded-xl bg-slate-950/50 border border-white/5">
-                                        <div className="text-sm text-slate-500 mb-1">Audit Readiness</div>
-                                        <div className="text-2xl font-bold text-emerald-400">
-                                            {Math.round(Math.random() * 30 + 10)}%
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="prose prose-invert prose-sm max-w-none mb-8 text-slate-400">
-                                    <p>{selectedFramework.description}</p>
-                                </div>
-
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => {
-                                            setSelectedFramework(null);
-                                            router.push(`/frameworks/${selectedFramework.id}`);
-                                        }}
-                                        className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5 transition-all font-bold text-center"
-                                    >
-                                        Launch Gap Analysis
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedFramework(null)}
-                                        className="px-6 py-4 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6">
+                            <div className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Active Frameworks</div>
+                            <div className="text-3xl font-black text-white">{frameworks.length}</div>
+                        </div>
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6">
+                            <div className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Total Controls Mapped</div>
+                            <div className="text-3xl font-black text-emerald-400">
+                                {frameworks.reduce((acc, curr) => acc + curr.coveredRequirements, 0)}
+                            </div>
+                        </div>
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6">
+                            <div className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Open Gaps</div>
+                            <div className="text-3xl font-black text-red-500">
+                                {frameworks.reduce((acc, curr) => acc + (curr.totalRequirements - curr.coveredRequirements), 0)}
+                            </div>
+                        </div>
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6">
+                            <div className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Avg Compliance</div>
+                            <div className="text-3xl font-black text-blue-400">
+                                {Math.round(frameworks.reduce((acc, curr) => acc + curr.coverage, 0) / (frameworks.length || 1))}%
                             </div>
                         </div>
                     </div>
-                )
-            }
-        </div >
+
+                    {/* Framework Cards */}
+                    {frameworks.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {frameworks.map((fw) => (
+                                <div key={fw.id} className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-8 hover:border-emerald-500/30 transition-all hover:bg-slate-900/60 group relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none"></div>
+
+                                    <div className="flex justify-between items-start mb-8 relative z-10">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-white mb-1">{fw.name}</h2>
+                                            <div className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded inline-block border border-emerald-500/20">{fw.version}</div>
+                                        </div>
+                                        <div className="p-2 bg-slate-800 rounded-lg text-slate-400">
+                                            <Book className="w-5 h-5" />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-center mb-8 relative z-10">
+                                        <ComplianceShield stat={fw} />
+                                    </div>
+
+                                    <div className="space-y-4 relative z-10">
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-slate-400">Gap Analysis</span>
+                                            <span className="font-bold text-red-400">{fw.gap}% Open</span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                                            <div
+                                                className="bg-red-500 h-full rounded-full"
+                                                style={{ width: `${fw.gap}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-slate-500 pt-2 border-t border-white/5">
+                                            <span>Requirements: {fw.totalRequirements}</span>
+                                            <span>Mapped: {fw.coveredRequirements}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-20 bg-slate-900/20 rounded-3xl border border-dashed border-white/10">
+                            <div className="bg-slate-800/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Book className="w-10 h-10 text-slate-500" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2">No Active Frameworks</h2>
+                            <p className="text-slate-400 mb-8 max-w-md mx-auto">Activate the standard compliance library to begin mapping controls and analyzing gaps.</p>
+                            <button
+                                onClick={handleSeed}
+                                disabled={seeding}
+                                className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-bold shadow-lg shadow-emerald-500/30 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                            >
+                                {seeding ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" /> Activating Library...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="w-5 h-5" /> Activate Common Frameworks
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
+
+                </PageTransition>
+            </div>
+        </div>
     );
 }

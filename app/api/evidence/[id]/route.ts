@@ -1,23 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+
+import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 export async function PUT(
-    request: NextRequest,
+    request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { userId } = auth();
+        if (!userId) {
+            return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const { id } = params;
         const body = await request.json();
         const { status, reviewNotes } = body;
 
-        // Verify ownership/permissions if needed (e.g. only managers can approve)
-        // For now, allow any authenticated user
+        // Verify permissions
+        const role = (session.user as any).role;
+        const { canApprove } = await import('@/lib/permissions');
+
+        if (status === 'approved' || status === 'rejected') {
+            if (!canApprove(role)) {
+                return NextResponse.json({ error: 'Forbidden: Only Managers/Admins can approve evidence' }, { status: 403 });
+            }
+        }
 
         const evidence = await prisma.evidence.update({
             where: { id },
@@ -39,24 +47,29 @@ export async function PUT(
         return NextResponse.json({ evidence });
     } catch (error: any) {
         console.error('Error updating evidence:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error?.message || 'Unknown server error' }, { status: 500 });
     }
 }
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = params;
+        const { id } = await context.params;
 
-        // Optionally delete the file from disk as well
-        // For now just DB delete
+        // Enforce RBAC for Deletion
+        const role = (session.user as any).role;
+        const { canDeleteRecords } = await import('@/lib/permissions');
+
+        if (!canDeleteRecords(role)) {
+            return NextResponse.json({ error: 'Forbidden: Only Admins can delete evidence' }, { status: 403 });
+        }
 
         await prisma.evidence.delete({
             where: { id }
@@ -65,6 +78,8 @@ export async function DELETE(
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error('Error deleting evidence:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown server error during deletion';
+        console.error('Constructed error message:', errorMessage); // Debug log
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

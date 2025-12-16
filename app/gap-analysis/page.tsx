@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 
@@ -16,7 +16,7 @@ interface Framework {
 }
 
 export default function GapAnalysisPage() {
-    const { data: session } = useSession();
+    const { user } = useUser();
     const router = useRouter();
     const [frameworks, setFrameworks] = useState<Framework[]>([]);
     const [loading, setLoading] = useState(true);
@@ -93,11 +93,9 @@ export default function GapAnalysisPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex flex-col">
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="flex-grow p-8">
+            <div className="flex-grow p-8 pt-32">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="mb-8">
@@ -157,8 +155,8 @@ export default function GapAnalysisPage() {
                                         <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
                                             <div
                                                 className={`h-full transition-all duration-500 ${coverage.percentage >= 80 ? 'bg-green-500' :
-                                                        coverage.percentage >= 50 ? 'bg-yellow-500' :
-                                                            'bg-red-500'
+                                                    coverage.percentage >= 50 ? 'bg-yellow-500' :
+                                                        'bg-red-500'
                                                     }`}
                                                 style={{ width: `${coverage.percentage}%` }}
                                             />

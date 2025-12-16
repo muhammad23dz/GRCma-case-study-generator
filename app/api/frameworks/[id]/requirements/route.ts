@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/frameworks/:id/requirements - List requirements for a framework
@@ -9,8 +9,8 @@ export async function GET(
 ) {
     const params = await props.params;
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -23,7 +23,7 @@ export async function GET(
                 _count: {
                     select: { mappings: true },
                 },
-                requirements: true, // Now this relation exists!
+                requirements: true,
             },
         });
 
@@ -34,12 +34,8 @@ export async function GET(
         const requirements = framework.requirements || [];
 
         // Calculate gap analysis metrics
-        // Ideally we count mappings PER requirement, but for summary we use total count
-        const totalRequirements = requirements.length > 0 ? requirements.length : 100; // Fallback only if 0
+        const totalRequirements = requirements.length > 0 ? requirements.length : 100;
         const mappedRequirements = framework._count.mappings;
-
-        // Better calculation: Count how many requirements have at least one mapping
-        // But simple count is fast for now
 
         const coverage = totalRequirements > 0
             ? Math.round((mappedRequirements / totalRequirements) * 100)

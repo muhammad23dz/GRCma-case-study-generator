@@ -1,29 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { grcLLM } from '@/lib/llm/grc-service';
+import { z } from 'zod';
+
+const DEV_MODE = process.env.DEV_MODE === 'true';
+
+// Strict Input Validation Schema
+const createActionSchema = z.object({
+    type: z.string().min(1, "Type is required"),
+    title: z.string().min(3, "Title too short").max(200),
+    description: z.string(),
+    controlId: z.string().optional(),
+    incidentId: z.string().optional(),
+    severity: z.string().optional(),
+    assignee: z.string().email("Assignee must be a valid email").optional(),
+    dueDate: z.string().datetime().optional().nullable(),
+    priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
+    generatePlaybook: z.boolean().optional()
+});
 
 // GET /api/actions - List all actions
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            console.log("No session found in GET /api/actions");
+        const { userId, orgId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true } });
+        const userEmail = dbUser?.email || '';
+        const userRole = dbUser?.role || 'user';
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
         const assignee = searchParams.get('assignee');
         const priority = searchParams.get('priority');
-
-        console.log(`Fetching actions for user: ${session.user.email}`);
+        const isAdmin = ['admin', 'manager'].includes(userRole);
 
         const where: any = {};
-        where.owner = session.user.email;
+
+        if (DEV_MODE) {
+            // Show all actions in dev mode
+        } else if (orgId) {
+            where.organizationId = orgId;
+            if (!isAdmin) {
+                where.owner = userEmail;
+            }
+        } else {
+            where.owner = userEmail;
+        }
 
         if (status) where.status = status;
-        if (assignee) where.assignedTo = assignee; // Map input 'assignee' to DB 'assignedTo'
+        if (assignee) {
+            if (!assignee.includes('@')) return NextResponse.json({ error: "Invalid assignee format" }, { status: 400 });
+            where.assignedTo = assignee;
+        }
         if (priority) where.priority = priority;
 
         const actions = await prisma.action.findMany({
@@ -32,14 +64,13 @@ export async function GET(request: NextRequest) {
                 control: true,
                 incident: true,
             },
-            take: 50, // Limit results for performance
+            take: 100,
             orderBy: [
-                { priority: 'desc' }, // Switched from severity to priority
+                { priority: 'desc' },
                 { dueDate: 'asc' }
             ]
         });
 
-        // Map DB 'assignedTo' back to 'assignee' for frontend
         const mappedActions = actions.map(a => ({
             ...a,
             assignee: a.assignedTo
@@ -47,26 +78,42 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ actions: mappedActions });
     } catch (error: any) {
-        console.error("Detailed API Error in GET /api/actions:", error);
-        return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
+        console.error("Error in GET /api/actions:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
 // POST /api/actions - Create action with LLM playbook
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
+        const { userId, orgId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
+        const userEmail = dbUser?.email || '';
+
         const body = await request.json();
-        const { type, title, description, controlId, incidentId, severity, assignee, dueDate, priority, generatePlaybook } = body;
+        const validation = createActionSchema.safeParse(body);
+
+        if (!validation.success) {
+            return NextResponse.json({
+                error: 'Validation Failed',
+                details: validation.error.issues
+            }, { status: 400 });
+        }
+
+        const { type, title, description, controlId, incidentId, severity, assignee, dueDate, priority, generatePlaybook } = validation.data;
 
         let playbook = null;
         if (generatePlaybook) {
-            const result = await grcLLM.generatePlaybook(description, severity);
-            playbook = JSON.stringify(result.data);
+            try {
+                const result = await grcLLM.generatePlaybook(description, severity || 'medium');
+                playbook = JSON.stringify(result.data);
+            } catch (e) {
+                console.error("Playbook generation failed:", e);
+            }
         }
 
         const action = await prisma.action.create({
@@ -76,19 +123,19 @@ export async function POST(request: NextRequest) {
                 description,
                 controlId,
                 incidentId,
-                owner: session.user.email!,
-                assignedTo: assignee, // Map input 'assignee' to DB 'assignedTo'
+                owner: userEmail,
+                assignedTo: assignee,
                 dueDate: dueDate ? new Date(dueDate) : null,
-                priority: priority || 'medium',
-                // severity, // REMOVED: Schema does not have severity field
-                playbook,
-                status: 'open'
+                priority: priority as any,
+                playbook: playbook ? JSON.parse(playbook) : undefined,
+                status: 'open',
+                organizationId: orgId || null,
             }
         });
 
         return NextResponse.json({ action: { ...action, assignee: action.assignedTo } });
     } catch (error: any) {
-        console.error("Detailed API Error in POST /api/actions:", error);
+        console.error("Error in POST /api/actions:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

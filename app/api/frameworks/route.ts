@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/frameworks - List all frameworks
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { userId } = await auth();
+        if (!userId) {
+            return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const frameworks = await prisma.framework.findMany({
@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        return NextResponse.json({ frameworks });
+        // Custom sorting: Moroccan Law first, then others alphabetically
+        const sortedFrameworks = frameworks.sort((a, b) => {
+            if (a.name.includes('Moroccan') || a.name.includes('09-08')) return -1;
+            if (b.name.includes('Moroccan') || b.name.includes('09-08')) return 1;
+            return a.name.localeCompare(b.name);
+        });
+
+        return NextResponse.json({ frameworks: sortedFrameworks });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

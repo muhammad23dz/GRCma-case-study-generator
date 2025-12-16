@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@clerk/nextjs/server';
+import { createHmac } from 'crypto';
 
 export interface AuditLogOptions {
     entity: string;
@@ -11,8 +11,17 @@ export interface AuditLogOptions {
     userAgent?: string;
 }
 
+// Secret key for HMAC signing (should be rotated and stored securely)
+const AUDIT_SECRET = process.env.AUDIT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-audit-secret-do-not-use-in-prod';
+
+function generateHash(data: string, timestamp: string): string {
+    return createHmac('sha256', AUDIT_SECRET)
+        .update(`${data}:${timestamp}`)
+        .digest('hex');
+}
+
 /**
- * Log an audit trail entry for SOC 2 compliance
+ * Log an audit trail entry for SOC 2 compliance with Tamper-Evident Hashing
  */
 export async function createAuditLog(options: AuditLogOptions) {
     try {
@@ -23,17 +32,28 @@ export async function createAuditLog(options: AuditLogOptions) {
             return null;
         }
 
+        const changesStr = JSON.stringify(options.changes || {});
+        // Construct canonical string for hashing
+        // userId:entity:entityId:action:changes
+        const userId = session.user.id || session.user.email;
+        const timestamp = new Date();
+
+        const canonicalData = `${userId}:${options.entity}:${options.entityId}:${options.action}:${changesStr}`;
+        const hash = generateHash(canonicalData, timestamp.toISOString());
+
         const auditLog = await prisma.auditLog.create({
             data: {
-                userId: session.user.id || session.user.email,
+                userId: userId,
                 userName: session.user.name || 'Unknown',
                 userEmail: session.user.email,
                 entity: options.entity,
                 entityId: options.entityId,
                 action: options.action,
-                changes: JSON.stringify(options.changes || {}),
+                changes: changesStr,
                 ipAddress: options.ipAddress,
                 userAgent: options.userAgent,
+                hash: hash,
+                timestamp: timestamp
             },
         });
 
@@ -42,6 +62,21 @@ export async function createAuditLog(options: AuditLogOptions) {
         console.error('Error creating audit log:', error);
         return null;
     }
+}
+
+/**
+ * Very integrity of an audit log entry
+ */
+export async function verifyAuditLogIntegrity(logId: string): Promise<boolean> {
+    const log = await prisma.auditLog.findUnique({ where: { id: logId } });
+    if (!log || !log.hash) return false;
+
+    const changesStr = log.changes;
+    const userId = log.userId;
+    const canonicalData = `${userId}:${log.entity}:${log.entityId}:${log.action}:${changesStr}`;
+    const expectedHash = generateHash(canonicalData, log.timestamp.toISOString());
+
+    return log.hash === expectedHash;
 }
 
 /**
@@ -89,3 +124,4 @@ export async function getAuditLogs(filters?: {
 export async function getEntityHistory(entity: string, entityId: string) {
     return getAuditLogs({ entity, entityId });
 }
+

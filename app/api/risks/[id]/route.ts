@@ -1,6 +1,6 @@
+```typescript
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth'; // Ensure this path is correct
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma'; // Ensure this path is correct
 
 export async function DELETE(
@@ -8,8 +8,8 @@ export async function DELETE(
     context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -28,7 +28,22 @@ export async function DELETE(
         // If 'owner' is null (legacy data), maybe allow deletion or assign to current user? 
         // For now, if owner exists and mismatch, forbid.
         if (risk.owner && risk.owner !== session.user.email) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            // Optional: allow admin override? Yes, if hasPermission
+            const role = (session.user as any).role;
+            const { canDeleteRecords } = await import('@/lib/permissions');
+            if (!canDeleteRecords(role)) {
+                return NextResponse.json({ error: 'Forbidden: Insufficient Privileges to Delete Risk' }, { status: 403 });
+            }
+        } else {
+            // Even if owner matches, strict RBAC says only Admin can delete?
+            // Or can Analysts delete their own?
+            // "The Plan" says Managers/Analysts CANNOT delete records. Safety feature.
+            // So we enforce canDeleteRecords strict.
+            const role = (session.user as any).role;
+            const { canDeleteRecords } = await import('@/lib/permissions');
+            if (!canDeleteRecords(role)) {
+                return NextResponse.json({ error: 'Forbidden: Only Admins can delete risks' }, { status: 403 });
+            }
         }
 
         await prisma.risk.delete({ where: { id } });

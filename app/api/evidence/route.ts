@@ -1,15 +1,16 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
 // GET /api/evidence - List all evidence
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { userId } = auth();
+        if (!userId) {
+            return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -17,8 +18,12 @@ export async function GET(request: NextRequest) {
         const riskId = searchParams.get('riskId');
         const requirementId = searchParams.get('requirementId');
 
+        const userRole = (session.user as any).role || 'user';
+        const isAdmin = ['admin', 'manager'].includes(userRole);
+
         const evidence = await prisma.evidence.findMany({
             where: {
+                ...(isAdmin ? {} : { uploadedBy: session.user.email }),
                 ...(controlId && { controlId }),
                 ...(riskId && { riskId }),
                 ...(requirementId && { requirementId }),
@@ -31,6 +36,7 @@ export async function GET(request: NextRequest) {
                         framework: true
                     }
                 },
+                controlTests: true,
             },
             orderBy: { timestamp: 'desc' }
         });
@@ -68,7 +74,7 @@ export async function POST(request: NextRequest) {
 
             // Create unique filename
             const timestamp = Date.now();
-            fileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+            fileName = `${timestamp} -${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')} `;
             const uploadDir = join(process.cwd(), 'public', 'uploads', 'evidence');
 
             // Ensure directory exists
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
             const path = join(uploadDir, fileName);
 
             await writeFile(path, buffer);
-            fileUrl = `/uploads/evidence/${fileName}`;
+            fileUrl = `/ uploads / evidence / ${fileName} `;
         }
 
         const evidence = await prisma.evidence.create({

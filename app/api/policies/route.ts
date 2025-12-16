@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/policies
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { userId } = await auth();
+        if (!userId) {
+            return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const policies = await prisma.policy.findMany({
             where: {
-                owner: session.user.email
+                owner: userId
             },
             orderBy: { updatedAt: 'desc' }
         });
@@ -31,6 +30,14 @@ export async function POST(request: NextRequest) {
         const session = await getServerSession(authOptions);
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Enforce RBAC for Creation
+        const role = (session.user as any).role;
+        const { canEditContent } = await import('@/lib/permissions');
+
+        if (!canEditContent(role)) {
+            return NextResponse.json({ error: 'Forbidden: Only Analysts/Managers/Admins can create policies' }, { status: 403 });
         }
 
         const body = await request.json();

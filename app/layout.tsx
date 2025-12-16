@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Providers from "@/components/Providers";
+import { ClerkProvider } from "@clerk/nextjs";
+
+export const dynamic = 'force-dynamic';
+
+import { LanguageProvider } from "@/lib/contexts/LanguageContext";
+import { DevModeProvider } from "@/lib/contexts/DevModeContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,13 +29,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning
-      >
-        <Providers>{children}</Providers>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+          suppressHydrationWarning
+        >
+          <DevModeProvider>
+            <LanguageProvider>
+              {children}
+            </LanguageProvider>
+          </DevModeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

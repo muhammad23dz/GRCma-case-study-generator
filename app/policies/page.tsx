@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
 import { FileText, Shield, AlertTriangle, Plus, Trash2, Calendar, Search, X, Filter } from 'lucide-react';
+import { canDeleteRecords, canEditContent } from '@/lib/permissions';
 import PageTransition from '@/components/PageTransition';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 interface Policy {
     id: string;
@@ -19,7 +22,9 @@ interface Policy {
 }
 
 export default function PoliciesPage() {
+    const { user } = useUser();
     const router = useRouter();
+    const { t } = useLanguage();
     const searchParams = useSearchParams();
     const initialStatus = searchParams.get('status');
     const initialSearch = searchParams.get('search') || '';
@@ -110,26 +115,40 @@ export default function PoliciesPage() {
     return (
         <div className="min-h-screen text-white selection:bg-emerald-500/30">
             <PremiumBackground />
-            <Header onNavChange={(view) => {
-                if (view === 'input') router.push('/');
-            }} />
+            <Header />
 
-            <div className="relative z-10 p-8">
+            <div className="relative z-10 p-8 pt-32">
                 <PageTransition className="max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
-                            <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Policy Management</h1>
-                            <p className="text-slate-400">Manage and enforce organizational security policies</p>
+                            <h1 className="text-4xl font-black text-white mb-2 tracking-tight">{t('policy_title')}</h1>
+                            <p className="text-slate-400">{t('policy_subtitle')}</p>
                         </div>
                         <div className="flex gap-3 items-center">
+                            {policies.length > 0 && canDeleteRecords((user as any)?.role) && (
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm(`Delete ALL ${policies.length} policies? This cannot be undone.`)) return;
+                                        try {
+                                            await Promise.all(policies.map(p => fetch(`/api/policies/${p.id}`, { method: 'DELETE' })));
+                                            fetchPolicies();
+                                        } catch (error) {
+                                            console.error('Error deleting policies:', error);
+                                        }
+                                    }}
+                                    className="px-4 py-3 bg-red-950/30 text-red-500 border border-red-500/20 hover:bg-red-900/50 rounded-xl font-bold transition-all text-sm"
+                                >
+                                    {t('common_delete_all')}
+                                </button>
+                            )}
                             <div className="relative group">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                                 <input
                                     type="text"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search policies..."
+                                    placeholder={t('common_search')}
                                     className="pl-9 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl w-64 text-sm focus:border-emerald-500/50 focus:outline-none transition-all"
                                 />
                                 {searchTerm && (
@@ -141,13 +160,15 @@ export default function PoliciesPage() {
                                     </button>
                                 )}
                             </div>
-                            <button
-                                onClick={() => setShowModal(true)}
-                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-bold flex items-center gap-2 group"
-                            >
-                                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                                New Policy
-                            </button>
+                            {canEditContent((user as any)?.role) && (
+                                <button
+                                    onClick={() => setShowModal(true)}
+                                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-bold flex items-center gap-2 group"
+                                >
+                                    <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                                    {t('policy_btn_new')}
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -166,7 +187,7 @@ export default function PoliciesPage() {
                                 </span>
                             </div>
                             <div className="text-3xl font-bold text-white mb-1">{policies.filter(p => p.status === 'active').length}</div>
-                            <div className="text-slate-400 text-sm font-medium">Active Policies</div>
+                            <div className="text-slate-400 text-sm font-medium">{t('policy_stat_active')}</div>
                         </div>
 
                         <div
@@ -182,7 +203,7 @@ export default function PoliciesPage() {
                                 </span>
                             </div>
                             <div className="text-3xl font-bold text-white mb-1">{policies.filter(p => p.status === 'draft').length}</div>
-                            <div className="text-slate-400 text-sm font-medium">Draft Policies</div>
+                            <div className="text-slate-400 text-sm font-medium">{t('policy_stat_draft')}</div>
                         </div>
 
                         <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:bg-white/5 transition-colors group">
@@ -192,7 +213,7 @@ export default function PoliciesPage() {
                                 </div>
                             </div>
                             <div className="text-3xl font-bold text-white mb-1">{policies.length}</div>
-                            <div className="text-slate-400 text-sm font-medium">Total Documents</div>
+                            <div className="text-slate-400 text-sm font-medium">{t('policy_stat_total')}</div>
                         </div>
                     </div>
 
@@ -204,7 +225,7 @@ export default function PoliciesPage() {
                                     <Filter className="w-5 h-5 text-emerald-400" />
                                 </div>
                                 <div className="flex gap-2 items-center">
-                                    <span className="text-sm font-bold text-white">Active Filters:</span>
+                                    <span className="text-sm font-bold text-white">{t('common_filter_active')}:</span>
                                     {statusFilter && <span className="text-xs px-2 py-1 bg-white/10 rounded-md text-white border border-white/10 uppercase">{statusFilter}</span>}
                                     {searchTerm && <span className="text-xs px-2 py-1 bg-white/10 rounded-md text-white border border-white/10">"{searchTerm}"</span>}
                                 </div>
@@ -213,7 +234,7 @@ export default function PoliciesPage() {
                                 onClick={() => { setSearchTerm(''); setStatusFilter(null); router.push('/policies'); }}
                                 className="px-3 py-1.5 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg text-xs font-bold transition-colors"
                             >
-                                Clear All
+                                {t('common_clear_filter')}
                             </button>
                         </div>
                     )}
@@ -226,18 +247,18 @@ export default function PoliciesPage() {
                                 Document Library
                             </h2>
                             <div className="text-sm text-slate-500">
-                                Showing {filteredPolicies.length} of {policies.length} policies
+                                {t('common_showing')} {filteredPolicies.length} {t('common_of')} {policies.length}
                             </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-white/5 bg-slate-950/20">
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Title</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Version</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Owner</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Review Date</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('policy_table_title')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('policy_table_ver')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('policy_table_status')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('policy_table_owner')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('policy_table_review')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -263,13 +284,15 @@ export default function PoliciesPage() {
                                             <td className="px-6 py-5">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-slate-400 text-sm">{new Date(policy.reviewDate).toLocaleDateString()}</span>
-                                                    <button
-                                                        onClick={(e) => handleDelete(e, policy.id)}
-                                                        className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
-                                                        title="Delete Policy"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    {canDeleteRecords((user as any)?.role) && (
+                                                        <button
+                                                            onClick={(e) => handleDelete(e, policy.id)}
+                                                            className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                                                            title="Delete Policy"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -277,7 +300,7 @@ export default function PoliciesPage() {
                                     {filteredPolicies.length === 0 && (
                                         <tr>
                                             <td colSpan={5} className="text-center py-12 text-slate-500">
-                                                No policies found matching filters.
+                                                {t('widget_no_activity')}
                                             </td>
                                         </tr>
                                     )}
@@ -292,8 +315,8 @@ export default function PoliciesPage() {
                     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
                         <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl relative animate-in slide-in-from-bottom-4 duration-300">
                             <div className="mb-6">
-                                <h2 className="text-2xl font-bold text-white mb-2">Create New Policy</h2>
-                                <p className="text-slate-400 text-sm">Draft a new security policy or procedure.</p>
+                                <h2 className="text-2xl font-bold text-white mb-2">{t('policy_modal_title')}</h2>
+                                <p className="text-slate-400 text-sm">{t('policy_subtitle')}</p>
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="space-y-4">
@@ -354,7 +377,7 @@ export default function PoliciesPage() {
                                         onClick={() => setShowModal(false)}
                                         className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-bold"
                                     >
-                                        Cancel
+                                        {t('common_cancel')}
                                     </button>
                                 </div>
                             </form>

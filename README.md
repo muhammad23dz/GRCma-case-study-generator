@@ -1,150 +1,115 @@
 # GRCma Platform
 
-A modern, AI-powered Governance, Risk, and Compliance (GRC) management platform built with Next.js, Prisma, and DeepSeek AI.
+<p align="center">
+  <img src="public/logo.png" alt="GRCma Logo" width="120" />
+</p>
 
-## Features
+<h3 align="center">Enterprise Governance, Risk & Compliance Platform</h3>
 
-- 🎯 **AI-Powered Case Study Generator** - Generate comprehensive GRC assessments using DeepSeek AI
-- 📊 **Interactive Dashboard** - Real-time compliance metrics and risk visualization
-- 🔒 **Control Library** - Comprehensive security control management
-- ⚠️ **Risk Management** - Track and assess organizational risks
-- 📋 **Action Tracking** - Monitor remediation tasks and compliance actions
-- 🏢 **Vendor Management** - Third-party risk assessment and tracking
-- 📚 **Framework Mapping** - Map controls to multiple compliance frameworks (ISO 27001, SOC 2, NIST, etc.)
-- 🔐 **Google OAuth Authentication** - Secure user authentication
-- 🎨 **Premium UI** - Modern, glassmorphic design with smooth animations
+<p align="center">
+  <strong>🚀 FREE Demo Release - All Features Unlocked</strong>
+</p>
 
-## Tech Stack
+---
 
-- **Frontend**: Next.js 16, React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Prisma ORM
-- **Database**: SQLite (development), PostgreSQL (production-ready)
-- **AI**: DeepSeek API for intelligent report generation
-- **Authentication**: NextAuth.js with Google OAuth
-- **Icons**: Lucide React
+## ✨ Features
 
-## Getting Started
+### Governance
+- 📋 **Policy Management** - Create, version, and track security policies
+- 🛡️ **Control Library** - Manage security controls with framework mapping
+- 📚 **Framework Support** - ISO 27001, NIST CSF, SOC 2, GDPR, PCI DSS
 
-### Prerequisites
+### Risk Management
+- ⚠️ **Risk Register** - Identify, assess, and treat enterprise risks
+- 🏢 **Vendor Management** - Third-party risk assessments
+- 📊 **Gap Analysis** - Compliance coverage visualization
 
-- Node.js 18+ 
-- npm or yarn
-- Google OAuth credentials
-- DeepSeek API key
+### Compliance
+- 🔍 **Audit Management** - Plan audits, track findings, test controls
+- 📁 **Evidence Management** - Upload and organize audit evidence
+- 📈 **Compliance Reporting** - Executive reports and dashboards
 
-### Installation
+### Operations
+- 🚨 **Incident Management** - Track and respond to security incidents
+- 🔄 **Change Management** - CAB workflows and approvals
+- ✅ **Action Tracking** - Remediation and improvement tracking
 
-1. Clone the repository:
+---
+
+## 🚀 Quick Start
+
 ```bash
-git clone <your-repo-url>
-cd ncc-grc-app
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-3. Set up environment variables:
-Create a `.env` file in the root directory with the following:
+# Set up environment variables
+cp .env.example .env.local
 
-```env
-# Database
-DATABASE_URL="file:./dev.db"
-
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key-here"
-
-# Google OAuth
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-
-# DeepSeek API
-DEEPSEEK_API_KEY="your-deepseek-api-key"
-```
-
-4. Initialize the database:
-```bash
+# Push database schema
 npx prisma db push
-npx prisma db seed
-```
 
-5. Run the development server:
-```bash
+# Start development server
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Visit [http://localhost:3000](http://localhost:3000)
 
-## Project Structure
+---
 
-```
-ncc-grc-app/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes
-│   ├── dashboard/         # Dashboard page
-│   ├── risks/            # Risk management
-│   ├── controls/         # Control library
-│   ├── actions/          # Action tracking
-│   ├── vendors/          # Vendor management
-│   └── ...
-├── components/            # React components
-├── lib/                   # Utility functions
-├── prisma/               # Database schema and migrations
-├── public/               # Static assets
-└── types/                # TypeScript type definitions
-```
+## 📖 User Guide
 
-## Key Features Explained
+New to GRCma? Visit `/guide` for a step-by-step walkthrough for GRC analysts.
 
-### AI Case Study Generator
-Generate comprehensive GRC assessments by providing:
-- Company name and size
-- Target compliance framework
-- Key challenges
+---
 
-The AI generates:
-- Executive summary
-- Risk analysis
-- Control recommendations
-- Vendor assessments
-- Strategic roadmap
+## 🌐 Deployment
 
-### Multi-Framework Support
-Map your controls to multiple frameworks:
-- ISO 27001:2022
-- SOC 2
-- NIST CSF
-- GDPR
-- PCI DSS
-- HIPAA
+See [DEPLOY.md](./DEPLOY.md) for full deployment instructions.
 
-### Real-Time Dashboard
-Monitor your GRC posture with:
-- Compliance score
-- Critical risk count
-- Open action items
-- Recent activity feed
+### Quick Deploy to Vercel
 
-## Security Notes
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/grcma-platform)
 
-⚠️ **Important**: Never commit your `.env` file to version control. It contains sensitive API keys and secrets.
+---
 
-The `.gitignore` file is configured to exclude:
-- `.env` and all `.env.*` files
-- Database files
-- Node modules
-- Build artifacts
+## 💰 Pricing
 
-## Contributing
+| Plan | Price | Features |
+|------|-------|----------|
+| **Demo** | FREE | All features - Evaluation period |
+| **Professional** | Coming Soon | Full support + SLA |
+| **Enterprise** | Coming Soon | Custom deployment + SSO |
 
-This is a private project. For questions or issues, contact the development team.
+---
 
-## License
+## 🔒 Security
 
-Proprietary - All rights reserved
+- AES-256 encryption at rest
+- TLS 1.3 in transit
+- Role-based access control (RBAC)
+- Multi-factor authentication (MFA)
+- Complete audit logging
 
-## Support
+Visit `/trust` for our full security and compliance information.
 
-For setup assistance, refer to `GOOGLE_OAUTH_SETUP.md` in the project root.
+---
+
+## 📧 Support
+
+- **Email**: support@grcma.io
+- **Documentation**: `/guide`
+- **Security Issues**: security@grcma.io
+
+---
+
+## 📜 License
+
+Copyright © 2024 GRCma. All rights reserved.
+
+This demo is provided for evaluation purposes only.
+
+---
+
+<p align="center">
+  Built with ❤️ using Next.js, Prisma, and Tailwind CSS
+</p>
