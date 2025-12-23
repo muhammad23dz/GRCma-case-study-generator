@@ -20,6 +20,7 @@ import { ActionItemsWidget } from '@/components/dashboard/widgets/ActionItemsWid
 import { ComplianceCalendarWidget } from '@/components/dashboard/widgets/ComplianceCalendarWidget';
 import { GigachadModulesWidget } from '@/components/dashboard/widgets/GigachadModulesWidget';
 import GRCIntelligenceWidget from '@/components/dashboard/GRCIntelligenceWidget';
+import DevSecOpsWidget from '@/components/dashboard/DevSecOpsWidget';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -256,13 +257,14 @@ export default function DashboardPage() {
                     )}
 
                     {/* Quick Navigation Hub */}
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-6">
                         {[
                             { label: t('nav_overview'), href: '/assessments', icon: FileCheck, color: 'emerald', desc: t('nav_audit') },
                             { label: t('nav_governance'), href: '/controls', icon: Shield, color: 'blue', desc: t('nav_risk') },
                             { label: t('nav_operations'), href: '/incidents', icon: Siren, color: 'orange', desc: t('stat_incidents') },
                             { label: t('employees_title') || 'Workforce', href: '/employees', icon: GitPullRequest, color: 'purple', desc: 'Compliance' },
                             { label: 'AI Intelligence', href: '/intelligence', icon: Sparkles, color: 'cyan', desc: 'GRC AI' },
+                            { label: 'DevSecOps', href: '/devsecops', icon: GitPullRequest, color: 'pink', desc: 'CI/CD' },
                         ].map((nav) => (
                             <button
                                 key={nav.label}
@@ -458,6 +460,9 @@ export default function DashboardPage() {
 
                             {/* GRC Intelligence Widget */}
                             <GRCIntelligenceWidget />
+
+                            {/* DevSecOps Widget */}
+                            <DevSecOpsWidget />
                         </div>
                     </div>
                 </div>

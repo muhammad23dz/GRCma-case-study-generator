@@ -100,6 +100,7 @@ export default function Header({ }: HeaderProps = {}) {
             icon: BarChart,
             items: [
                 { label: 'AI Intelligence', href: '/intelligence', icon: Sparkles, desc: 'GRC AI Studio' },
+                { label: 'DevSecOps', href: '/devsecops', icon: Plug, desc: 'CI/CD & Config as Code' },
                 { label: t('nav_coverage'), href: '/reports', icon: BarChart, desc: 'Compliance reports' },
                 { label: t('nav_zero_trust'), href: '/analytics/zero-trust', icon: Sparkles, desc: 'Zero Trust security posture' },
                 { label: t('nav_scenarios'), href: '/risks/scenarios', icon: AlertTriangle, desc: 'What-if analysis' },
