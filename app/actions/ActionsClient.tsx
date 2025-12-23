@@ -44,6 +44,11 @@ export default function ActionsClient() {
     const fetchActions = async () => {
         try {
             const res = await fetch('/api/actions');
+            if (res.status === 401) {
+                // User not authenticated - redirect to sign-in
+                router.push('/sign-in');
+                return;
+            }
             if (!res.ok) {
                 console.error(`Error fetching actions: ${res.status}`);
                 setActions([]);

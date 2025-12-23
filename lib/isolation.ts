@@ -91,32 +91,21 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
  * Automatically handles the mapping between Clerk IDs and Prisma DB IDs.
  */
 export async function getIsolationContext(): Promise<IsolationContext | null> {
-    const { userId: clerkId } = await auth();
-    if (!clerkId) return null;
-
-    const user = await currentUser();
-    const email = user?.primaryEmailAddress?.emailAddress || '';
-
-    // Robust DB User Resolution
-    let dbUser = await prisma.user.findUnique({
-        where: { id: clerkId },
-        select: {
-            id: true,
-            email: true,
-            orgId: true,
-            role: true,
-            organization: {
-                select: {
-                    securitySettings: true
-                }
-            }
+    try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            console.log('[Isolation] No Clerk userId found - user not authenticated');
+            return null;
         }
-    });
 
-    // Fallback search by email if ID doesn't match (e.g. migration sync)
-    if (!dbUser && email) {
-        dbUser = await prisma.user.findUnique({
-            where: { email },
+        const user = await currentUser();
+        const email = user?.primaryEmailAddress?.emailAddress || '';
+
+        console.log('[Isolation] Auth check - clerkId:', clerkId, 'email:', email);
+
+        // Robust DB User Resolution
+        let dbUser = await prisma.user.findUnique({
+            where: { id: clerkId },
             select: {
                 id: true,
                 email: true,
@@ -129,41 +118,69 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
                 }
             }
         });
-    }
 
-    // Auto-provision if missing (Expert Level: Ensures consistency on every request)
-    if (!dbUser && email) {
-        dbUser = await prisma.user.create({
-            data: {
-                id: clerkId,
-                email,
-                name: user?.fullName || user?.firstName || 'User',
-                role: 'user'
-            },
-            select: {
-                id: true,
-                email: true,
-                orgId: true,
-                role: true,
-                organization: {
-                    select: {
-                        securitySettings: true
+        // Fallback search by email if ID doesn't match (e.g. migration sync)
+        if (!dbUser && email) {
+            console.log('[Isolation] User not found by ID, trying email...');
+            dbUser = await prisma.user.findUnique({
+                where: { email },
+                select: {
+                    id: true,
+                    email: true,
+                    orgId: true,
+                    role: true,
+                    organization: {
+                        select: {
+                            securitySettings: true
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
+
+        // Auto-provision if missing (Expert Level: Ensures consistency on every request)
+        if (!dbUser && email) {
+            console.log('[Isolation] Auto-provisioning new user:', email);
+            dbUser = await prisma.user.create({
+                data: {
+                    id: clerkId,
+                    email,
+                    name: user?.fullName || user?.firstName || 'User',
+                    role: 'user'
+                },
+                select: {
+                    id: true,
+                    email: true,
+                    orgId: true,
+                    role: true,
+                    organization: {
+                        select: {
+                            securitySettings: true
+                        }
+                    }
+                }
+            });
+        }
+
+        if (!dbUser) {
+            console.log('[Isolation] Could not resolve or create DB user');
+            return null;
+        }
+
+        console.log('[Isolation] Context resolved for:', dbUser.email, 'role:', dbUser.role);
+
+        return {
+            userId: dbUser.id,
+            clerkId,
+            email: dbUser.email || email,
+            orgId: dbUser.orgId,
+            role: dbUser.role || 'user',
+            securitySettings: dbUser.organization?.securitySettings as any
+        };
+    } catch (error) {
+        console.error('[Isolation] Error resolving context:', error);
+        return null;
     }
-
-    if (!dbUser) return null;
-
-    return {
-        userId: dbUser.id,
-        clerkId,
-        email: dbUser.email || email,
-        orgId: dbUser.orgId,
-        role: dbUser.role || 'user',
-        securitySettings: dbUser.organization?.securitySettings as any
-    };
 }
 
 /**
