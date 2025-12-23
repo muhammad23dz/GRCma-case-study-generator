@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import PageTransition from '@/components/PageTransition';
 import PremiumBackground from '@/components/PremiumBackground';
 import RestrictedView from '@/components/SaaS/RestrictedView';
-import { Shield, AlertTriangle, PlayCircle, Zap, FileText, Search, Plus, Trash2, X, Filter } from 'lucide-react';
+import { Shield, AlertTriangle, PlayCircle, Zap, FileText, Search, Plus, Trash2, X, Filter, ArrowLeft } from 'lucide-react';
 
 interface Control {
     id: string;
@@ -146,11 +147,20 @@ export default function ControlsPage() {
 
                 <div className="relative z-10 p-8 pt-32">
                     <PageTransition className="max-w-7xl mx-auto">
+                        {/* Back to Dashboard */}
+                        <Link
+                            href="/dashboard"
+                            className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Back to Dashboard
+                        </Link>
+
                         {/* Header */}
                         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                             <div>
-                                <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Control Library</h1>
-                                <p className="text-slate-400">Manage your GRC controls and framework mappings</p>
+                                <h1 className="text-4xl font-black text-white mb-2 tracking-tight">{t('ctrl_title')}</h1>
+                                <p className="text-slate-400">{t('ctrl_subtitle')}</p>
                             </div>
                             <div className="flex gap-3 items-center">
                                 <div className="relative group">
@@ -159,7 +169,7 @@ export default function ControlsPage() {
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Search controls..."
+                                        placeholder={t('ctrl_search_ph')}
                                         value={searchTerm}
                                         onChange={(e) => updateFilters(activeTab, e.target.value)}
                                         className="pl-10 pr-4 py-3 bg-slate-900/40 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 w-64 md:w-80 backdrop-blur-sm transition-all shadow-lg"
@@ -178,7 +188,7 @@ export default function ControlsPage() {
                                     className="px-5 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-medium flex items-center gap-2"
                                 >
                                     <Plus className="w-5 h-5" />
-                                    <span className="hidden md:inline">Add Control</span>
+                                    <span className="hidden md:inline">{t('ctrl_btn_add')}</span>
                                 </button>
                             </div>
                         </div>
@@ -206,7 +216,7 @@ export default function ControlsPage() {
                                     <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
                                         <Shield className="w-5 h-5" />
                                     </div>
-                                    <div className="text-gray-400 text-sm font-medium">Total Controls</div>
+                                    <div className="text-gray-400 text-sm font-medium">{t('ctrl_stat_total')}</div>
                                 </div>
                                 <div className="text-3xl font-bold text-white pl-1">{controls.length}</div>
                             </div>
@@ -215,7 +225,7 @@ export default function ControlsPage() {
                                     <div className="p-2 bg-red-500/10 rounded-lg text-red-400">
                                         <AlertTriangle className="w-5 h-5" />
                                     </div>
-                                    <div className="text-gray-400 text-sm font-medium">High Risk</div>
+                                    <div className="text-gray-400 text-sm font-medium">{t('ctrl_stat_high')}</div>
                                 </div>
                                 <div className="text-3xl font-bold text-white pl-1">
                                     {controls.filter(c => c.controlRisk === 'critical' || c.controlRisk === 'high').length}
@@ -226,7 +236,7 @@ export default function ControlsPage() {
                                     <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
                                         <FileText className="w-5 h-5" />
                                     </div>
-                                    <div className="text-gray-400 text-sm font-medium">Mapped</div>
+                                    <div className="text-gray-400 text-sm font-medium">{t('ctrl_stat_mapped')}</div>
                                 </div>
                                 <div className="text-3xl font-bold text-white pl-1">
                                     {controls.reduce((sum, c) => sum + c.mappings.length, 0)}
@@ -237,7 +247,7 @@ export default function ControlsPage() {
                                     <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400">
                                         <Zap className="w-5 h-5" />
                                     </div>
-                                    <div className="text-gray-400 text-sm font-medium">Evidence</div>
+                                    <div className="text-gray-400 text-sm font-medium">{t('ctrl_stat_evidence')}</div>
                                 </div>
                                 <div className="text-3xl font-bold text-white pl-1">
                                     {controls.reduce((sum, c) => sum + c._count.evidences, 0)}
@@ -274,12 +284,12 @@ export default function ControlsPage() {
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-white/5 bg-slate-950/20">
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Control</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Risk</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Mappings</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Evidence</th>
-                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('ctrl_table_control')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('ctrl_table_type')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('ctrl_table_risk')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('ctrl_table_mappings')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('ctrl_table_evidence')}</th>
+                                        <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">{t('ctrl_table_actions')}</th>
                                         <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider"></th>
                                     </tr>
                                 </thead>
@@ -318,7 +328,7 @@ export default function ControlsPage() {
                                             <td className="px-6 py-4 text-right">
                                                 <button
                                                     onClick={() => handleDeleteControl(control.id)}
-                                                    className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                                     title="Delete Control"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -330,7 +340,7 @@ export default function ControlsPage() {
                             </table>
                             {filteredControls.length === 0 && (
                                 <div className="text-center py-12 text-slate-500">
-                                    <div className="mb-2">No controls found</div>
+                                    <div className="mb-2">{t('vendor_no_found')}</div>
                                     <div className="text-sm">Try adjusting your search or filters</div>
                                 </div>
                             )}
@@ -352,14 +362,14 @@ export default function ControlsPage() {
                                     <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 mb-4">
                                         <Shield className="w-6 h-6" />
                                     </div>
-                                    <h2 className="text-2xl font-bold text-white">Add New Control</h2>
-                                    <p className="text-slate-400 text-sm">Define a new control to mitigate risks and ensure compliance.</p>
+                                    <h2 className="text-2xl font-bold text-white">{t('ctrl_modal_title')}</h2>
+                                    <p className="text-slate-400 text-sm">{t('ctrl_modal_desc')}</p>
                                 </div>
 
                                 <form onSubmit={handleAddControl}>
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">{t('ctrl_field_title')}</label>
                                             <input
                                                 type="text"
                                                 value={newControl.title}
@@ -370,7 +380,7 @@ export default function ControlsPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">{t('ctrl_field_desc')}</label>
                                             <textarea
                                                 value={newControl.description}
                                                 onChange={(e) => setNewControl({ ...newControl, description: e.target.value })}
@@ -382,7 +392,7 @@ export default function ControlsPage() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-300 mb-2">Control Type</label>
+                                                <label className="block text-sm font-medium text-slate-300 mb-2">{t('ctrl_field_type')}</label>
                                                 <select
                                                     value={newControl.controlType}
                                                     onChange={(e) => setNewControl({ ...newControl, controlType: e.target.value })}
@@ -395,7 +405,7 @@ export default function ControlsPage() {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-300 mb-2">Risk Level</label>
+                                                <label className="block text-sm font-medium text-slate-300 mb-2">{t('ctrl_field_risk')}</label>
                                                 <select
                                                     value={newControl.controlRisk}
                                                     onChange={(e) => setNewControl({ ...newControl, controlRisk: e.target.value })}
@@ -414,14 +424,14 @@ export default function ControlsPage() {
                                             type="submit"
                                             className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all font-semibold shadow-lg shadow-emerald-500/20"
                                         >
-                                            Add Control
+                                            {t('ctrl_btn_add')}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setShowAddModal(false)}
                                             className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold"
                                         >
-                                            Cancel
+                                            {t('common_cancel')}
                                         </button>
                                     </div>
                                 </form>

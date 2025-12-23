@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Shield, AlertTriangle, TrendingDown, Target, XCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { useGRCData } from '@/lib/contexts/GRCDataContext';
+import { useRouter } from 'next/navigation';
 
 interface ControlCoverageData {
     summary: {
@@ -27,28 +28,10 @@ interface ControlCoverageData {
 }
 
 export default function ControlCoverageDashboard() {
-    const [data, setData] = useState<ControlCoverageData | null>(null);
-    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+    const { coverage: data, loading } = useGRCData() as { coverage: ControlCoverageData | null, loading: boolean };
 
-    useEffect(() => {
-        fetchCoverageData();
-    }, []);
-
-    const fetchCoverageData = async () => {
-        try {
-            const response = await fetch('/api/analytics/control-coverage');
-            if (response.ok) {
-                const coverageData = await response.json();
-                setData(coverageData);
-            }
-        } catch (error) {
-            console.error('Error fetching control coverage:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading) {
+    if (loading && !data) {
         return (
             <div className="animate-pulse space-y-4">
                 <div className="h-32 bg-slate-800/50 rounded-2xl"></div>
@@ -127,8 +110,10 @@ export default function ControlCoverageDashboard() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                    {/* Uncovered Risks Card */}
-                    <div className="relative px-5 py-4 rounded-2xl bg-slate-950/50 border border-white/5 hover:border-red-500/20 transition-all group overflow-hidden flex flex-col justify-between">
+                    <div
+                        onClick={() => router.push('/risks?filter=uncovered')}
+                        className="relative px-5 py-4 rounded-2xl bg-slate-950/50 border border-white/5 hover:border-red-500/20 transition-all group overflow-hidden flex flex-col justify-between cursor-pointer"
+                    >
                         <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="relative z-10">
                             <AlertTriangle className="w-6 h-6 text-red-500 mb-3" />
@@ -193,7 +178,10 @@ export default function ControlCoverageDashboard() {
                                         </div>
                                     </div>
                                 </div>
-                                <button className="text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors border border-white/5">
+                                <button
+                                    onClick={() => router.push(`/controls`)}
+                                    className="text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors border border-white/5"
+                                >
                                     Assign Control
                                 </button>
                             </div>

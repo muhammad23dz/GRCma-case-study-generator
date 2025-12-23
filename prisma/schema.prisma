@@ -2,7 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../lib/generated/client"
 }
 
 datasource db {
@@ -58,6 +60,8 @@ model User {
   organization Organization?   @relation(fields: [orgId], references: [id])
   llmUsage     LLMUsage[]
   subscription Subscription?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([orgId])
   @@index([role])
@@ -72,14 +76,17 @@ model VerificationToken {
 }
 
 model Invitation {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  role      String   @default("user") // admin, manager, user
-  invitedBy String // Email of inviter
-  expires   DateTime
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  email          String   @unique
+  role           String   @default("user") // admin, manager, user
+  invitedBy      String // Email of inviter
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  expires        DateTime
+  createdAt      DateTime @default(now())
 
   @@index([email])
+  @@index([organizationId])
 }
 
 model SystemSetting {
@@ -132,6 +139,7 @@ model Control {
   controlTests     ControlTest[] // NEW: Link to control testing
   policyControls   PolicyControl[] // NEW: Link to policies that enforce this control
   incidentControls IncidentControl[] // NEW: Link to incidents that bypassed this control
+  assetControls    AssetControl[] // NEW: Link to assets
   organizationId   String?
   organization     Organization?      @relation(fields: [organizationId], references: [id])
 
@@ -220,7 +228,9 @@ model Risk {
   incidentRisks  IncidentRisk[] // Added for Incident-Risk relationship
   vendorRisks    VendorRisk[] // Added for Vendor-Risk relationship
   changeRisks    ChangeRisk[] // Added for Change-Risk relationship
+  actions        Action[]     // Added for Action-Risk relationship
   history        RiskHistory[] // Added for Predictive Analytics
+  assetRisks     AssetRisk[] // NEW: Link to assets
   organizationId String?
   organization   Organization?  @relation(fields: [organizationId], references: [id])
 
@@ -456,6 +466,8 @@ model Action {
 
   control        Control?      @relation(fields: [controlId], references: [id])
   incident       Incident?     @relation(fields: [incidentId], references: [id])
+  risk           Risk?         @relation(fields: [riskId], references: [id])
+  riskId         String?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
@@ -488,6 +500,7 @@ model Policy {
   policyControls  PolicyControl[] // NEW: Controls enforced by policy
   versions        PolicyVersion[] // NEW: Version history
   attestations    PolicyAttestation[] // NEW: Employee attestations
+  acknowledgments PolicyAcknowledgment[] // NEW: Employee acknowledgments
   organizationId  String?
   organization    Organization? @relation(fields: [organizationId], references: [id])
 
@@ -728,8 +741,9 @@ model CABMember {
 
 model Organization {
   id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  name             String
+  createdAt        DateTime      @default(now())
+  securitySettings Json?         // { sessionTtl, mfaRequired, passwordPolicy }
 
   users User[]
 
@@ -758,6 +772,18 @@ model Organization {
   integrations Integration[]
   riskHistory  RiskHistory[] // Added for Predictive Analytics
   audits       Audit[]       // NEW: Audit management
+  gaps         Gap[]         // NEW: Gap analysis
+  
+  // Gigachad GRC Integration Relations
+  bcdrPlans         BCDRPlan[]
+  assets            Asset[]
+  businessProcesses BusinessProcess[]
+  questionnaires    Questionnaire[]
+  employees         Employee[]
+  trainingCourses   TrainingCourse[]
+  runbooks          Runbook[]
+  invitations       Invitation[]
+  auditLogs         AuditLog[]
 }
 
 // ============================================
@@ -765,22 +791,25 @@ model Organization {
 // ============================================
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  userName  String
-  userEmail String
-  entity    String
-  entityId  String
-  action    String
-  changes   String
-  ipAddress String?
-  userAgent String?
-  hash      String?  // HMAC-SHA256 signature for tamper evidence
-  timestamp DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  userName      String
+  userEmail     String
+  resource      String   // Maps to 'entity'
+  resourceId    String?  // NEW: Optional link to specific instance
+  action        String
+  changes       String
+  ipAddress     String?
+  userAgent     String?
+  integrityHash String?  // HMAC signature for tamper evidence
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  timestamp     DateTime @default(now())
 
   @@index([userId])
-  @@index([entity])
-  @@index([entityId])
+  @@index([organizationId])
+  @@index([resource])
+  @@index([resourceId])
   @@index([timestamp])
 }
 
@@ -1060,4 +1089,417 @@ model IncidentControl {
   @@index([incidentId])
   @@index([controlId])
 }
+
+// ============================================
+// FEATURE 12: GAP ANALYSIS & REMEDIATION
+// ============================================
+
+model Gap {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  severity        String   @default("medium") // critical, high, medium, low
+  framework       String?  // e.g., ISO 27001
+  impact          String?  // Business impact
+  remediationPlan String?  // High-level plan
+  effort          String?  // high, medium, low
+  timeline        String?  // e.g., "30 days"
+  status          String   @default("open") // open, in_progress, resolved, accepted
+  owner           String?
+  
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  remediationSteps RemediationStep[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([severity])
+  @@index([owner])
+}
+
+model RemediationStep {
+  id          String   @id @default(cuid())
+  gapId       String
+  stepNumber  Int
+  description String
+  assignedTo  String?
+  dueDate     DateTime?
+  status      String   @default("pending") // pending, completed
+  
+  gap Gap @relation(fields: [gapId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gapId])
+  @@index([status])
+}
+
+// ==========================================
+// GIGACHAD GRC INTEGRATION: NEW MODULES
+// ==========================================
+
+// BCDR: Business Continuity & Disaster Recovery
+model BCDRPlan {
+  id              String    @id @default(cuid())
+  title           String
+  type            String    // BCP, DRP, COOP, Crisis
+  status          String    @default("draft") // draft, active, review, archived
+  description     String?
+  rto             Int?      // Recovery Time Objective (hours)
+  rpo             Int?      // Recovery Point Objective (hours)
+  mtpd            Int?      // Maximum Tolerable Period of Disruption (hours)
+  owner           String
+  lastTested      DateTime?
+  nextTestDate    DateTime?
+  version         String    @default("1.0")
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tests           DRTest[]
+  processes       BusinessProcess[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([owner])
+}
+
+model DRTest {
+  id          String    @id @default(cuid())
+  planId      String
+  title       String
+  testDate    DateTime
+  type        String    // tabletop, walkthrough, functional, full-scale
+  status      String    @default("scheduled") // scheduled, in_progress, completed, failed
+  results     String?
+  findings    String?
+  attendees   String?   // JSON array of attendee names
+  duration    Int?      // Duration in minutes
+  passRate    Float?    // Percentage of objectives met
+
+  plan        BCDRPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([planId])
+  @@index([status])
+  @@index([testDate])
+}
+
+// Assets Management
+model Asset {
+  id              String    @id @default(cuid())
+  name            String
+  type            String    // hardware, software, data, personnel, facility
+  category        String?   // server, workstation, application, database, etc.
+  status          String    @default("active") // active, inactive, decommissioned
+  criticality     String    @default("medium") // low, medium, high, critical
+  owner           String
+  location        String?
+  description     String?
+  purchaseDate    DateTime?
+  endOfLife       DateTime?
+  value           Float?    // Monetary value
+  confidentiality String?   // public, internal, confidential, restricted
+  integrity       String?   // low, medium, high
+  availability    String?   // low, medium, high
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  risks           AssetRisk[]
+  controls        AssetControl[]
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([criticality])
+  @@index([owner])
+}
+
+model AssetRisk {
+  id        String @id @default(cuid())
+  assetId   String
+  riskId    String
+  asset     Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  risk      Risk   @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, riskId])
+}
+
+model AssetControl {
+  id        String  @id @default(cuid())
+  assetId   String
+  controlId String
+  asset     Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  control   Control @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, controlId])
+}
+
+// Business Processes
+model BusinessProcess {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  owner           String
+  criticality     String    @default("medium") // low, medium, high, critical
+  status          String    @default("active")
+  rto             Int?      // Recovery Time Objective (hours)
+  rpo             Int?      // Recovery Point Objective (hours)
+  dependencies    String?   // JSON array of dependent process IDs
+  stakeholders    String?   // JSON array of stakeholder names
+
+  bcdrPlanId      String?
+  bcdrPlan        BCDRPlan? @relation(fields: [bcdrPlanId], references: [id])
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([criticality])
+  @@index([owner])
+}
+
+// Questionnaires & Assessments
+model Questionnaire {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  type            String    // vendor, internal, compliance, security
+  status          String    @default("draft") // draft, active, archived
+  version         String    @default("1.0")
+  owner           String
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  questions       Question[]
+  responses       QuestionnaireResponse[]
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([status])
+}
+
+model Question {
+  id              String    @id @default(cuid())
+  questionnaireId String
+  text            String
+  type            String    // text, single_choice, multi_choice, yes_no, rating, file
+  options         String?   // JSON array for choice questions
+  required        Boolean   @default(true)
+  order           Int
+  weight          Float     @default(1.0) // For scoring
+
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  answers         Answer[]
+
+  @@index([questionnaireId])
+}
+
+model QuestionnaireResponse {
+  id              String    @id @default(cuid())
+  questionnaireId String
+  respondentEmail String
+  respondentName  String?
+  status          String    @default("in_progress") // in_progress, submitted, reviewed
+  score           Float?
+  submittedAt     DateTime?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  notes           String?
+
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  answers         Answer[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([questionnaireId])
+  @@index([respondentEmail])
+  @@index([status])
+}
+
+model Answer {
+  id          String    @id @default(cuid())
+  questionId  String
+  responseId  String
+  value       String    // The answer value
+  score       Float?    // Calculated score for this answer
+
+  question    Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  response    QuestionnaireResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([responseId])
+}
+
+// Employee Compliance
+model Employee {
+  id              String    @id @default(cuid())
+  email           String
+  name            String
+  department      String?
+  role            String?
+  manager         String?
+  status          String    @default("active") // active, on_leave, terminated
+  hireDate        DateTime?
+  lastTrainingDate DateTime?
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  trainings       TrainingAssignment[]
+  policyAcks      PolicyAcknowledgment[]
+
+  @@unique([email, organizationId])
+  @@index([organizationId])
+  @@index([department])
+  @@index([status])
+}
+
+model PolicyAcknowledgment {
+  id          String    @id @default(cuid())
+  employeeId  String
+  policyId    String
+  acknowledgedAt DateTime
+  version     String    // Policy version acknowledged
+
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  policy      Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, policyId, version])
+  @@index([employeeId])
+  @@index([policyId])
+}
+
+// Training Module
+model TrainingCourse {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  type            String    // security_awareness, compliance, technical, onboarding
+  duration        Int?      // Duration in minutes
+  mandatory       Boolean   @default(false)
+  content         String?   // Rich text content or URL
+  passingScore    Float     @default(80.0)
+  status          String    @default("active") // draft, active, archived
+  frequency       String?   // one_time, annual, quarterly, monthly
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  assignments     TrainingAssignment[]
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([mandatory])
+}
+
+model TrainingAssignment {
+  id          String    @id @default(cuid())
+  employeeId  String
+  courseId    String
+  assignedAt  DateTime  @default(now())
+  dueDate     DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  score       Float?
+  attempts    Int       @default(0)
+  status      String    @default("assigned") // assigned, in_progress, completed, overdue
+
+  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  course      TrainingCourse  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, courseId])
+  @@index([employeeId])
+  @@index([courseId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// Runbooks
+model Runbook {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  type            String    // incident_response, change_management, maintenance, security
+  status          String    @default("active") // draft, active, archived
+  version         String    @default("1.0")
+  owner           String
+  triggerCondition String?  // When to execute this runbook
+  estimatedTime   Int?      // Estimated execution time in minutes
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  steps           RunbookStep[]
+  executions      RunbookExecution[]
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([status])
+}
+
+model RunbookStep {
+  id          String   @id @default(cuid())
+  runbookId   String
+  stepNumber  Int
+  title       String
+  description String?
+  action      String   // manual, automated, approval
+  assignee    String?
+  estimated   Int?     // Estimated time in minutes
+  critical    Boolean  @default(false)
+
+  runbook     Runbook  @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+
+  @@index([runbookId])
+}
+
+model RunbookExecution {
+  id          String    @id @default(cuid())
+  runbookId   String
+  triggeredBy String
+  triggeredAt DateTime  @default(now())
+  status      String    @default("in_progress") // in_progress, completed, failed, cancelled
+  completedAt DateTime?
+  notes       String?
+  currentStep Int       @default(1)
+
+  runbook     Runbook   @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+
+  @@index([runbookId])
+  @@index([status])
+  @@index([triggeredAt])
+}
+
 

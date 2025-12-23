@@ -1,40 +1,24 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit-log';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
-const DEV_MODE = process.env.DEV_MODE === 'true';
-
-// GET /api/risks - List all risks
+// GET /api/risks - List risks for current user
 export async function GET(request: NextRequest) {
     try {
-        const { userId, orgId, sessionClaims } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        // DEV_MODE: Skip org check, or if user has no org, show their owned items
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
         const category = searchParams.get('category');
 
-        const userRole = (session.user as any).role || 'user';
-        const isAdmin = ['admin', 'manager'].includes(userRole);
-
-        // Build where clause with orgId fallback for dev/testing
-        const whereClause: any = {};
-
-        if (DEV_MODE) {
-            // In dev mode, show all risks (no filtering)
-        } else if (orgId) {
-            whereClause.organizationId = orgId;
-            if (!isAdmin) {
-                whereClause.owner = session.user.email;
-            }
-        } else {
-            // Fallback: show user's owned risks when no org
-            whereClause.owner = session.user.email;
-        }
+        // Expert Tier Isolation
+        const whereClause: any = {
+            ...getIsolationFilter(context, 'Risk')
+        };
 
         if (status) whereClause.status = status;
         if (category) whereClause.category = category;
@@ -42,9 +26,19 @@ export async function GET(request: NextRequest) {
         const risks = await prisma.risk.findMany({
             where: whereClause,
             include: {
-                control: true,
+                riskControls: {
+                    include: {
+                        control: true
+                    }
+                },
+                vendorRisks: {
+                    include: {
+                        vendor: true
+                    }
+                },
+                actions: true,
                 _count: {
-                    select: { evidences: true }
+                    select: { evidences: true, riskControls: true, actions: true }
                 }
             },
             orderBy: { score: 'desc' }
@@ -52,40 +46,72 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ risks });
     } catch (error: any) {
-        console.error('Error fetching risks:', error);
+        console.error('[Risks] GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// POST /api/risks - Create new risk
+// POST /api/risks - Create new risk with GRC relations
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const body = await request.json();
-        const { assetId, category, likelihood, impact, narrative, status: riskStatus } = body;
+        const { assetId, category, likelihood, impact, narrative, status: riskStatus, controlId, vendorId } = body;
+
+        const calculatedScore = (likelihood || 3) * (impact || 3);
+
+        let riskCategory = category;
+        if (!riskCategory) {
+            if (calculatedScore >= 20) riskCategory = 'Critical';
+            else if (calculatedScore >= 12) riskCategory = 'High';
+            else if (calculatedScore >= 6) riskCategory = 'Medium';
+            else riskCategory = 'Low';
+        }
 
         const risk = await prisma.risk.create({
             data: {
                 assetId: assetId || null,
-                category: category || 'General',
+                category: riskCategory,
                 likelihood: likelihood || 3,
                 impact: impact || 3,
-                score: (likelihood || 3) * (impact || 3),
+                score: calculatedScore,
                 narrative: narrative || 'New risk identified',
                 status: riskStatus || 'open',
-                owner: session.user.email,
-                organizationId: session.user.orgId || null,
+                owner: context.email,
+                organizationId: context.orgId // Org-scoped IAM support
             }
+        });
+
+        // Link Relations
+        if (controlId) {
+            await prisma.riskControl.create({
+                data: { riskId: risk.id, controlId }
+            });
+        }
+        if (vendorId) {
+            await prisma.vendorRisk.create({
+                data: {
+                    riskId: risk.id,
+                    vendorId,
+                    riskType: 'security' // Default required field
+                }
+            });
+        }
+
+        await logAudit({
+            entity: 'Risk',
+            entityId: risk.id,
+            action: 'CREATE',
+            changes: { narrative: risk.narrative, category: risk.category, score: risk.score }
         });
 
         return NextResponse.json({ risk }, { status: 201 });
     } catch (error: any) {
-        console.error('Error creating risk:', error);
+        console.error('[Risks] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

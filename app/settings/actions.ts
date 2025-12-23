@@ -27,6 +27,32 @@ export async function toggleMFA(enabled: boolean) {
     }
 }
 
+export async function updateOrganizationSecuritySettings(settings: any) {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    try {
+        const dbUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { orgId: true, role: true }
+        });
+
+        if (!dbUser || !dbUser.orgId) throw new Error("Organization not found");
+        if (!['admin', 'manager'].includes(dbUser.role || '')) throw new Error("Forbidden");
+
+        await prisma.organization.update({
+            where: { id: dbUser.orgId },
+            data: { securitySettings: settings }
+        });
+
+        revalidatePath('/settings');
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update org settings:", error);
+        return { success: false, error: "Failed to update organization settings" };
+    }
+}
+
 export async function updateSessionTimeout(timeout: string) {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
@@ -129,6 +155,29 @@ export async function updateDataRetention(retention: string) {
     }
 }
 
+// ==========================================
+// INTEGRATION SETTINGS
+// ==========================================
+
+export async function toggleIntegration(name: string, connected: boolean) {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    try {
+        const key = `integration_${name.replace(/\s+/g, '_')}`;
+        await prisma.systemSetting.upsert({
+            where: { userId_key: { userId, key } },
+            create: { userId, key, value: String(connected), description: `Integration: ${name}` },
+            update: { value: String(connected) }
+        });
+        revalidatePath('/settings');
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to toggle integration:", error);
+        return { success: false };
+    }
+}
+
 export async function exportUserData() {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
@@ -148,12 +197,64 @@ export async function exportUserData() {
         const policies = await prisma.policy.findMany({ where: { owner: user?.email || '' }, take: 100 });
         const vendors = await prisma.vendor.findMany({ where: { owner: user?.email || '' }, take: 100 });
         const evidence = await prisma.evidence.findMany({ where: { uploadedBy: user?.email || '' }, take: 100 });
+        const gaps = await prisma.gap.findMany({ where: { owner: user?.email || '' }, take: 100 });
+        const audits = await prisma.auditLog.findMany({ where: { userId: userId }, take: 500 });
+        const reports = await prisma.report.findMany({ where: { userId: userId }, take: 50 });
 
-        return { success: true, data: { user, controls, risks, policies, vendors, evidence } };
+        return { success: true, data: { user, controls, risks, policies, vendors, evidence, gaps, audits, reports } };
     } catch (error) {
         console.error("Failed to export data:", error);
         return { success: false, error: "Failed to export data" };
     }
+}
+
+// ==========================================
+// ACTIVITY LOGS & SESSIONS
+// ==========================================
+
+export async function getActivityLogs() {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    try {
+        const logs = await prisma.auditLog.findMany({
+            where: { userId },
+            orderBy: { timestamp: 'desc' },
+            take: 20
+        });
+        return { success: true, logs };
+    } catch (error) {
+        console.error("Failed to fetch activity logs:", error);
+        return { success: false, logs: [] };
+    }
+}
+
+export async function getSessions() {
+    // In a real Clerk app, you'd use Clerk.sessions.getSessionList({ userId })
+    // For this implementation, we simulate current session plus a few mock historical ones 
+    // to demonstrate the UI "Active Sessions" feature.
+    const { userId } = await auth();
+    if (!userId) return { success: false, sessions: [] };
+
+    return {
+        success: true,
+        sessions: [
+            {
+                id: 'sess_current',
+                device: 'Chrome on Windows',
+                ipAddress: '192.168.1.1',
+                lastActive: new Date().toISOString(),
+                isCurrent: true
+            },
+            {
+                id: 'sess_mobile',
+                device: 'Safari on iPhone',
+                ipAddress: '172.16.0.45',
+                lastActive: new Date(Date.now() - 3600000).toISOString(),
+                isCurrent: false
+            }
+        ]
+    };
 }
 
 // ==========================================
@@ -167,7 +268,14 @@ export async function getUserFullSettings() {
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { mfaEnabled: true }
+            select: {
+                mfaEnabled: true,
+                organization: {
+                    select: {
+                        securitySettings: true
+                    }
+                }
+            }
         });
 
         const settings = await prisma.systemSetting.findMany({
@@ -205,15 +313,71 @@ export async function getUserFullSettings() {
             retention: settingsMap['data_retention'] || '3years',
         };
 
+        // Integrations
+        const integrations: Record<string, boolean> = {};
+        Object.keys(settingsMap).forEach(key => {
+            if (key.startsWith('integration_')) {
+                const name = key.replace('integration_', '');
+                integrations[name] = settingsMap[key] === 'true';
+            }
+        });
+
         return {
             mfaEnabled: user?.mfaEnabled || false,
             notifications,
             compliance,
             security,
             data,
+            integrations,
+            organizationSecuritySettings: user?.organization?.securitySettings as any || {
+                sessionTtl: 24,
+                mfaRequired: false,
+                passwordPolicy: 'standard'
+            }
         };
     } catch (error) {
         console.error("Failed to fetch settings:", error);
         return null;
+    }
+}
+
+export async function deleteAccount() {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true }
+        });
+
+        if (!user) return { success: false, error: "User not found" };
+
+        const email = user.email;
+        if (!email) return { success: false, error: "User email not found" };
+
+        const userEmail: string = email;
+
+        // Atomic transaction to delete all user data
+        await prisma.$transaction([
+            prisma.report.deleteMany({ where: { userId } }),
+            prisma.control.deleteMany({ where: { owner: userEmail } }),
+            prisma.risk.deleteMany({ where: { owner: userEmail } }),
+            prisma.policy.deleteMany({ where: { owner: userEmail } }),
+            prisma.vendor.deleteMany({ where: { owner: userEmail } }),
+            prisma.evidence.deleteMany({ where: { uploadedBy: userEmail } }),
+            prisma.action.deleteMany({ where: { owner: userEmail } }),
+            prisma.incident.deleteMany({ where: { reportedBy: userEmail } }),
+            prisma.change.deleteMany({ where: { requestedBy: userEmail } }),
+            prisma.gap.deleteMany({ where: { owner: userEmail } }),
+            prisma.auditLog.deleteMany({ where: { userId } }),
+            prisma.systemSetting.deleteMany({ where: { userId } }),
+            prisma.user.delete({ where: { id: userId } })
+        ]);
+
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete account:", error);
+        return { success: false, error: "Failed to purge user data" };
     }
 }

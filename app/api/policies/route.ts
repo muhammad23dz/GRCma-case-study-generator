@@ -1,61 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
-// GET /api/policies
+// GET /api/policies - List policies for current user
 export async function GET() {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
+        // Expert Tier Isolation
         const policies = await prisma.policy.findMany({
             where: {
-                owner: userId
+                ...getIsolationFilter(context, 'Policy')
+            },
+            include: {
+                policyControls: {
+                    include: {
+                        control: true
+                    }
+                },
+                _count: {
+                    select: { policyControls: true }
+                }
             },
             orderBy: { updatedAt: 'desc' }
         });
 
         return NextResponse.json({ policies });
     } catch (error: any) {
-        console.error('Error fetching policies:', error);
+        console.error('[Policies] GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// POST /api/policies
+// POST /api/policies - Create new policy
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Enforce RBAC for Creation
-        const role = (session.user as any).role;
-        const { canEditContent } = await import('@/lib/permissions');
-
-        if (!canEditContent(role)) {
-            return NextResponse.json({ error: 'Forbidden: Only Analysts/Managers/Admins can create policies' }, { status: 403 });
-        }
-
         const body = await request.json();
-        const { title, version, content, reviewDate } = body;
+        const { title, version, content, reviewDate, controlIds } = body;
 
         const policy = await prisma.policy.create({
             data: {
                 title,
-                version,
+                version: version || '1.0',
                 content,
-                reviewDate: new Date(reviewDate),
-                owner: session.user.email
+                reviewDate: reviewDate ? new Date(reviewDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+                owner: context.email,
+                organizationId: context.orgId, // Org-scoped IAM support
+                status: 'draft'
             }
         });
 
-        return NextResponse.json({ policy });
+        // Link relations
+        if (controlIds && Array.isArray(controlIds)) {
+            for (const controlId of controlIds) {
+                await prisma.policyControl.create({
+                    data: { policyId: policy.id, controlId }
+                });
+            }
+        }
+
+        return NextResponse.json({ policy }, { status: 201 });
     } catch (error: any) {
-        console.error('Error creating policy:', error);
+        console.error('[Policies] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

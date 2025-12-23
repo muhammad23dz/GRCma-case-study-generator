@@ -181,7 +181,7 @@ export default function RisksPage() {
                                 </div>
 
                                 {/* Delete All - Admin Only */}
-                                {risks.length > 0 && canDeleteRecords((session?.user as any)?.role) && (
+                                {risks.length > 0 && canDeleteRecords((user?.publicMetadata as any)?.role) && (
                                     <button
                                         onClick={async () => {
                                             if (!confirm(`Are you sure you want to delete all ${risks.length} risks? This cannot be undone.`)) return;
@@ -297,7 +297,7 @@ export default function RisksPage() {
                                 <div className="px-6 py-5 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
                                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                                         <AlertTriangle className="w-5 h-5 text-red-500" />
-                                        Risk Register
+                                        {t('nav_risk')}
                                     </h2>
                                     <div className="text-sm text-slate-500">
                                         {t('common_showing')} {filteredRisks.length} {t('common_of')} {risks.length}
@@ -358,10 +358,10 @@ export default function RisksPage() {
                                                     <td className="px-6 py-5 text-slate-300 font-mono">{risk._count.evidences}</td>
                                                     <td className="px-6 py-5">
                                                         {/* Delete Risk - Admin Only */}
-                                                        {canDeleteRecords((session?.user as any)?.role) && (
+                                                        {canDeleteRecords((user?.publicMetadata as any)?.role) && (
                                                             <button
                                                                 onClick={() => handleDeleteRisk(risk.id)}
-                                                                className="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                                                                className="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-all"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
@@ -394,7 +394,7 @@ export default function RisksPage() {
                                 <form onSubmit={handleAssessRisk}>
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Asset/System ID</label>
+                                            <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">{t('risk_table_asset')}</label>
                                             <input
                                                 type="text"
                                                 value={assessmentData.assetId}
@@ -405,7 +405,7 @@ export default function RisksPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Evidence Items (one per line)</label>
+                                            <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">{t('ctrl_stat_evidence')} (one per line)</label>
                                             <textarea
                                                 value={assessmentData.evidenceItems.join('\n')}
                                                 onChange={(e) => setAssessmentData({ ...assessmentData, evidenceItems: e.target.value.split('\n') })}

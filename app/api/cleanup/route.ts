@@ -1,49 +1,145 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST() {
+// DELETE /api/cleanup - Delete all user's GRC data
+export async function DELETE() {
     try {
         const { userId } = await auth();
         if (!userId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        // Note: With Clerk, we use userId as the primary identifier.
-        // If the schema expects email, we'd need to fetch it, but let's assume userId for now
-        // or that the fields have been updated to use ownerId/userId.
-        // Given the previous code used email, this might need schema updates or user fetch.
-        // For this migration, we will use userId as the identifier if possible,
-        // or we might need to fetch the user details.
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress;
 
-        // However, for the purpose of this refactor, we will stick to userId check.
-        const userIdentifier = userId;
-        console.log(`[CLEANUP] Starting cleanup for user: ${userIdentifier}`);
+        if (!userEmail) {
+            return NextResponse.json({ error: 'User email not found' }, { status: 400 });
+        }
 
-        // Execute deletions in a transaction to ensure atomicity
+        console.log(`[CLEANUP] Starting cleanup for user: ${userId} (${userEmail})`);
+
+        // Use a transaction to ensure all-or-nothing cleanup and handle constraints
         const result = await prisma.$transaction(async (tx) => {
-            // Ideally these 'DeleteMany' should target userId, but if the schema is
-            // literally 'owner: email', this will fail. 
-            // Logic: We are assuming a clean break. The DB was wiped. 
-            // We should probably rely on userId going forward.
-            // If the schema still uses email, we technically need the email.
+            // 1. Join/Relation Tables (Many-to-Many) - Delete these first
+            const rc = await tx.riskControl.deleteMany({
+                where: { OR: [{ risk: { owner: userEmail } }, { control: { owner: userEmail } }] }
+            });
+            const ir = await tx.incidentRisk.deleteMany({
+                where: { OR: [{ incident: { reportedBy: userEmail } }, { risk: { owner: userEmail } }] }
+            });
+            const vr = await tx.vendorRisk.deleteMany({
+                where: { OR: [{ vendor: { owner: userEmail } }, { risk: { owner: userEmail } }] }
+            });
+            const cr = await tx.changeRisk.deleteMany({
+                where: { OR: [{ change: { requestedBy: userEmail } }, { risk: { owner: userEmail } }] }
+            });
+            const pc = await tx.policyControl.deleteMany({
+                where: { OR: [{ policy: { owner: userEmail } }, { control: { owner: userEmail } }] }
+            });
+            const ic = await tx.incidentControl.deleteMany({
+                where: { OR: [{ incident: { reportedBy: userEmail } }, { control: { owner: userEmail } }] }
+            });
 
-            // Let's assume for now we skip the actual deletions unless we know the schema matches.
-            // But wait, the user wants the server to run.
-            // Reverting to empty cleanup for safety if schema mismatch, 
-            // OR simpler: just return success for now since we wiped DB anyway.
+            // 2. Child Entities / Task Tables
+            const rem = await tx.remediationStep.deleteMany({
+                where: { gap: { owner: userEmail } }
+            });
+            const ct = await tx.controlTest.deleteMany({
+                where: { control: { owner: userEmail } }
+            });
+            const fnd = await tx.auditFinding.deleteMany({
+                where: { control: { owner: userEmail } }
+            });
+            const evf = await tx.evidenceFile.deleteMany({
+                where: { uploadedBy: userEmail }
+            });
+            const pv = await tx.policyVersion.deleteMany({
+                where: { policy: { owner: userEmail } }
+            });
+            const pa = await tx.policyAttestation.deleteMany({
+                where: { policy: { owner: userEmail } }
+            });
+            const rh = await tx.riskHistory.deleteMany({
+                where: { risk: { owner: userEmail } }
+            });
 
-            return { skipped: true };
+            // 3. Primary Feature Entities
+            const act = await tx.action.deleteMany({
+                where: { owner: userEmail }
+            });
+            const inc = await tx.incident.deleteMany({
+                where: { reportedBy: userEmail }
+            });
+            const gap = await tx.gap.deleteMany({
+                where: { owner: userEmail }
+            });
+            const aud = await tx.audit.deleteMany({
+                where: { findings: { some: { control: { owner: userEmail } } } }
+            });
+            const ev = await tx.evidence.deleteMany({
+                where: { uploadedBy: userEmail }
+            });
+            const att = await tx.attestation.deleteMany({
+                where: { attestedBy: userEmail }
+            });
+            const vas = await tx.vendorAssessment.deleteMany({
+                where: { vendor: { owner: userEmail } }
+            });
+
+            // 4. Core GRC Objects
+            const rsk = await tx.risk.deleteMany({
+                where: { owner: userEmail }
+            });
+            const ctrl = await tx.control.deleteMany({
+                where: { owner: userEmail }
+            });
+            const vnd = await tx.vendor.deleteMany({
+                where: { owner: userEmail }
+            });
+            const pol = await tx.policy.deleteMany({
+                where: { owner: userEmail }
+            });
+            const chg = await tx.change.deleteMany({
+                where: { requestedBy: userEmail }
+            });
+
+            // 5. Reports and System Data
+            const rpt = await tx.report.deleteMany({
+                where: { userId: userId }
+            });
+            const log = await tx.auditLog.deleteMany({
+                where: { userEmail: userEmail }
+            });
+            const usage = await tx.lLMUsage.deleteMany({
+                where: { userId: userId }
+            }).catch(() => ({ count: 0 })); // Optional table
+
+            return {
+                relations: rc.count + ir.count + vr.count + cr.count + pc.count + ic.count,
+                children: rem.count + ct.count + fnd.count + evf.count + pv.count + pa.count + rh.count,
+                features: act.count + inc.count + gap.count + aud.count + ev.count + att.count + vas.count,
+                core: rsk.count + ctrl.count + vnd.count + pol.count + chg.count,
+                system: rpt.count + log.count + (usage as any).count
+            };
         });
 
-        console.log(`[CLEANUP] Cleanup completed successfully for ${userIdentifier}`, result);
+        console.log(`[CLEANUP] Cleanup completed successfully for ${userEmail}:`, result);
         return NextResponse.json({
             success: true,
-            message: 'Dashboard cleaned successfully',
+            message: 'Dashboard wiped successfully',
             deletedCounts: result
         });
     } catch (error: any) {
-        console.error('[CLEANUP] Cleanup error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[CLEANUP] Critical cleanup failure:', error);
+        return NextResponse.json({
+            error: 'Failed to reset dashboard',
+            details: error.message
+        }, { status: 500 });
     }
+}
+
+// Keep POST for backwards compatibility
+export async function POST() {
+    return DELETE();
 }

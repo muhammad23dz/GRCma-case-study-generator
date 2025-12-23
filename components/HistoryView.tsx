@@ -24,7 +24,7 @@ export default function HistoryView({ history, onSelectReport, onDeleteReport }:
     return (
         <div className="max-w-5xl mx-auto">
             <h2 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-red-400 bg-clip-text text-transparent mb-8">
-                Case Study History
+                Assessment History
             </h2>
             <div className="grid gap-4">
                 {history.map((report) => (

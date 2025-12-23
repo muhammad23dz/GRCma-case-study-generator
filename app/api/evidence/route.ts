@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
@@ -8,9 +7,9 @@ import { join } from 'path';
 // GET /api/evidence - List all evidence
 export async function GET(request: Request) {
     try {
-        const { userId } = auth();
+        const { userId, orgId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -18,22 +17,24 @@ export async function GET(request: Request) {
         const riskId = searchParams.get('riskId');
         const requirementId = searchParams.get('requirementId');
 
-        const userRole = (session.user as any).role || 'user';
-        const isAdmin = ['admin', 'manager'].includes(userRole);
+        // Filter by orgId if available
+        const whereClause: any = {};
+        if (process.env.DEV_MODE !== 'true' && orgId) {
+            whereClause.organizationId = orgId;
+        }
 
-        const evidence = await prisma.evidence.findMany({
-            where: {
-                ...(isAdmin ? {} : { uploadedBy: session.user.email }),
-                ...(controlId && { controlId }),
-                ...(riskId && { riskId }),
-                ...(requirementId && { requirementId }),
-            },
+        if (controlId) whereClause.controlId = controlId;
+        if (riskId) whereClause.riskId = riskId;
+        if (requirementId) whereClause.requirementId = requirementId;
+
+        const evidenceList = await prisma.evidence.findMany({
+            where: whereClause,
             include: {
-                control: true,
-                risk: true,
+                control: { select: { id: true, title: true } },
+                risk: { select: { id: true, title: true } },
                 requirement: {
                     include: {
-                        framework: true
+                        framework: { select: { id: true, name: true } }
                     }
                 },
                 controlTests: true,
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
             orderBy: { timestamp: 'desc' }
         });
 
-        return NextResponse.json({ evidence });
+        return NextResponse.json({ data: evidenceList });
     } catch (error: any) {
         console.error('Error fetching evidence:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -51,8 +52,8 @@ export async function GET(request: Request) {
 // POST /api/evidence - Create evidence with file upload
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
+        const { userId, orgId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
         const controlId = formData.get('controlId') as string | null;
         const riskId = formData.get('riskId') as string | null;
         const requirementId = formData.get('requirementId') as string | null;
-        const evidenceType = formData.get('evidenceType') as string;
+        const evidenceType = formData.get('evidenceType') as string || 'document';
         const source = formData.get('source') as string || 'manual';
         const description = formData.get('description') as string || '';
 
@@ -74,16 +75,18 @@ export async function POST(request: NextRequest) {
 
             // Create unique filename
             const timestamp = Date.now();
-            fileName = `${timestamp} -${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')} `;
+            const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+            fileName = `${timestamp}-${safeName}`;
+
             const uploadDir = join(process.cwd(), 'public', 'uploads', 'evidence');
 
             // Ensure directory exists
             await mkdir(uploadDir, { recursive: true });
 
             const path = join(uploadDir, fileName);
-
             await writeFile(path, buffer);
-            fileUrl = `/ uploads / evidence / ${fileName} `;
+
+            fileUrl = `/uploads/evidence/${fileName}`;
         }
 
         const evidence = await prisma.evidence.create({
@@ -97,12 +100,13 @@ export async function POST(request: NextRequest) {
                 description,
                 fileName,
                 fileUrl,
-                uploadedBy: session.user.email,
-                status: 'draft', // Default status
+                uploadedBy: userId, // Use Clerk userId
+                organizationId: orgId || undefined, // Set orgId
+                status: 'draft',
             }
         });
 
-        return NextResponse.json({ evidence });
+        return NextResponse.json({ data: evidence });
     } catch (error: any) {
         console.error('Error creating evidence:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

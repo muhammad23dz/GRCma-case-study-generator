@@ -1,48 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
 
 // GET /api/admin/users - List users
 export async function GET(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        // Verify Admin Role
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true, name: true } });
-        const userRole = dbUser?.role || 'user';
-        const userEmail = dbUser?.email || '';
-        const userName = dbUser?.name || 'Administrator';
-
-        if (userRole !== 'admin') {
+        if (!['admin', 'manager'].includes(context.role)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        // Multi-Tenant Scope
-        if (!orgId) {
-            // Return empty if no org
-        }
-
         const users = await prisma.user.findMany({
-            where: {
-                orgId: orgId || undefined
-            },
+            where: context.role === 'admin' ? {} : { orgId: context.orgId },
             orderBy: { name: 'asc' },
             select: {
                 id: true,
                 name: true,
                 email: true,
                 role: true,
-                image: true
+                image: true,
+                createdAt: true
             }
         });
 
-        const orgUserEmails = users.map(u => u.email).filter(e => e !== null) as string[];
-
         const invitations = await prisma.invitation.findMany({
-            where: {
-                invitedBy: { in: orgUserEmails.length > 0 ? orgUserEmails : [userEmail] }
-            },
+            where: context.role === 'admin' ? {} : { organizationId: context.orgId },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -54,16 +38,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/users/invite - Invite new user
 export async function POST(request: NextRequest) {
-    console.log('[API] POST /api/admin/users - Start');
     try {
-        const { userId } = await auth();
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true, name: true } });
-        if (dbUser?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-        const userEmail = dbUser?.email || '';
-        const userName = dbUser?.name || 'Administrator';
+        if (!['admin', 'manager'].includes(context.role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const body = await request.json();
         console.log('[API] Invite Payload:', body);
@@ -72,7 +53,11 @@ export async function POST(request: NextRequest) {
         // check if user exists
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
-            console.log('[API] User exists, updating role');
+            // Check if we can update this user (org scoping)
+            if (context.role !== 'admin' && existingUser.orgId !== context.orgId) {
+                return NextResponse.json({ error: 'User belongs to another organization' }, { status: 403 });
+            }
+
             await prisma.user.update({
                 where: { email },
                 data: { role }
@@ -87,12 +72,18 @@ export async function POST(request: NextRequest) {
 
         const invitation = await prisma.invitation.upsert({
             where: { email },
-            update: { role, invitedBy: userEmail, expires },
+            update: {
+                role,
+                invitedBy: context.email,
+                expires,
+                organizationId: context.orgId
+            },
             create: {
                 email,
                 role,
-                invitedBy: userEmail,
-                expires
+                invitedBy: context.email,
+                expires,
+                organizationId: context.orgId
             }
         });
         console.log('[API] Invitation Upsert Success:', invitation.id);
@@ -103,7 +94,7 @@ export async function POST(request: NextRequest) {
         let emailError = null;
         try {
             const { sendInvitationEmail } = await import('@/lib/email');
-            const result = await sendInvitationEmail(email, role, userName);
+            const result = await sendInvitationEmail(email, role, context.email);
             console.log('[API] Email Send Result:', result ? 'Success' : 'Null Response');
 
             if (result) {

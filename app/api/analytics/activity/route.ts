@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
                 userName: true,
                 userEmail: true,
                 action: true,
-                entity: true,
-                entityId: true,
+                resource: true,
+                resourceId: true,
                 timestamp: true,
                 changes: true
             }

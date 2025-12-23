@@ -1,61 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { grcLLM } from '@/lib/llm/grc-service';
 import { z } from 'zod';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
-const DEV_MODE = process.env.DEV_MODE === 'true';
-
-// Strict Input Validation Schema
+// Input Validation Schema
 const createActionSchema = z.object({
     type: z.string().min(1, "Type is required"),
     title: z.string().min(3, "Title too short").max(200),
     description: z.string(),
     controlId: z.string().optional(),
     incidentId: z.string().optional(),
+    riskId: z.string().optional(),
     severity: z.string().optional(),
     assignee: z.string().email("Assignee must be a valid email").optional(),
-    dueDate: z.string().datetime().optional().nullable(),
+    dueDate: z.string().optional().nullable(),
     priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
     generatePlaybook: z.boolean().optional()
 });
 
-// GET /api/actions - List all actions
+// GET /api/actions - List actions for current user
 export async function GET(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true } });
-        const userEmail = dbUser?.email || '';
-        const userRole = dbUser?.role || 'user';
-
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
-        const assignee = searchParams.get('assignee');
         const priority = searchParams.get('priority');
-        const isAdmin = ['admin', 'manager'].includes(userRole);
 
-        const where: any = {};
-
-        if (DEV_MODE) {
-            // Show all actions in dev mode
-        } else if (orgId) {
-            where.organizationId = orgId;
-            if (!isAdmin) {
-                where.owner = userEmail;
-            }
-        } else {
-            where.owner = userEmail;
-        }
+        // Expert Tier Isolation
+        const where: any = {
+            ...getIsolationFilter(context, 'Action')
+        };
 
         if (status) where.status = status;
-        if (assignee) {
-            if (!assignee.includes('@')) return NextResponse.json({ error: "Invalid assignee format" }, { status: 400 });
-            where.assignedTo = assignee;
-        }
         if (priority) where.priority = priority;
 
         const actions = await prisma.action.findMany({
@@ -63,6 +44,7 @@ export async function GET(request: NextRequest) {
             include: {
                 control: true,
                 incident: true,
+                risk: true
             },
             take: 100,
             orderBy: [
@@ -78,64 +60,64 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ actions: mappedActions });
     } catch (error: any) {
-        console.error("Error in GET /api/actions:", error);
+        console.error('[Actions] GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// POST /api/actions - Create action with LLM playbook
+// POST /api/actions - Create new action with GRC relations
 export async function POST(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
-        const userEmail = dbUser?.email || '';
-
         const body = await request.json();
-        const validation = createActionSchema.safeParse(body);
-
-        if (!validation.success) {
-            return NextResponse.json({
-                error: 'Validation Failed',
-                details: validation.error.issues
-            }, { status: 400 });
-        }
-
-        const { type, title, description, controlId, incidentId, severity, assignee, dueDate, priority, generatePlaybook } = validation.data;
-
-        let playbook = null;
-        if (generatePlaybook) {
-            try {
-                const result = await grcLLM.generatePlaybook(description, severity || 'medium');
-                playbook = JSON.stringify(result.data);
-            } catch (e) {
-                console.error("Playbook generation failed:", e);
-            }
-        }
+        const validatedInput = createActionSchema.parse(body);
 
         const action = await prisma.action.create({
             data: {
-                type,
-                title,
-                description,
-                controlId,
-                incidentId,
-                owner: userEmail,
-                assignedTo: assignee,
-                dueDate: dueDate ? new Date(dueDate) : null,
-                priority: priority as any,
-                playbook: playbook ? JSON.parse(playbook) : undefined,
+                type: validatedInput.type,
+                title: validatedInput.title,
+                description: validatedInput.description,
                 status: 'open',
-                organizationId: orgId || null,
+                owner: context.email,
+                organizationId: context.orgId, // Org-scoped IAM support
+                assignedTo: validatedInput.assignee || context.email,
+                dueDate: validatedInput.dueDate ? new Date(validatedInput.dueDate) : null,
+                priority: validatedInput.priority,
+                // GRC Relations
+                controlId: validatedInput.controlId || null,
+                incidentId: validatedInput.incidentId || null,
+                riskId: validatedInput.riskId || null
+            },
+            include: {
+                control: true,
+                incident: true,
+                risk: true
             }
         });
 
-        return NextResponse.json({ action: { ...action, assignee: action.assignedTo } });
+        // Generate AI playbook if requested
+        if (validatedInput.generatePlaybook && action.title) {
+            try {
+                const playbook = await grcLLM.generatePlaybook(
+                    action.title,
+                    validatedInput.severity || 'medium'
+                );
+                await prisma.action.update({
+                    where: { id: action.id },
+                    data: { playbook: JSON.stringify(playbook.data) }
+                });
+            } catch (e) {
+                console.error('[Actions] Playbook generation failed:', e);
+            }
+        }
+
+        return NextResponse.json({ action }, { status: 201 });
     } catch (error: any) {
-        console.error("Error in POST /api/actions:", error);
+        console.error('[Actions] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

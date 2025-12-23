@@ -5,11 +5,17 @@ import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { GeneratedReport } from '@/types';
 import { applyReportToPlatform } from '@/app/actions';
-import { Download, RefreshCw, Database, CheckCircle, Mail, Shield, AlertTriangle, Users, FileWarning } from 'lucide-react';
+import { Download, RefreshCw, Database, CheckCircle, Mail, Shield, AlertTriangle, Users, FileWarning, FileText, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+import { useGRCData } from '@/lib/contexts/GRCDataContext';
+import { AssessmentOutput } from '@/types/assessment';
 
 interface ReportViewProps {
-  report: GeneratedReport;
+  report: {
+    id: string;
+    sections: AssessmentOutput;
+    timestamp: string;
+  };
   onReset: () => void;
 }
 
@@ -17,11 +23,30 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
   const { user } = useUser();
   const router = useRouter();
   const { t } = useLanguage();
+  const { refreshAll } = useGRCData();
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
   const [clearData, setClearData] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [prunedItems, setPrunedItems] = useState<{
+    controls: number[];
+    risks: number[];
+    vendors: number[];
+    incidents: number[];
+  }>({
+    controls: [],
+    risks: [],
+    vendors: [],
+    incidents: []
+  });
+
+  const handlePrune = (type: keyof typeof prunedItems, index: number) => {
+    setPrunedItems(prev => ({
+      ...prev,
+      [type]: [...prev[type], index]
+    }));
+  };
 
   const handleSendEmail = async (targetEmail: string) => {
     setIsSendingEmail(true);
@@ -69,14 +94,27 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
 
     const userEmail = user.primaryEmailAddress.emailAddress;
 
+    // Filter pruned items
+    const filteredReport = {
+      ...report,
+      sections: {
+        ...report.sections,
+        controls: report.sections.controls.filter((_, i) => !prunedItems.controls.includes(i)),
+        risks: report.sections.risks.filter((_, i) => !prunedItems.risks.includes(i)),
+        vendors: report.sections.vendors.filter((_, i) => !prunedItems.vendors.includes(i)),
+        incidents: report.sections.incidents.filter((_, i) => !prunedItems.incidents.includes(i))
+      }
+    };
+
     if (confirm(clearData ?
       'This will REPLACE all your existing GRC data. Continue?' :
       'This will ADD the generated data to your dashboard. Continue?')) {
 
       setIsImporting(true);
       try {
-        await applyReportToPlatform(report, clearData, userEmail);
+        await applyReportToPlatform(filteredReport, clearData, userEmail);
         setImportSuccess(true);
+        refreshAll(); // Ensure global state is updated with new data
         setTimeout(() => router.push('/dashboard'), 2000);
       } catch (e: any) {
         alert('Import failed: ' + e.message);
@@ -87,12 +125,13 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
   };
 
   const data = report.sections || {};
-  const controls = data.controls || [];
-  const risks = data.risks || [];
-  const vendors = data.vendors || [];
-  const incidents = data.incidents || [];
+  const executiveSummary = data.executiveSummary || null;
+  const controls = (data.controls || []).filter((_: any, i: number) => !prunedItems.controls.includes(i));
+  const risks = (data.risks || []).filter((_: any, i: number) => !prunedItems.risks.includes(i));
+  const vendors = (data.vendors || []).filter((_: any, i: number) => !prunedItems.vendors.includes(i));
+  const incidents = (data.incidents || []).filter((_: any, i: number) => !prunedItems.incidents.includes(i));
 
-  const hasData = controls.length > 0 || risks.length > 0 || vendors.length > 0 || incidents.length > 0;
+  const hasData = executiveSummary || controls.length > 0 || risks.length > 0 || vendors.length > 0 || incidents.length > 0;
 
   return (
     <div className="max-w-5xl mx-auto print:max-w-none print:w-full">
@@ -175,6 +214,46 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
         loading={isSendingEmail}
       />
 
+      {/* Executive Summary - Problem Description */}
+      {executiveSummary && (
+        <div className="mb-8 p-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl border border-emerald-500/30 shadow-xl">
+          <h2 className="text-2xl font-bold mb-4 text-emerald-400 flex items-center gap-2">
+            <FileText className="w-6 h-6" />
+            Executive Summary
+          </h2>
+
+          <div className="space-y-4">
+            {executiveSummary.problemStatement && (
+              <div className="bg-slate-950/50 p-4 rounded-lg border border-white/5">
+                <h3 className="text-sm font-bold text-orange-400 uppercase tracking-wide mb-2">Problem Statement</h3>
+                <p className="text-white leading-relaxed">{executiveSummary.problemStatement}</p>
+              </div>
+            )}
+
+            {executiveSummary.context && (
+              <div className="bg-slate-950/50 p-4 rounded-lg border border-white/5">
+                <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wide mb-2">Context</h3>
+                <p className="text-slate-300 leading-relaxed">{executiveSummary.context}</p>
+              </div>
+            )}
+
+            {executiveSummary.scope && (
+              <div className="bg-slate-950/50 p-4 rounded-lg border border-white/5">
+                <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wide mb-2">Assessment Scope</h3>
+                <p className="text-slate-300 leading-relaxed">{executiveSummary.scope}</p>
+              </div>
+            )}
+
+            {executiveSummary.recommendations && (
+              <div className="bg-emerald-500/10 p-4 rounded-lg border border-emerald-500/20">
+                <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wide mb-2">Key Recommendations</h3>
+                <p className="text-emerald-100 leading-relaxed font-medium">{executiveSummary.recommendations}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Summary Stats */}
       {hasData && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -231,19 +310,28 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           </h2>
           <div className="space-y-3">
             {controls.map((c: any, i: number) => (
-              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5">
+              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5 group relative overflow-hidden">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="flex-1">
                     <h3 className="font-bold text-white">{c.title}</h3>
                     <p className="text-sm text-slate-400 mt-1">{c.description || 'No description'}</p>
                   </div>
-                  <span className={`px-2 py-1 text-xs font-bold rounded ${c.controlType === 'preventive' ? 'bg-emerald-500/20 text-emerald-400' :
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-1 text-xs font-bold rounded ${c.controlType === 'preventive' ? 'bg-emerald-500/20 text-emerald-400' :
                       c.controlType === 'detective' ? 'bg-blue-500/20 text-blue-400' :
                         c.controlType === 'corrective' ? 'bg-orange-500/20 text-orange-400' :
                           'bg-purple-500/20 text-purple-400'
-                    }`}>
-                    {c.controlType || 'unknown'}
-                  </span>
+                      }`}>
+                      {c.controlType || 'unknown'}
+                    </span>
+                    <button
+                      onClick={() => handlePrune('controls', report.sections.controls.indexOf(c))}
+                      className="text-slate-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded transition-colors"
+                      title="Prune this control"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -260,7 +348,7 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           </h2>
           <div className="space-y-3">
             {risks.map((r: any, i: number) => (
-              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5">
+              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5 relative group">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -268,11 +356,20 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
                     </div>
                     <p className="text-white">{r.narrative || 'No narrative'}</p>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-orange-400">
-                      {(r.likelihood || 3) * (r.impact || 3)}
+                  <div className="flex items-start gap-4">
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-orange-400">
+                        {(r.likelihood || 3) * (r.impact || 3)}
+                      </div>
+                      <div className="text-xs text-slate-400">Risk Score</div>
                     </div>
-                    <div className="text-xs text-slate-400">Risk Score</div>
+                    <button
+                      onClick={() => handlePrune('risks', report.sections.risks.indexOf(r))}
+                      className="text-slate-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded transition-colors"
+                      title="Prune this risk"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -290,12 +387,23 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {vendors.map((v: any, i: number) => (
-              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5">
-                <h3 className="font-bold text-white">{v.name}</h3>
-                <p className="text-sm text-slate-400">{v.services || v.category || 'No services listed'}</p>
-                {v.riskScore && (
-                  <div className="mt-2 text-xs text-blue-400">Risk Score: {v.riskScore}</div>
-                )}
+              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5 relative group">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-white">{v.name}</h3>
+                    <p className="text-sm text-slate-400">{v.services || v.category || 'No services listed'}</p>
+                    {v.riskScore && (
+                      <div className="mt-2 text-xs text-blue-400">Risk Score: {v.riskScore}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handlePrune('vendors', report.sections.vendors.indexOf(v))}
+                    className="text-slate-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded transition-colors"
+                    title="Prune this vendor"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -311,19 +419,28 @@ export default function ReportView({ report, onReset }: ReportViewProps) {
           </h2>
           <div className="space-y-3">
             {incidents.map((inc: any, i: number) => (
-              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5">
+              <div key={i} className="bg-slate-900/50 p-4 rounded-lg border border-white/5 relative group">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="flex-1">
                     <h3 className="font-bold text-white">{inc.title}</h3>
                     <p className="text-sm text-slate-400 mt-1">{inc.description || 'No description'}</p>
                   </div>
-                  <span className={`px-2 py-1 text-xs font-bold rounded ${inc.severity === 'critical' ? 'bg-red-500/20 text-red-400' :
+                  <div className="flex items-center gap-4">
+                    <span className={`px-2 py-1 text-xs font-bold rounded ${inc.severity === 'critical' ? 'bg-red-500/20 text-red-400' :
                       inc.severity === 'high' ? 'bg-orange-500/20 text-orange-400' :
                         inc.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
                           'bg-green-500/20 text-green-400'
-                    }`}>
-                    {inc.severity || 'unknown'}
-                  </span>
+                      }`}>
+                      {inc.severity || 'unknown'}
+                    </span>
+                    <button
+                      onClick={() => handlePrune('incidents', report.sections.incidents.indexOf(inc))}
+                      className="text-slate-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded transition-colors"
+                      title="Prune this incident"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

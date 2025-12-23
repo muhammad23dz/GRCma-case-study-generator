@@ -1,18 +1,33 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated/client';
 import { Pool, neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import { WebSocket } from 'ws';
 
-// Configure Neon for Prisma adapter (optional, for edge runtime)
+// Configure Neon for Prisma adapter
+neonConfig.webSocketConstructor = WebSocket;
 neonConfig.fetchConnectionCache = true;
+
+const connectionString = process.env.DATABASE_URL;
 
 // Global singleton pattern for Prisma
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
 };
 
-// Create Prisma client with Neon connection pooling
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-});
+// Create adapter-based client if URL is present, otherwise fallback (to avoid build crashes if env missing)
+const createPrismaClient = () => {
+    if (!connectionString) {
+        return new PrismaClient();
+    }
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
+    return new PrismaClient({
+        adapter,
+        log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    });
+};
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
     globalForPrisma.prisma = prisma;

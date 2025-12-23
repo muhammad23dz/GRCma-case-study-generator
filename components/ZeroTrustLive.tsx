@@ -104,7 +104,7 @@ export default function ZeroTrustLive() {
             bg: 'bg-blue-500/10',
             border: 'border-blue-500/20',
             glow: 'shadow-blue-500/20',
-            link: '/admin/users',
+            link: '/analytics/zero-trust/identity',
             metricKey: 'identity' as const
         },
         {
@@ -116,7 +116,7 @@ export default function ZeroTrustLive() {
             bg: 'bg-purple-500/10',
             border: 'border-purple-500/20',
             glow: 'shadow-purple-500/20',
-            link: '/vendors',
+            link: '/analytics/zero-trust/devices',
             metricKey: 'device' as const
         },
         {
@@ -128,7 +128,7 @@ export default function ZeroTrustLive() {
             bg: 'bg-emerald-500/10',
             border: 'border-emerald-500/20',
             glow: 'shadow-emerald-500/20',
-            link: '/controls',
+            link: '/analytics/zero-trust/network',
             metricKey: 'network' as const
         },
         {
@@ -140,7 +140,7 @@ export default function ZeroTrustLive() {
             bg: 'bg-orange-500/10',
             border: 'border-orange-500/20',
             glow: 'shadow-orange-500/20',
-            link: '/changes',
+            link: '/analytics/zero-trust/applications',
             metricKey: 'application' as const
         },
         {
@@ -152,7 +152,7 @@ export default function ZeroTrustLive() {
             bg: 'bg-pink-500/10',
             border: 'border-pink-500/20',
             glow: 'shadow-pink-500/20',
-            link: '/evidence',
+            link: '/analytics/zero-trust/data',
             metricKey: 'data' as const
         }
     ];
@@ -184,7 +184,7 @@ export default function ZeroTrustLive() {
                         <Lock className="w-3 h-3" /> {t('zt_badge')}
                     </div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-purple-500/30 text-purple-400 text-xs font-bold uppercase tracking-widest">
-                        <Activity className="w-3 h-3 animate-pulse" /> LIVE
+                        <Activity className="w-3 h-3 animate-pulse" /> {t('dash_system_live')}
                     </div>
                 </div>
 
@@ -198,15 +198,15 @@ export default function ZeroTrustLive() {
                         <div className={`text-4xl font-black ${getScoreColor(overallScore)}`}>
                             {loading ? '...' : overallScore}
                         </div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wider">Trust Score</div>
+                        <div className="text-xs text-slate-500 uppercase tracking-wider">{t('risk_table_score')}</div>
                     </div>
                     <div className="w-px h-12 bg-white/10"></div>
                     <div className="text-left">
                         <div className="text-sm text-slate-400">
-                            {metrics && (Object.values(metrics).reduce((sum, m) => sum + m.issues, 0))} Open Issues
+                            {metrics && (Object.values(metrics).reduce((sum, m) => sum + m.issues, 0))} {t('dash_pending_actions')}
                         </div>
                         <div className="text-xs text-slate-500">
-                            Last updated: {lastUpdate ? lastUpdate.toLocaleTimeString() : 'Never'}
+                            {t('common_updated')}: {lastUpdate ? lastUpdate.toLocaleTimeString() : t('common_never')}
                         </div>
                     </div>
                     <button
@@ -280,7 +280,7 @@ export default function ZeroTrustLive() {
                                         <div className="flex items-center gap-2 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded-lg mb-3">
                                             <AlertTriangle className="w-3 h-3 text-red-400" />
                                             <span className="text-xs font-bold text-red-400">
-                                                {pillarMetrics.issues} Issue{pillarMetrics.issues > 1 ? 's' : ''}
+                                                {pillarMetrics.issues} {t('common_issues')}
                                             </span>
                                         </div>
                                     )}
@@ -302,11 +302,11 @@ export default function ZeroTrustLive() {
                                         {pillarMetrics && (
                                             <div className="flex items-center gap-2 text-xs font-mono text-slate-500 bg-slate-950/50 px-2 py-1 rounded border border-white/5">
                                                 <CheckCircle className={`w-3 h-3 ${pillarMetrics.score >= 70 ? 'text-emerald-500' : 'text-slate-600'}`} />
-                                                {step.metricKey === 'identity' && `${'controls' in pillarMetrics ? pillarMetrics.controls : 0} Controls`}
-                                                {step.metricKey === 'device' && `${'vendors' in pillarMetrics ? pillarMetrics.vendors : 0} Vendors`}
-                                                {step.metricKey === 'network' && `${'controls' in pillarMetrics ? pillarMetrics.controls : 0} Controls`}
-                                                {step.metricKey === 'application' && `${'changes' in pillarMetrics ? pillarMetrics.changes : 0} Changes`}
-                                                {step.metricKey === 'data' && `${'evidence' in pillarMetrics ? pillarMetrics.evidence : 0} Evidence`}
+                                                {step.metricKey === 'identity' && `${'controls' in pillarMetrics ? pillarMetrics.controls : 0} ${t('nav_controls')}`}
+                                                {step.metricKey === 'device' && `${'vendors' in pillarMetrics ? pillarMetrics.vendors : 0} ${t('nav_vendors')}`}
+                                                {step.metricKey === 'network' && `${'controls' in pillarMetrics ? pillarMetrics.controls : 0} ${t('nav_controls')}`}
+                                                {step.metricKey === 'application' && `${'changes' in pillarMetrics ? pillarMetrics.changes : 0} ${t('nav_changes')}`}
+                                                {step.metricKey === 'data' && `${'evidence' in pillarMetrics ? pillarMetrics.evidence : 0} ${t('nav_evidence')}`}
                                             </div>
                                         )}
                                     </div>
@@ -329,21 +329,21 @@ export default function ZeroTrustLive() {
                     className="inline-flex items-center gap-3 px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition-all group"
                 >
                     <Zap className="w-5 h-5 text-emerald-400" />
-                    <span className="text-emerald-400 font-bold">Run Gap Analysis</span>
+                    <span className="text-emerald-400 font-bold">{t('dash_btn_magic')} Gap Analysis</span>
                 </button>
                 <button
                     onClick={() => router.push('/risks')}
                     className="inline-flex items-center gap-3 px-6 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-xl transition-all group"
                 >
                     <AlertTriangle className="w-5 h-5 text-red-400" />
-                    <span className="text-red-400 font-bold">View All Risks</span>
+                    <span className="text-red-400 font-bold">{t('common_view')} {t('nav_risk')}</span>
                 </button>
                 <button
                     onClick={() => router.push('/platform?view=input')}
                     className="inline-flex items-center gap-3 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-xl transition-all group"
                 >
                     <Activity className="w-5 h-5 text-purple-400" />
-                    <span className="text-purple-400 font-bold">New Assessment</span>
+                    <span className="text-purple-400 font-bold">{t('dash_btn_magic')}</span>
                 </button>
             </div>
         </div>

@@ -7,7 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
-import { FileText, Table, FileSpreadsheet, Mail, Loader2, Calendar, File, Shield } from 'lucide-react';
+import { FileText, Table, FileSpreadsheet, Mail, Loader2, Calendar, File, Shield, ArrowLeft } from 'lucide-react';
 
 interface Framework {
     id: string;
@@ -374,6 +374,15 @@ export default function ReportsPage() {
 
             <div className="flex-grow p-8 pt-32">
                 <div className="max-w-7xl mx-auto">
+                    {/* Back to Dashboard */}
+                    <Link
+                        href="/dashboard"
+                        className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Dashboard
+                    </Link>
+
                     <div className="mb-10">
                         <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
                             <FileText className="w-10 h-10 text-emerald-500" />

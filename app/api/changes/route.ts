@@ -5,23 +5,15 @@ import { prisma } from '@/lib/prisma';
 // GET /api/changes
 export async function GET() {
     try {
-        const { userId, sessionClaims } = auth(); // Get userId and sessionClaims from Clerk
+        const { userId } = await auth();
         if (!userId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        // Assuming user role is stored in sessionClaims (e.g., as 'metadata.role')
-        // You might need to adjust this based on how you store roles in Clerk
-        const userRole = (sessionClaims as any)?.metadata?.role || 'user';
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
+        const userRole = (user?.publicMetadata as any)?.role || 'user';
         const isAdmin = ['admin', 'manager'].includes(userRole);
-
-        // For requestedBy, we need the user's email. Clerk's auth() doesn't directly provide it.
-        // You would typically fetch the user details from Clerk's API using userId
-        // or ensure the email is available in sessionClaims if you've configured it.
-        // For now, we'll assume the email can be derived or is available.
-        // If not, you'd need to fetch it: const user = await clerkClient.users.getUser(userId);
-        // For this example, let's assume we can get an email from sessionClaims or a placeholder.
-        const userEmail = (sessionClaims as any)?.email_address || 'unknown@example.com'; // Placeholder or actual email from claims
 
         const whereClause = isAdmin ? {} : { requestedBy: userEmail };
 
@@ -42,10 +34,13 @@ export async function GET() {
 }
 
 // POST /api/changes
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress;
+
+        if (!userId || !userEmail) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -86,7 +81,7 @@ export async function POST(request: NextRequest) {
                 backoutPlan: body.backoutPlan,
                 affectedSystems: JSON.stringify(body.affectedSystems || []),
                 currentStage: 'assessment', // Initial stage
-                requestedBy: session.user.email,
+                requestedBy: userEmail,
             }
         });
 

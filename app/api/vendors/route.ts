@@ -1,34 +1,28 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
-const DEV_MODE = process.env.DEV_MODE === 'true';
-
-// GET /api/vendors - List all vendors
+// GET /api/vendors - List vendors for current user
 export async function GET() {
     try {
-        const { userId, orgId } = auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        const whereClause: any = {};
-
-        if (!DEV_MODE && orgId) {
-            whereClause.organizationId = orgId;
-        }
-
+        // Expert Tier Isolation
         const vendors = await prisma.vendor.findMany({
-            where: whereClause,
+            where: {
+                ...getIsolationFilter(context, 'Vendor')
+            },
             include: {
-                _count: {
-                    select: { assessments: true, evidences: true }
-                },
                 vendorRisks: {
                     include: {
                         risk: true
                     }
+                },
+                _count: {
+                    select: { assessments: true, evidences: true }
                 }
             },
             orderBy: { riskScore: 'desc' }
@@ -36,45 +30,62 @@ export async function GET() {
 
         return NextResponse.json({ vendors });
     } catch (error: any) {
+        console.error('[Vendors] GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// POST /api/vendors - Create new vendor
+// POST /api/vendors - Create new vendor with risk assessment
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const body = await request.json();
-        const { name, criticality, services, contactEmail, category } = body;
+        const { name, criticality, services, contactEmail, category, riskScore } = body;
 
         const vendor = await prisma.vendor.create({
             data: {
                 name,
-                category: category || 'Service',
+                category: category || 'Service Provider',
                 criticality: criticality || 'medium',
                 services,
                 contactEmail,
-                owner: session.user.email,
+                owner: context.email,
+                organizationId: context.orgId, // Org-scoped IAM support
                 status: 'active',
-                organizationId: session.user.orgId || null,
+                riskScore: riskScore || 50
             }
         });
 
-        // GRC Automation: TPRM Hook
-        try {
-            const { assessVendorRisk } = await import('@/lib/grc-automation');
-            await assessVendorRisk(vendor.id, vendor.name, criticality, session.user.email);
-        } catch (error) {
-            console.error('Failed to run TPRM automation:', error);
+        // GRC Automation: Create vendor risk assessment if high criticality
+        if (criticality === 'high' || criticality === 'critical') {
+            const vendorRisk = await prisma.risk.create({
+                data: {
+                    category: 'Third-Party',
+                    narrative: `Third-party risk for ${name}: ${services || 'various services'}. Vendor criticality: ${criticality}.`,
+                    likelihood: criticality === 'critical' ? 4 : 3,
+                    impact: criticality === 'critical' ? 4 : 3,
+                    score: criticality === 'critical' ? 16 : 9,
+                    status: 'open',
+                    owner: context.email,
+                    organizationId: context.orgId // Inherit org context
+                }
+            });
+
+            await prisma.vendorRisk.create({
+                data: {
+                    vendorId: vendor.id,
+                    riskId: vendorRisk.id
+                }
+            });
         }
 
         return NextResponse.json({ vendor }, { status: 201 });
     } catch (error: any) {
+        console.error('[Vendors] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
-import { AlertTriangle, Siren, CheckCircle2, Clock, Plus, Search, Trash2, User, X, Filter, List, History, Activity } from 'lucide-react';
+import { AlertTriangle, Siren, CheckCircle2, Clock, Plus, Search, Trash2, User, X, Filter, List, History, Activity, ArrowLeft } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 import IncidentTimeline from '@/components/dashboard/IncidentTimeline';
-import { canDeleteRecords } from '@/lib/permissions';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 interface Incident {
@@ -133,6 +133,15 @@ export default function IncidentsPage() {
 
             <div className="relative z-10 p-8 pt-32">
                 <PageTransition className="max-w-7xl mx-auto">
+                    {/* Back to Dashboard */}
+                    <Link
+                        href="/dashboard"
+                        className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Dashboard
+                    </Link>
+
                     {/* Header */}
                     <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
@@ -140,8 +149,8 @@ export default function IncidentsPage() {
                             <p className="text-slate-400">{t('inc_subtitle')}</p>
                         </div>
                         <div className="flex gap-3 items-center">
-                            {/* Delete All - Admin Only */}
-                            {incidents.length > 0 && canDeleteRecords((session?.user as any)?.role) && (
+                            {/* Delete All - Available to authenticated users */}
+                            {incidents.length > 0 && user && (
                                 <button
                                     onClick={async () => {
                                         if (!confirm(`Are you sure you want to delete ALL ${incidents.length} incidents? This cannot be undone.`)) return;
@@ -284,7 +293,7 @@ export default function IncidentsPage() {
                             <div className="px-6 py-5 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
                                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                                     <Siren className="w-5 h-5 text-red-500" />
-                                    Incident Log
+                                    {t('inc_table_title')}
                                 </h2>
                                 <div className="text-sm text-slate-500">
                                     {t('common_showing')} {filteredIncidents.length} {t('common_of')} {incidents.length}
@@ -328,20 +337,18 @@ export default function IncidentsPage() {
                                                             <User className="w-3 h-3 text-slate-500" />
                                                             <span className="text-sm">{incident.assignedTo}</span>
                                                         </div>
-                                                    ) : 'Unassigned'}
+                                                    ) : t('common_unassigned')}
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-slate-400 text-sm font-mono">{new Date(incident.createdAt).toLocaleDateString()}</span>
-                                                        {canDeleteRecords((session?.user as any)?.role) && (
-                                                            <button
-                                                                onClick={(e) => handleDelete(e, incident.id)}
-                                                                className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
-                                                                title="Delete Incident"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        )}
+                                                        <button
+                                                            onClick={(e) => handleDelete(e, incident.id)}
+                                                            className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-all"
+                                                            title="Delete Incident"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -371,7 +378,7 @@ export default function IncidentsPage() {
                             <form onSubmit={handleSubmit}>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Title</label>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">{t('inc_table_title')}</label>
                                         <input
                                             type="text"
                                             value={formData.title}
@@ -382,7 +389,7 @@ export default function IncidentsPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Description</label>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">{t('ctrl_field_desc')}</label>
                                         <textarea
                                             value={formData.description}
                                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -393,7 +400,7 @@ export default function IncidentsPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Severity</label>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">{t('inc_table_sev')}</label>
                                         <select
                                             value={formData.severity}
                                             onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
@@ -406,7 +413,7 @@ export default function IncidentsPage() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Assign To (email)</label>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">{t('inc_table_assign')} (email)</label>
                                         <input
                                             type="email"
                                             value={formData.assignedTo}

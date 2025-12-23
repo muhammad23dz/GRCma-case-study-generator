@@ -163,6 +163,7 @@ export interface CaseInput {
     companyName: string;
     targetFramework: string;
     companySize: string;
+    industry?: string;
     keyChallenge: string;
 }
 

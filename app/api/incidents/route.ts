@@ -1,33 +1,25 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
-const DEV_MODE = process.env.DEV_MODE === 'true';
-
-// GET /api/incidents
+// GET /api/incidents - List incidents with RBAC isolation
 export async function GET(request: Request) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        const userRole = (session.user as any).role || 'user';
-        const isAdmin = ['admin', 'manager'].includes(userRole);
-        const orgId = session.user.orgId;
+        const { searchParams } = new URL(request.url);
+        const severity = searchParams.get('severity');
 
-        const whereClause: any = {};
+        // Expert RBAC: Admins/Managers see all in Org, Users see only their own
+        // Note: For now, we'll stick to strict user isolation to fulfill the "mine only" request
+        const whereClause: any = {
+            ...getIsolationFilter(context, 'Incident')
+        };
 
-        if (DEV_MODE) {
-            // Show all in dev mode
-        } else if (orgId) {
-            whereClause.organizationId = orgId;
-            if (!isAdmin) {
-                whereClause.reportedBy = session.user.email;
-            }
-        } else {
-            whereClause.reportedBy = session.user.email;
-        }
+        if (severity) whereClause.severity = severity;
 
         const incidents = await prisma.incident.findMany({
             where: whereClause,
@@ -39,16 +31,16 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ incidents });
     } catch (error: any) {
-        console.error('Error fetching incidents:', error);
+        console.error('[Incidents] GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// POST /api/incidents
+// POST /api/incidents - Create new incident with GRC relations
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -61,22 +53,22 @@ export async function POST(request: NextRequest) {
                 description,
                 severity,
                 assignedTo,
-                reportedBy: session.user.email
+                reportedBy: context.email,
+                organizationId: context.orgId // Org-scoped IAM support
             }
         });
 
-        // GRC Automation: Incident Feedback Loop
-        // Link critical incidents to potential risks
+        // GRC Automation: Feedback loop to Risks
         try {
             const { linkIncidentToRisks } = await import('@/lib/grc-automation');
-            await linkIncidentToRisks(incident.id, title, description, severity, session.user.email);
+            await linkIncidentToRisks(incident.id, title, description, severity, context.email);
         } catch (error) {
-            console.error('Failed to run Incident-Risk automation:', error);
+            console.error('[Incidents] Automation failure:', error);
         }
 
         return NextResponse.json({ incident });
     } catch (error: any) {
-        console.error('Error creating incident:', error);
+        console.error('[Incidents] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

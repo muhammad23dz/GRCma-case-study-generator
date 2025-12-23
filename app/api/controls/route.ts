@@ -1,38 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit-log';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
-const DEV_MODE = process.env.DEV_MODE === 'true';
-
-// GET /api/controls - List all controls
+// GET /api/controls - List controls for current user
 export async function GET(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true, role: true } });
-        const userEmail = dbUser?.email || '';
-        const userRole = dbUser?.role || 'user';
-
         const { searchParams } = new URL(request.url);
         const controlType = searchParams.get('type');
-        const isAdmin = ['admin', 'manager'].includes(userRole);
 
-        // Build where clause
-        const whereClause: any = {};
-
-        if (DEV_MODE) {
-            // In dev mode, show all controls
-        } else if (orgId) {
-            whereClause.organizationId = orgId;
-            if (!isAdmin) {
-                whereClause.owner = userEmail;
-            }
-        } else {
-            whereClause.owner = userEmail;
-        }
+        // Expert Tier Isolation
+        const whereClause: any = {
+            ...getIsolationFilter(context, 'Control')
+        };
 
         if (controlType) whereClause.controlType = controlType;
 
@@ -44,11 +29,19 @@ export async function GET(request: NextRequest) {
                         framework: true
                     }
                 },
+                policyControls: {
+                    include: {
+                        policy: true
+                    }
+                },
+                risks: true,
                 _count: {
                     select: {
                         evidences: true,
                         risks: true,
-                        actions: true
+                        actions: true,
+                        incidentControls: true,
+                        policyControls: true
                     }
                 }
             },
@@ -57,7 +50,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ controls });
     } catch (error: any) {
-        console.error('Error fetching controls:', error);
+        console.error('[Controls] GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
@@ -65,32 +58,55 @@ export async function GET(request: NextRequest) {
 // POST /api/controls - Create new control
 export async function POST(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
-        const userEmail = dbUser?.email || '';
-
         const body = await request.json();
-        const { title, description, controlType, owner, controlRisk, evidenceRequirements } = body;
+        const { title, description, controlType, evidenceRequirements, policyId, riskId } = body;
 
         const control = await prisma.control.create({
             data: {
                 title,
                 description,
                 controlType: controlType || 'preventive',
-                owner: owner || userEmail,
-                controlRisk: controlRisk || 'medium',
+                owner: context.email,
+                organizationId: context.orgId,
                 evidenceRequirements,
-                organizationId: orgId || null,
             }
+        });
+
+        // GRC Relation: Link to Policy if provided
+        if (policyId) {
+            await prisma.policyControl.create({
+                data: {
+                    policyId,
+                    controlId: control.id
+                }
+            });
+        }
+
+        // GRC Relation: Link to Risk if provided
+        if (riskId) {
+            await prisma.riskControl.create({
+                data: {
+                    riskId,
+                    controlId: control.id
+                }
+            });
+        }
+
+        await logAudit({
+            entity: 'Control',
+            entityId: control.id,
+            action: 'CREATE',
+            changes: { title, controlType }
         });
 
         return NextResponse.json({ control }, { status: 201 });
     } catch (error: any) {
-        console.error('Error creating control:', error);
+        console.error('[Controls] POST Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

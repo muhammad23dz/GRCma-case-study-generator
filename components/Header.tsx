@@ -3,17 +3,15 @@
 import { useUser, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // Added useRouter import
+import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard,
     ShieldCheck,
     AlertTriangle,
     Building2,
     BookOpen,
-    GitMerge,
     BarChart,
     ScrollText,
-    PlayCircle,
     Siren,
     FileText,
     Settings,
@@ -21,33 +19,34 @@ import {
     Menu,
     X,
     ChevronDown,
-    LogOut,
-    User,
-    Activity,
     FileCheck,
-    GitPullRequest,
+    ClipboardCheck,
     Globe,
-    Code,
-    ClipboardCheck
+    Server,
+    GraduationCap,
+    BookMarked,
+    Users2,
+    Workflow,
+    ShieldAlert,
+    Plug
 } from 'lucide-react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
-import { useDevMode } from '@/lib/contexts/DevModeContext';
 
-interface HeaderProps {
-    // onNavChange removed to enforce URL-driven navigation
-}
+interface HeaderProps { }
 
 export default function Header({ }: HeaderProps = {}) {
     const { user, isLoaded } = useUser();
     const pathname = usePathname();
-    const router = useRouter(); // Added router hook
+    const router = useRouter();
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
-    const { language, setLanguage, t } = useLanguage();
-    const { devMode, toggleDevMode } = useDevMode();
+    const { t, language, setLanguage } = useLanguage();
 
-    // Handle scroll effect
+    // Public pages where navigation should be hidden
+    const publicPages = ['/', '/trust', '/platform', '/login', '/signup', '/about'];
+    const isPublicPage = publicPages.includes(pathname);
+
     useEffect(() => {
         const handleScroll = () => {
             setScrolled(window.scrollY > 20);
@@ -56,235 +55,253 @@ export default function Header({ }: HeaderProps = {}) {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const navGroups = [
+    // Streamlined navigation - 6 main items that fit at 100% zoom
+    const navItems = [
+        { label: t('nav_dashboard'), href: '/dashboard', icon: LayoutDashboard },
+        { label: t('nav_assessments'), href: '/assessments', icon: FileCheck },
         {
-            label: 'Dashboard',
-            href: '/dashboard',
-            icon: LayoutDashboard,
-            items: []
-        },
-        {
-            label: 'Governance',
+            label: t('nav_grc'),
             icon: ShieldCheck,
             items: [
-                { label: 'Policies', href: '/policies', icon: ScrollText, desc: 'Policy management & attestation' },
-                { label: 'Frameworks', href: '/frameworks', icon: BookOpen, desc: 'Compliance standards (ISO, SOC2)' },
-                { label: 'Controls', href: '/controls', icon: ShieldCheck, desc: 'Internal control framework' },
+                { label: t('nav_controls'), href: '/controls', icon: ShieldCheck, desc: t('ctrl_subtitle') },
+                { label: t('nav_risk'), href: '/risks', icon: AlertTriangle, desc: t('risk_subtitle') },
+                { label: t('nav_policies'), href: '/policies', icon: ScrollText, desc: t('nav_module_gov_desc') },
+                { label: t('nav_frameworks'), href: '/frameworks', icon: BookOpen, desc: t('fw_subtitle') },
+                { label: t('nav_assets'), href: '/assets', icon: Server, desc: t('asset_subtitle') },
+                { label: t('nav_gap'), href: '/gap-analysis', icon: BarChart, desc: t('gap_subtitle') },
             ]
         },
         {
-            label: 'Risk',
-            icon: AlertTriangle,
+            label: t('nav_ops'),
+            icon: Siren,
             items: [
-                { label: 'Risk Register', href: '/risks', icon: AlertTriangle, desc: 'Enterprise risk management' },
-                { label: 'Vendors', href: '/vendors', icon: Building2, desc: 'Third-party risk monitoring' },
+                { label: t('nav_incidents'), href: '/incidents', icon: Siren, desc: t('inc_subtitle') },
+                { label: t('nav_vendors'), href: '/vendors', icon: Building2, desc: t('vendor_subtitle') },
+                { label: t('nav_evidence'), href: '/evidence', icon: FileCheck, desc: t('dash_stat_evidence') },
+                { label: t('nav_audits'), href: '/audit', icon: ClipboardCheck, desc: 'Audit management' },
+                { label: t('nav_actions'), href: '/actions', icon: FileText, desc: 'Remediation tracking' },
+                { label: t('nav_changes'), href: '/changes', icon: Workflow, desc: 'Change management' },
+                { label: t('nav_bcdr'), href: '/bcdr', icon: ShieldAlert, desc: 'Business continuity' },
+                { label: t('nav_processes'), href: '/processes', icon: Workflow, desc: 'Business processes' },
             ]
         },
         {
-            label: 'Assurance',
-            icon: FileCheck,
+            label: t('nav_workforce'),
+            icon: Users2,
             items: [
-                { label: 'Audits', href: '/audit', icon: ClipboardCheck, desc: 'Audit execution & findings' },
-                { label: 'Evidence', href: '/evidence', icon: FileCheck, desc: 'Evidence locker & collection' },
-                { label: 'Gap Analysis', href: '/gap-analysis', icon: BarChart, desc: 'Compliance coverage analysis' },
+                { label: t('nav_employees'), href: '/employees', icon: Users2, desc: t('emp_subtitle') },
+                { label: t('nav_training'), href: '/training', icon: GraduationCap, desc: 'Security training' },
+                { label: t('nav_questionnaires'), href: '/questionnaires', icon: FileCheck, desc: 'Assessments' },
+                { label: t('nav_runbooks'), href: '/runbooks', icon: BookMarked, desc: 'Procedures' },
             ]
         },
         {
-            label: 'Operations',
-            icon: Activity,
+            label: t('nav_reports'),
+            icon: BarChart,
             items: [
-                { label: 'Incidents', href: '/incidents', icon: Siren, desc: 'Security incident response' },
-                { label: 'Changes', href: '/changes', icon: GitPullRequest, desc: 'Change management (CAB)' },
-                { label: 'Actions', href: '/actions', icon: PlayCircle, desc: 'Remediation tracking' },
+                { label: t('nav_coverage'), href: '/reports', icon: BarChart, desc: 'Compliance reports' },
+                { label: t('nav_zero_trust'), href: '/analytics/zero-trust', icon: Sparkles, desc: 'Zero Trust security posture' },
+                { label: t('nav_scenarios'), href: '/risks/scenarios', icon: AlertTriangle, desc: 'What-if analysis' },
+                { label: t('nav_integrations'), href: '/integrations/hub', icon: Plug, desc: 'Integration hub' },
             ]
         },
-        {
-            label: 'Intelligence',
-            icon: Sparkles,
-            items: [
-                { label: 'Zero Trust', href: '/analytics/zero-trust', icon: ShieldCheck, desc: 'Real-time security posture' },
-                { label: 'Reports', href: '/reports', icon: FileText, desc: 'Executive reporting & metrics' },
-                { label: 'Mapping', href: '/mapping', icon: GitMerge, desc: 'Control-Framework mapping' },
-            ]
-        },
-        {
-            label: 'Resources',
-            icon: BookOpen,
-            items: [
-                { label: 'Analyst Guide', href: '/guide', icon: BookOpen, desc: 'Platform documentation' },
-                { label: 'Trust Center', href: '/trust', icon: Globe, desc: 'Public trust profile' },
-            ]
-        },
-        {
-            label: 'Settings',
-            icon: Settings,
-            items: [
-                { label: 'Profile & Security', href: '/settings', icon: User, desc: 'Account and authentication' },
-                { label: 'Organization', href: '/settings?tab=organization', icon: Building2, desc: 'Workspace configuration' },
-                { label: 'Compliance', href: '/settings?tab=compliance', icon: FileCheck, desc: 'Frameworks & risk appetite' },
-                { label: 'Integrations', href: '/settings?tab=integrations', icon: Code, desc: 'Connect external tools' },
-            ]
-        }
+        { label: t('nav_guide'), href: '/guide', icon: BookOpen },
     ];
 
     const isActive = (path: string) => pathname === path;
-    const isGroupActive = (items: any[]) => items.some(item => isActive(item.href));
+    const isGroupActive = (items: any[]) => items?.some(item => isActive(item.href));
 
     return (
         <header
-            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/5 ${scrolled
-                ? 'bg-slate-950/80 backdrop-blur-xl shadow-2xl shadow-emerald-500/5 py-4'
-                : 'bg-transparent border-transparent py-5'
+            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
+                ? 'bg-slate-950/60 backdrop-blur-2xl shadow-2xl shadow-black/40 border-b border-white/10'
+                : 'bg-transparent'
                 }`}
             onMouseLeave={() => setHoveredGroup(null)}
         >
-            <div className="max-w-[1920px] mx-auto px-6">
-                <div className="flex justify-between items-center">
-                    {/* Logo Area */}
-                    <div className="flex items-center gap-8">
-                        <Link href={user ? "/platform" : "/"} className="flex items-center gap-3 group">
-                            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-emerald-500/20 flex items-center justify-center shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)] group-hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.4)] transition-all duration-500">
-                                <ShieldCheck className="w-6 h-6 text-emerald-500" />
+            <div className="max-w-[1600px] mx-auto px-4">
+                <div className="flex justify-between items-center h-16">
+                    {/* Premium Monolithic Branding */}
+                    <Link href={user ? "/platform" : "/"} className="flex items-center gap-4 group">
+                        <div className="relative w-10 h-10 flex items-center justify-center">
+                            {/* Ambient Glow */}
+                            <div className="absolute inset-0 bg-[#006233]/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-all duration-700"></div>
+
+                            {/* The Monolithic Shield Icon */}
+                            <svg viewBox="0 0 24 24" className="w-8 h-8 relative z-10 transition-transform duration-500 group-hover:scale-110">
+                                {/* Left Wing - Moroccan Red */}
+                                <path
+                                    d="M12 2L4 5V11C4 16.1 7.4 20.9 12 22"
+                                    fill="none"
+                                    stroke="#C1272D"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    className="drop-shadow-[0_0_8px_rgba(193,39,45,0.4)]"
+                                />
+                                {/* Right Wing - Moroccan Green */}
+                                <path
+                                    d="M12 2L20 5V11C20 16.1 16.6 20.9 12 22"
+                                    fill="none"
+                                    stroke="#006233"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    className="drop-shadow-[0_0_8px_rgba(0,98,51,0.4)]"
+                                />
+                                {/* Central Blade */}
+                                <path
+                                    d="M12 2V22"
+                                    stroke="white"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    className="opacity-80"
+                                />
+                            </svg>
+                        </div>
+
+                        <div className="flex flex-col items-start">
+                            <span className="text-2xl font-black tracking-[-0.02em] flex items-baseline leading-none">
+                                <span className="text-white">GRC</span>
+                                <span className="text-[#006233] ml-0.5">ma</span>
+                            </span>
+                            {/* The Red Underline Accent - Targeted specifically under 'ma' */}
+                            <div className="w-full flex justify-end">
+                                <div className="w-7 h-[3px] bg-[#C1272D] mt-1 relative overflow-hidden rounded-full">
+                                    <div className="absolute inset-0 bg-white/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                </div>
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-xl font-black tracking-tight text-white leading-none">
-                                    GRC<span className="text-emerald-500">ma</span>
-                                </span>
-                                <span className="text-[0.6rem] font-bold tracking-[0.2em] text-slate-500 uppercase group-hover:text-emerald-400 transition-colors">
-                                    Platform
-                                </span>
-                            </div>
-                        </Link>
+                        </div>
+                    </Link>
 
-                        {/* Desktop Navigation */}
-                        {pathname !== '/' && (
-                            <nav className="hidden xl:flex items-center gap-1">
-                                {navGroups.map((group) => {
-                                    const active = group.items.length > 0 ? isGroupActive(group.items) : isActive(group.href!);
-                                    const Icon = group.icon;
-                                    const isHovered = hoveredGroup === group.label;
+                    {/* Desktop Navigation - Only show on authenticated app pages */}
+                    {!isPublicPage && user && (
+                        <nav className="hidden lg:flex items-center">
+                            {navItems.map((item) => {
+                                const Icon = item.icon;
+                                const hasItems = item.items && item.items.length > 0;
+                                const active = hasItems ? isGroupActive(item.items!) : isActive(item.href!);
+                                const isHovered = hoveredGroup === item.label;
 
-                                    return (
-                                        <div
-                                            key={group.label}
-                                            className="relative"
-                                            onMouseEnter={() => setHoveredGroup(group.label)}
-                                            onMouseLeave={() => setHoveredGroup(null)}
-                                        >
-                                            {group.items.length === 0 ? (
-                                                <Link
-                                                    href={group.href!}
-                                                    className={`relative px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 flex items-center gap-2 group/link ${active
-                                                        ? 'text-white bg-white/10'
-                                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                                        }`}
-                                                >
-                                                    <Icon className={`w-4 h-4 transition-colors ${active ? 'text-emerald-400' : 'text-slate-500 group-hover/link:text-emerald-400'}`} />
-                                                    {group.label}
-                                                </Link>
-                                            ) : (
-                                                <button
-                                                    className={`relative px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 flex items-center gap-2 group/btn ${active || isHovered
-                                                        ? 'text-white bg-white/10'
-                                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                                        }`}
-                                                >
-                                                    <Icon className={`w-4 h-4 transition-colors ${active || isHovered ? 'text-emerald-400' : 'text-slate-500 group-hover/btn:text-emerald-400'}`} />
-                                                    {group.label}
-                                                    <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isHovered ? 'rotate-180 text-emerald-400' : 'text-slate-600'}`} />
-                                                </button>
-                                            )}
+                                return (
+                                    <div
+                                        key={item.label}
+                                        className="relative"
+                                        onMouseEnter={() => hasItems && setHoveredGroup(item.label)}
+                                    >
+                                        {hasItems ? (
+                                            <button
+                                                className={`px-3 py-2 text-sm font-semibold transition-all flex items-center gap-1.5 rounded-lg mx-0.5 ${active || isHovered
+                                                    ? 'text-white bg-white/10'
+                                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <Icon className={`w-4 h-4 ${active || isHovered ? 'text-emerald-400' : ''}`} />
+                                                {item.label}
+                                                <ChevronDown className={`w-3 h-3 transition-transform ${isHovered ? 'rotate-180' : ''}`} />
+                                            </button>
+                                        ) : (
+                                            <Link
+                                                href={item.href!}
+                                                className={`px-3 py-2 text-sm font-semibold transition-all flex items-center gap-1.5 rounded-lg mx-0.5 ${active
+                                                    ? 'text-white bg-white/10'
+                                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <Icon className={`w-4 h-4 ${active ? 'text-emerald-400' : ''}`} />
+                                                {item.label}
+                                            </Link>
+                                        )}
 
-                                            {group.items.length > 0 && isHovered && (
-                                                <div className="absolute top-full left-0 pt-2 w-72 animate-in fade-in slide-in-from-top-2 z-50">
-                                                    <div className="relative bg-[#0B1120] border border-white/10 rounded-xl shadow-2xl p-2">
-                                                        <div className="absolute -top-1.5 left-8 w-3 h-3 bg-[#0B1120] border-t border-l border-white/10 rotate-45 transform"></div>
-                                                        <div className="relative bg-[#0B1120] rounded-lg overflow-hidden">
-                                                            {group.items.map((item) => {
-                                                                const ItemIcon = item.icon;
-                                                                const itemActive = isActive(item.href);
-                                                                return (
-                                                                    <Link
-                                                                        key={item.href}
-                                                                        href={item.href}
-                                                                        onClick={() => setHoveredGroup(null)}
-                                                                        className={`flex items-start gap-4 p-3 rounded-lg transition-all group/item ${itemActive ? 'bg-emerald-500/10' : 'hover:bg-white/5'}`}
-                                                                    >
-                                                                        <div className={`mt-1 p-2 rounded-lg ${itemActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400 group-hover/item:text-white group-hover/item:bg-slate-700'}`}>
-                                                                            <ItemIcon className="w-5 h-5" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <div className={`text-sm font-bold mb-0.5 ${itemActive ? 'text-emerald-400' : 'text-slate-200 group-hover/item:text-white'}`}>
-                                                                                {item.label}
-                                                                            </div>
-                                                                            <div className="text-xs text-slate-500 group-hover/item:text-slate-400 leading-tight">
-                                                                                {item.desc}
-                                                                            </div>
-                                                                        </div>
-                                                                    </Link>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
+                                        {/* Dropdown */}
+                                        {hasItems && isHovered && (
+                                            <div className="absolute top-full left-0 pt-2 w-56 z-50">
+                                                <div className="bg-slate-900 border border-white/10 rounded-xl shadow-xl p-1.5">
+                                                    {item.items!.map((subItem) => {
+                                                        const SubIcon = subItem.icon;
+                                                        const subActive = isActive(subItem.href);
+                                                        return (
+                                                            <Link
+                                                                key={subItem.href}
+                                                                href={subItem.href}
+                                                                onClick={() => setHoveredGroup(null)}
+                                                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${subActive ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                                                    }`}
+                                                            >
+                                                                <SubIcon className={`w-4 h-4 ${subActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                                                                <div>
+                                                                    <div className="text-sm font-medium">{subItem.label}</div>
+                                                                    <div className="text-xs text-slate-500">{subItem.desc}</div>
+                                                                </div>
+                                                            </Link>
+                                                        );
+                                                    })}
                                                 </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </nav>
-                        )}
-                    </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </nav>
+                    )}
 
-                    {/* Right User Area */}
-                    <div className="flex items-center gap-4">
-                        {/* More Menu (Desktop) for overflow items could go here */}
-                        {pathname !== '/' && (
-                            <div className="hidden md:flex items-center gap-2">
-                                <button
-                                    onClick={() => router.push('/platform?view=input')}
-                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-400/50 text-emerald-400 hover:text-emerald-300 rounded-lg text-sm font-bold shadow-[0_0_10px_-3px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] transition-all group"
-                                >
-                                    <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
-                                    {t('nav_copilot')}
-                                </button>
+                    {/* Right Side */}
+                    <div className="flex items-center gap-3">
+                        {!isPublicPage && user && (
+                            <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">Security Pulse: Nominal</span>
                             </div>
                         )}
+                        {!isPublicPage && user && (
+                            <button
+                                onClick={() => router.push('/platform')}
+                                className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-sm font-black rounded-lg transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                            >
+                                <Sparkles className="w-4 h-4" />
+                                {t('dash_btn_magic')}
+                            </button>
+                        )}
+                        {!isPublicPage && user && (
+                            <button
+                                onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
+                                className="px-2 py-1.5 rounded-lg border border-white/10 text-[10px] font-black hover:bg-white/10 transition-all text-slate-300 hover:text-white flex items-center gap-1.5"
+                                title={language === 'en' ? 'Passer en Français' : 'Switch to English'}
+                            >
+                                <Globe className="w-3 h-3 text-emerald-500" />
+                                {language.toUpperCase()}
+                            </button>
+                        )}
+                        {!isPublicPage && user && (
+                            <Link
+                                href="/settings"
+                                className={`p-2 rounded-lg transition-all ${isActive('/settings') ? 'bg-white/10 text-white shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                            >
+                                <Settings className="w-5 h-5 transition-transform hover:rotate-90 duration-500" />
+                            </Link>
+                        )}
 
-                        {/* Language Switcher */}
-                        <button
-                            onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
-                            className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white text-xs font-bold uppercase transition-colors hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10"
-                        >
-                            <Globe className="w-4 h-4" />
-                            {language === 'en' ? 'EN' : 'FR'}
-                        </button>
+                        <SignedIn>
+                            <UserButton
+                                afterSignOutUrl="/"
+                                appearance={{
+                                    elements: {
+                                        avatarBox: "w-9 h-9 ring-2 ring-emerald-500/30"
+                                    }
+                                }}
+                            />
+                        </SignedIn>
 
                         <SignedOut>
-                            <SignInButton>
-                                <button className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition-all border border-white/5 hover:border-emerald-500/20 shadow-lg shadow-black/20">
-                                    {t('login')}
+                            <SignInButton mode="modal">
+                                <button className="px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg hover:bg-slate-100 transition-all">
+                                    Sign In
                                 </button>
                             </SignInButton>
                         </SignedOut>
 
-                        <SignedIn>
-                            {/* Go to Platform Button (for Authenticated Users on Trust Page) */}
-                            {pathname === '/' && (
-                                <Link
-                                    href="/platform"
-                                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                                >
-                                    <LayoutDashboard className="w-4 h-4" />
-                                    {t('dashboard')}
-                                </Link>
-                            )}
-                            <UserButton afterSignOutUrl="/" />
-                        </SignedIn>
-
-                        {/* Mobile Menu Toggle */}
+                        {/* Mobile Menu Button */}
                         <button
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="xl:hidden p-2 text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                            className="lg:hidden p-2 text-slate-400 hover:text-white"
                         >
                             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                         </button>
@@ -292,65 +309,47 @@ export default function Header({ }: HeaderProps = {}) {
                 </div>
             </div>
 
-            {/* Mobile Menu Overlay */}
-            {
-                mobileMenuOpen && (
-                    <div className="xl:hidden absolute top-full left-0 w-full bg-slate-950/95 backdrop-blur-xl border-b border-white/10 shadow-2xl animate-in slide-in-from-top-5 h-[calc(100vh-80px)] overflow-y-auto">
-                        <nav className="p-4 space-y-6">
-                            {pathname !== '/' && navGroups.map((group) => (
-                                <div key={group.label} className="space-y-2">
-                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2">{group.label}</div>
-                                    {group.items.length === 0 ? (
+            {/* Mobile Menu - Only for authenticated app pages */}
+            {mobileMenuOpen && !isPublicPage && user && (
+                <div className="lg:hidden bg-slate-900 border-t border-white/5 p-4 space-y-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        if (item.items) {
+                            return (
+                                <div key={item.label} className="space-y-1">
+                                    <div className="px-3 py-2 text-sm font-bold text-slate-400 flex items-center gap-2">
+                                        <Icon className="w-4 h-4" />
+                                        {item.label}
+                                    </div>
+                                    {item.items.map((subItem) => (
                                         <Link
-                                            href={group.href!}
+                                            key={subItem.href}
+                                            href={subItem.href}
                                             onClick={() => setMobileMenuOpen(false)}
-                                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-white bg-white/5"
+                                            className={`block pl-9 py-2 text-sm rounded-lg ${isActive(subItem.href) ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-300 hover:bg-white/5'
+                                                }`}
                                         >
-                                            <group.icon className="w-5 h-5 text-emerald-400" />
-                                            {group.label}
+                                            {subItem.label}
                                         </Link>
-                                    ) : (
-                                        <div className="grid grid-cols-1 gap-1">
-                                            {group.items.map(item => {
-                                                const active = isActive(item.href);
-                                                const ItemIcon = item.icon;
-                                                return (
-                                                    <Link
-                                                        key={item.href}
-                                                        href={item.href}
-                                                        onClick={() => setMobileMenuOpen(false)}
-                                                        className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${active
-                                                            ? 'bg-emerald-500/10 text-emerald-400'
-                                                            : 'text-slate-300 hover:text-white hover:bg-white/5'
-                                                            }`}
-                                                    >
-                                                        <ItemIcon className={`w-5 h-5 ${active ? 'text-emerald-400' : 'text-slate-500'}`} />
-                                                        {item.label}
-                                                    </Link>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    ))}
                                 </div>
-                            ))}
-                            {pathname === '/' && (
-                                <div className="text-center text-slate-500 py-10">Sign in to access the platform menu.</div>
-                            )}
-                            <div className="h-px bg-white/5 my-2" />
-                            <button
-                                onClick={() => {
-                                    router.push('/platform?view=input');
-                                    setMobileMenuOpen(false);
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/10"
+                            );
+                        }
+                        return (
+                            <Link
+                                key={item.label}
+                                href={item.href!}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg ${isActive(item.href!) ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-300 hover:bg-white/5'
+                                    }`}
                             >
-                                <Sparkles className="w-5 h-5" />
-                                Copilot
-                            </button>
-                        </nav>
-                    </div>
-                )
-            }
-        </header >
+                                <Icon className="w-4 h-4" />
+                                {item.label}
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
+        </header>
     );
 }

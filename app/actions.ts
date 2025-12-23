@@ -5,6 +5,7 @@ import { CaseInput, GeneratedReport, LLMConfig } from '@/types';
 import { prisma } from '@/lib/prisma';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { grcLLM } from '@/lib/llm/grc-service';
+import { logAudit } from '@/lib/audit-log';
 
 const PROVIDER_URLS: Record<string, string> = {
   'openai': 'https://api.openai.com/v1',
@@ -19,51 +20,16 @@ import { createHash } from 'crypto'; // Built-in Node module
 // ... (keep existing imports)
 
 export async function generateReportAction(input: CaseInput, userEmail: string, llmConfig?: LLMConfig): Promise<GeneratedReport> {
-  const { userId } = await auth();
-  if (!userId) {
+  const context = await getIsolationContext();
+  if (!context) {
     throw new Error("Unauthorized: Invalid session");
   }
 
-  // Admin/Manager Role Check - Fetch user from DB using Clerk userId
-  // In DEV_MODE or if user role is not strict, allow generation for any authenticated user
   const DEV_MODE = process.env.DEV_MODE === 'true';
-  let user = await prisma.user.findFirst({
-    where: { id: userId },
-    select: { id: true, role: true, email: true }
-  });
+  const user = context;
 
-  // If user doesn't exist in DB by Clerk ID, check by email or create them
-  if (!user) {
-    const clerkUser = await currentUser();
-    const email = clerkUser?.emailAddresses?.[0]?.emailAddress || userEmail;
-
-    // First check if user exists by email (might have different ID)
-    user = await prisma.user.findFirst({
-      where: { email },
-      select: { id: true, role: true, email: true }
-    });
-
-    // If still no user, create one using upsert to avoid race conditions
-    if (!user) {
-      user = await prisma.user.upsert({
-        where: { id: userId },
-        update: {}, // If exists by ID, just return it
-        create: {
-          id: userId,
-          email,
-          name: clerkUser?.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : 'User',
-          role: 'user'
-        },
-        select: { id: true, role: true, email: true }
-      });
-    }
-  }
-
-  // Allow all authenticated users to generate reports (core platform feature)
-  // Role-based restrictions can be re-enabled for enterprise deployments
-  if (!DEV_MODE && user?.role && !['admin', 'manager', 'user'].includes(user.role)) {
-    throw new Error("Unauthorized: Assessment generation is restricted.");
-  }
+  // Expert Tier: Use context role (fallback to user if not in DB yet, but context handles provisioning)
+  // We'll trust the context to have handled user creation/finding.
 
   // 1. CONFIGURATION RESOLUTION (Vendor-Managed Priority)
   let openai: OpenAI;
@@ -120,31 +86,114 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
 
   // 3. GENERATION
   try {
-    const prompt = `
-    You are a GRC consultant creating a ${input.targetFramework} assessment...
-    (rest of prompt logic...)
-    `;
-
-    // Note: The original prompt construction logic was omitted in the previous view, assuming it's complex.
-    // Ideally we should move the prompt construction to a helper or pass structured input to generateReport?
-    // For now, assuming generateReport takes a string prompt.
-    // Because I cannot see the full prompt logic in the snippet (lines 98-101 were summaries), 
-    // I will assume I need to construct a decent prompt here or reuse what was there?
-    // The previous file view showed lines 98-101 were placeholders in the view or actual code?
-    // Wait, line 98 in previous view was: `const prompt = \`\n    You are a GRC consultant...`
-    // It seems I need to be careful not to lose the prompt logic. 
-    // Since I can't effectively recreate the prompt logic blind, I will trust that I should just call grcLLM.generateReport
-    // But passing input parameters might be better if I update generateReport to take CaseInput?
-    // No, generateReport takes 'prompt: string'.
-
-    // I will Construct a standard prompt here.
-    const promptText = `Generate a ${input.targetFramework} compliance assessment for ${input.companyName} (${input.companySize}).
-    Key Challenge: ${input.keyChallenge}
+    // Comprehensive prompt with clear JSON schema specification
+    const promptText = `You are a Senior GRC (Governance, Risk, and Compliance) Auditor with 20+ years of experience at a Big 4 firm.
     
-    Structure the response according to the schema: Controls, Risks, Vendors, Incidents.`;
+    Conduct a professional, detailed, and realistic ${input.targetFramework} compliance assessment for:
+    - Company: ${input.companyName} (Industry: ${input.industry || 'Technology'})
+    - Size: ${input.companySize}
+    - Key Challenge: ${input.keyChallenge}
+
+    Your assessment MUST be hyper-targeted to the provided Industry and Key Challenge. Avoid generic boilerplate (like "AWS" or "GitHub" unless they are the primary cause of the challenge). If the challenge is "Data Privacy in Healthcare", the incidents should be about HIPAA violations or EHR breaches, not generic phishing.
+    
+    The Vendors and Incidents you generate MUST be interconnected. For example, if you list a specific SaaS vendor, a generated incident might involve a breach at that vendor. 
+    
+    Use a professional consulting tone, focusing on "Business Risk" and "Material Impact".
+
+    Respond ONLY with the JSON object.
+    
+    You MUST respond with a valid JSON object containing these exact fields:
+
+    {
+      "executiveSummary": {
+        "problemStatement": "A professional assessment of the specific GRC challenges cited.",
+        "context": "Organizational context and compliance scope.",
+        "scope": "Specific systems, processes, and locations covered.",
+        "recommendations": "Strategic roadmap for remediation (high-level)."
+      },
+      "complianceMetrics": {
+        "complianceScore": 0-100,
+        "maturityLevel": "Initial" | "Developing" | "Defined" | "Managed" | "Optimizing",
+        "auditReadiness": 0-100,
+        "dimensionScores": {
+          "documentation": 0-100,
+          "evidence": 0-100,
+          "policies": 0-100,
+          "technical": 0-100
+        }
+      },
+      "controls": [
+        {
+          "title": "Specific Control Name",
+          "description": "Detailed description.",
+          "controlType": "preventive" | "detective" | "corrective" | "directive",
+          "status": "compliant" | "partially_compliant" | "non_compliant" | "not_applicable"
+        }
+      ],
+      "risks": [
+        {
+          "category": "Strategic" | "Operational" | "Financial" | "Compliance" | "Reputational",
+          "narrative": "Detailed risk scenario.",
+          "likelihood": 1-5,
+          "impact": 1-5,
+          "mitigatingControlTitles": ["Exact Title of Control"],
+          "recommendedActions": [
+            { "title": "Action Title", "priority": "high" | "medium" | "low" }
+          ]
+        }
+      ],
+      "gaps": [
+        {
+          "title": "Gap Title",
+          "description": "Gap description.",
+          "severity": "critical" | "high" | "medium" | "low",
+          "remediationPlan": "Detailed steps",
+          "effort": "high" | "medium" | "low",
+          "timeline": "e.g., 30 days"
+        }
+      ],
+      "policies": [
+        {
+          "title": "Policy Name",
+          "category": "e.g., Security, Privacy",
+          "description": "Policy summary",
+          "status": "active" | "draft" | "review"
+        }
+      ],
+      "vendors": [
+        {
+          "name": "Vendor Name",
+          "category": "Category",
+          "services": "Critical services",
+          "riskScore": 0-100
+        }
+      ],
+      "incidents": [
+        {
+          "title": "Incident Title",
+          "description": "Description.",
+          "severity": "low" | "medium" | "high" | "critical",
+          "status": "resolved" | "investigating" | "open"
+        }
+      ]
+    }
+
+    Requirements:
+    1. Generate 6-8 comprehensive controls strictly specific to ${input.targetFramework}.
+    2. Identify 4-5 top risks. CRITICAL: For each risk, listed in "mitigatingControlTitles", you MUST include the EXACT titles of 1-2 controls from your "controls" list that help mitigate this risk.
+    3. For each risk, provide 1-2 specific "recommendedActions".
+    4. List 3 realistic vendors that are CRITICAL to this company's industry and operations. Do not just use AWS/GitHub unless they are the most relevant. Use industry leaders (e.g., Epic for Healthcare, Bloomberg for Finance, etc.).
+    5. Create 2 plausible incident scenarios that are directly triggered by the "Key Challenge" or involve the listed "Vendors".
+    6. Ensure the entire assessment tells a consistent story about the organization's current posture.
+
+    Respond ONLY with the JSON object.`;
+
+    console.log('[generateReportAction] Calling LLM with prompt length:', promptText.length);
 
     const result = await grcLLM.generateReport(promptText, config);
     const parsedContent = result.data;
+
+    console.log('[generateReportAction] LLM Response:', JSON.stringify(parsedContent).substring(0, 500));
 
     // 4. METERING (Cost Tracking)
     const usage = result.usage;
@@ -179,6 +228,15 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
       }
     });
 
+    // 6. PERSISTENCE LAYER (SaaS Upgrade)
+    // Explode the report into granular DB records for the Dashboard
+    try {
+      const { persistReportData } = await import('@/lib/services/ai-mapper');
+      await persistReportData(user.id, parsedContent);
+    } catch (persistErr) {
+      console.error("Persistence Warning:", persistErr);
+    }
+
     return {
       id: crypto.randomUUID(),
       sections: parsedContent,
@@ -204,155 +262,139 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
 function generateFallbackGRCData(input: CaseInput) {
   const framework = input.targetFramework || 'ISO 27001';
   const company = input.companyName || 'Demo Company';
+  const challenge = input.keyChallenge || 'compliance and security challenges';
+  const industry = input.industry?.toLowerCase() || 'technology';
+
+  // Industry-specific vendor/incident templates
+  const industryTemplates: any = {
+    healthcare: {
+      vendors: [{ name: 'Epic Systems', category: 'EHR', services: 'Electronic Health Records Hosting', riskScore: 15 }],
+      incidents: [{ title: 'Unauthorized PHI Access', description: 'Internal audit discovered unauthorized access to patient health information.', severity: 'critical' }]
+    },
+    finance: {
+      vendors: [{ name: 'Bloomberg', category: 'Data', services: 'Market Data and Analytics', riskScore: 10 }],
+      incidents: [{ title: 'SWIFT Message Discrepancy', description: 'Anomaly detected in international payment messaging queue.', severity: 'high' }]
+    },
+    manufacturing: {
+      vendors: [{ name: 'SAP', category: 'ERP', services: 'Supply Chain Management', riskScore: 20 }],
+      incidents: [{ title: 'OT Segment Intrusion', description: 'Suspicious lateral movement detected in the factory floor VLAN.', severity: 'high' }]
+    },
+    retail: {
+      vendors: [{ name: 'Shopify', category: 'E-commerce', services: 'Storefront and Payment Processing', riskScore: 12 }],
+      incidents: [{ title: 'POS Malware Outbreak', description: 'Point-of-sale terminals in three regions reported suspicious outbound traffic.', severity: 'critical' }]
+    }
+  };
+
+  const template = industryTemplates[industry] || {
+    vendors: [{ name: 'CloudSecure Inc', category: 'Infrastructure', services: 'IaaS Hosting', riskScore: 25 }],
+    incidents: [{ title: 'Security Perimeter Breach', description: 'External firewall bypassed during a coordinated DDoS attack.', severity: 'high' }]
+  };
 
   return {
+    executiveSummary: {
+      problemStatement: `${company} in the ${industry} sector is facing ${challenge}. This directly impacts the organization's ability to maintain ${framework} compliance.`,
+      context: `The specific regulatory and operational context of ${industry} necessitates a robust approach to ${framework}.`,
+      scope: `Comprehensive review of ${framework} controls as applied to ${company}'s core business units.`,
+      recommendations: `Address critical gaps in ${template.incidents[0].title.toLowerCase()} prevention and strengthen ${template.vendors[0].name} oversight.`
+    },
     controls: [
       {
         title: `${framework} Access Control Policy`,
-        description: `Implement role-based access control (RBAC) to ensure users have appropriate permissions for ${company}.`,
+        description: `Implement strict access controls tailored for ${industry} data types.`,
         controlType: 'preventive'
       },
       {
-        title: 'Data Encryption Standards',
-        description: 'Encrypt all sensitive data at rest using AES-256 and in transit using TLS 1.3.',
+        title: 'Industry-Specific Encryption',
+        description: `Encryption standards aligned with ${industry} regulatory requirements (e.g., AES-GCM-256).`,
         controlType: 'preventive'
       },
       {
-        title: 'Security Awareness Training',
-        description: 'Conduct quarterly security awareness training for all employees.',
-        controlType: 'directive'
-      },
-      {
-        title: 'Incident Response Procedure',
-        description: 'Establish and maintain an incident response plan with defined escalation paths.',
-        controlType: 'corrective'
-      },
-      {
-        title: 'Vulnerability Management',
-        description: 'Perform monthly vulnerability scans and remediate critical findings within 72 hours.',
+        title: 'Continuous Monitoring',
+        description: 'Real-time detection of anomalies in production environments.',
         controlType: 'detective'
-      },
-      {
-        title: 'Change Management Process',
-        description: 'All changes to production systems must go through formal change advisory board approval.',
-        controlType: 'preventive'
       }
     ],
     risks: [
       {
-        category: 'Cybersecurity',
-        narrative: `${company} faces elevated cyber risks due to ${input.keyChallenge || 'rapid digital transformation'}. Phishing and ransomware remain top threats.`,
-        likelihood: 4,
-        impact: 4
-      },
-      {
         category: 'Compliance',
-        narrative: `Non-compliance with ${framework} could result in regulatory penalties and reputational damage.`,
+        narrative: `Failure to adhere to ${framework} within the ${industry} context leads to significant legal exposure.`,
         likelihood: 3,
         impact: 5
       },
       {
         category: 'Operational',
-        narrative: 'Single points of failure in critical systems pose business continuity risks.',
-        likelihood: 3,
-        impact: 4
-      },
-      {
-        category: 'Third Party',
-        narrative: 'Vendor security posture varies significantly, creating supply chain vulnerabilities.',
+        narrative: `Business interruption related to ${challenge} could halt core operations for ${company}.`,
         likelihood: 4,
-        impact: 3
+        impact: 4
       }
     ],
     vendors: [
-      {
-        name: 'CloudSecure Inc',
-        category: 'Cloud Infrastructure',
-        services: 'IaaS hosting and backup services',
-        riskScore: 25
-      },
-      {
-        name: 'DataGuard Solutions',
-        category: 'Security',
-        services: 'SIEM and threat detection',
-        riskScore: 15
-      },
-      {
-        name: 'PayFlow Systems',
-        category: 'Financial',
-        services: 'Payment processing',
-        riskScore: 40
-      }
+      ...template.vendors,
+      { name: 'Generic IT Provider', category: 'Managed Services', services: 'Helpdesk and RMM', riskScore: 30 }
     ],
     incidents: [
       {
-        title: 'Phishing Attempt Detected',
-        description: 'Targeted phishing campaign identified and blocked by email security.',
-        severity: 'medium',
-        status: 'resolved'
+        ...template.incidents[0],
+        status: 'investigating'
       },
       {
-        title: 'Unauthorized Access Attempt',
-        description: 'Failed login attempts from suspicious IP addresses detected.',
-        severity: 'low',
-        status: 'investigating'
+        title: 'Late Patching Cycle',
+        description: 'Vulnerability scan identified critical systems without security updates for >30 days.',
+        severity: 'medium',
+        status: 'open'
       }
     ]
   };
 }
 
-export async function applyReportToPlatform(report: GeneratedReport, clearData: boolean = false, userEmail: string) {
-  const { userId } = await auth();
-  if (!userId) {
+export async function applyReportToPlatform(report: GeneratedReport, clearData: boolean = false, userEmail: string, framework: string = 'ISO 27001') {
+  const context = await getIsolationContext();
+  if (!context) {
     throw new Error("Unauthorized: Invalid session");
   }
 
-  // Get user from DB (no role restriction - all authenticated users can push)
-  const user = await prisma.user.findFirst({
-    where: { id: userId },
-    select: { role: true, email: true }
-  });
-
-  // Use user email from DB or passed parameter
-  const effectiveEmail = userEmail || user?.email;
-  if (!effectiveEmail) throw new Error("User email required");
+  const effectiveEmail = context.email;
+  const orgId = context.orgId;
 
   const data = report.sections;
 
-  // PERSISTENCE LAYER: Save generated data to Database
-  await prisma.$transaction(async (tx) => {
-    // 1. Optional Cleanup
+  try {
+    // 1. Optional Cleanup (outside transaction for safety)
+    // 1. Optional Cleanup (strictly scoped)
     if (clearData) {
-      await tx.control.deleteMany({ where: { owner: userEmail } });
-      await tx.risk.deleteMany({ where: { owner: userEmail } });
-      await tx.vendor.deleteMany({ where: { owner: userEmail } });
-      await tx.action.deleteMany({ where: { owner: userEmail } });
-      await tx.incident.deleteMany({ where: { reportedBy: userEmail } }); // Note: incident uses reportedBy
-      await tx.policy.deleteMany({ where: { owner: userEmail } });
+      await prisma.policy.deleteMany({ where: { owner: effectiveEmail } });
+      await prisma.control.deleteMany({ where: { owner: effectiveEmail } });
+      await prisma.risk.deleteMany({ where: { owner: effectiveEmail } });
+      await prisma.vendor.deleteMany({ where: { owner: effectiveEmail } });
+      await prisma.action.deleteMany({ where: { owner: effectiveEmail } });
+      await prisma.incident.deleteMany({ where: { reportedBy: effectiveEmail } });
     }
 
-    // 2. Insert Controls
-    const createdControls: any[] = [];
+    // Map to store Control Title -> DB ID
+    const controlMap = new Map<string, string>();
+
+    // 2. Insert Controls (Sequential to capture IDs)
     if (data.controls && Array.isArray(data.controls)) {
       for (const c of data.controls) {
-        const control = await tx.control.create({
+        const created = await prisma.control.create({
           data: {
-            title: c.title,
-            description: c.description || c.title,
+            title: c.title || 'Control',
+            description: c.description || c.title || 'Security control',
             controlType: c.controlType || 'preventive',
             controlRisk: 'medium',
-            owner: userEmail
+            organizationId: orgId,
+            owner: effectiveEmail
           }
         });
-        createdControls.push(control);
+        controlMap.set(c.title, created.id);
       }
     }
 
-    // 3. Insert Risks
-    const createdRisks: any[] = [];
+    // 3. Insert Risks and Link to Controls
     if (data.risks && Array.isArray(data.risks)) {
       for (const r of data.risks) {
-        const risk = await tx.risk.create({
+        // Create Risk
+        const createdRisk = await prisma.risk.create({
           data: {
             category: r.category || 'General',
             narrative: r.narrative || 'Identified risk',
@@ -360,108 +402,145 @@ export async function applyReportToPlatform(report: GeneratedReport, clearData: 
             impact: r.impact || 3,
             score: (r.likelihood || 3) * (r.impact || 3),
             status: 'open',
-            owner: userEmail
-          }
-        });
-        createdRisks.push(risk);
-      }
-    }
-
-    // 4. Create Risk-Control Relationships (GRC Best Practice)
-    if (createdRisks.length > 0 && createdControls.length > 0) {
-      for (let i = 0; i < createdRisks.length; i++) {
-        const risk = createdRisks[i];
-        // Assign 1-2 controls per risk
-        const controlIndex1 = i % createdControls.length;
-        const controlIndex2 = (i + 1) % createdControls.length;
-
-        await tx.riskControl.create({
-          data: {
-            riskId: risk.id,
-            controlId: createdControls[controlIndex1].id,
-            effectiveness: 'partial',
-            residualRisk: Math.max(1, risk.score - 5),
-            notes: 'Auto-generated control assignment'
+            owner: effectiveEmail,
+            organizationId: orgId,
+            recommendedActions: JSON.stringify(r.recommendedActions || [])
           }
         });
 
-        // Add second control for high-risk items
-        if (risk.score > 12 && controlIndex1 !== controlIndex2) {
-          await tx.riskControl.create({
-            data: {
-              riskId: risk.id,
-              controlId: createdControls[controlIndex2].id,
-              effectiveness: 'partial',
-              residualRisk: Math.max(1, risk.score - 8),
-              notes: 'Secondary control for high-risk item'
+        // Link Rules (RiskControl)
+        if (r.mitigatingControlTitles && Array.isArray(r.mitigatingControlTitles)) {
+          for (const title of r.mitigatingControlTitles) {
+            const controlId = controlMap.get(title);
+            if (controlId) {
+              // Verify uniqueness before insert to avoid crash? 
+              // create unique
+              try {
+                await prisma.riskControl.create({
+                  data: {
+                    riskId: createdRisk.id,
+                    controlId: controlId,
+                    effectiveness: 'partial'
+                  }
+                });
+              } catch (e) { /* ignore duplicate linking */ }
             }
-          });
+          }
+        }
+
+        // Create Actions linked to this Risk
+        if (r.recommendedActions && Array.isArray(r.recommendedActions)) {
+          for (const action of r.recommendedActions) {
+            await prisma.action.create({
+              data: {
+                title: action.title || 'Mitigate Risk',
+                type: 'corrective',
+                description: `Action to mitigate risk: ${r.narrative?.substring(0, 100)}...`,
+                status: 'open',
+                priority: action.priority || 'high',
+                owner: effectiveEmail,
+                organizationId: orgId,
+                parentType: 'Risk',
+                parentId: createdRisk.id
+              }
+            });
+          }
         }
       }
     }
 
-    // 5. Insert Vendors
-    if (data.vendors && Array.isArray(data.vendors)) {
-      await tx.vendor.createMany({
+    // 4. Vendors
+    if (data.vendors && Array.isArray(data.vendors) && data.vendors.length > 0) {
+      await prisma.vendor.createMany({
         data: data.vendors.map((v: any) => ({
           name: v.name || 'Vendor',
-          category: v.category || 'Service',
-          services: v.services || v.name,
-          riskScore: v.riskScore || 25,
+          category: v.category || 'General',
+          services: v.services || 'Services',
+          riskScore: v.riskScore || 50,
           status: 'active',
-          owner: userEmail
+          owner: effectiveEmail,
+          organizationId: orgId
         }))
       });
     }
 
-    // 6. Insert Incidents (NEW)
-    if (data.incidents && Array.isArray(data.incidents)) {
-      for (const inc of data.incidents) {
-        await tx.incident.create({
+    // 5. Incidents
+    if (data.incidents && Array.isArray(data.incidents) && data.incidents.length > 0) {
+      await prisma.incident.createMany({
+        data: data.incidents.map((i: any) => ({
+          title: i.title || 'Incident',
+          description: i.description || 'Description',
+          severity: i.severity || 'medium',
+          status: i.status || 'open',
+          reportedBy: effectiveEmail,
+          organizationId: orgId
+        }))
+      });
+    }
+
+    // 6. Gaps Analysis (Phase 1 Enhancement)
+    if (data.gaps && Array.isArray(data.gaps) && data.gaps.length > 0) {
+      for (const gap of data.gaps) {
+        await prisma.gap.create({
           data: {
-            title: inc.title || 'Security Incident',
-            description: inc.description || 'Automated incident report',
-            severity: inc.severity || 'medium',
-            status: inc.status || 'open',
-            reportedBy: userEmail, // Fixed: Uses reportedBy instead of owner
+            title: gap.title || 'Compliance Gap',
+            description: gap.description || 'Identified gap in compliance.',
+            severity: gap.severity || 'medium',
+            framework: framework,
+            remediationPlan: gap.remediationPlan,
+            effort: gap.effort,
+            timeline: gap.timeline,
+            organizationId: orgId,
+            owner: effectiveEmail
           }
         });
       }
     }
 
-    // 7. Insert Default Action (with parent tracking)
-    if (createdRisks.length > 0) {
-      await tx.action.create({
-        data: {
-          title: 'Review and Implement Controls',
-          description: 'Implement recommended controls to mitigate identified risks',
-          type: 'preventive',
-          status: 'open',
-          priority: 'high',
-          owner: userEmail,
-          parentType: 'Risk',
-          parentId: createdRisks[0].id,
-          expectedRiskReduction: 5
-        }
+    // 7. Policies (Phase 1 Enhancement)
+    if (data.policies && Array.isArray(data.policies) && data.policies.length > 0) {
+      await prisma.policy.createMany({
+        data: data.policies.map((p: any) => ({
+          title: p.title || 'Policy',
+          content: p.description || 'Policy content.',
+          category: p.category || 'Security',
+          status: p.status || 'draft',
+          owner: effectiveEmail,
+          organizationId: orgId
+        }))
       });
-    }
-
-    // 8. Insert Evidence (linked to controls)
-    if (createdControls.length > 0) {
-      await tx.evidence.create({
+    } else if (data.controls && data.controls.length > 0) {
+      // Fallback: Create one if none generated
+      await prisma.policy.create({
         data: {
-          controlId: createdControls[0].id,
-          evidenceType: 'document',
-          description: 'Control implementation documentation',
+          title: 'Information Security Policy',
+          version: '1.0',
+          content: 'This policy establishes security controls and risk management.',
           status: 'draft',
-          verificationStatus: 'pending',
-          uploadedBy: userEmail
+          owner: effectiveEmail,
+          organizationId: orgId,
+          reviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
         }
       });
     }
-  });
 
-  return { success: true };
+    // 8. Audit the push operation
+    await logAudit({
+      entity: 'Assessment',
+      entityId: 'PUSH_TO_PLATFORM',
+      action: 'PUSH',
+      changes: {
+        framework: framework,
+        controlCount: data.controls?.length || 0,
+        riskCount: data.risks?.length || 0
+      }
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('applyReportToPlatform error:', error);
+    throw new Error(`Import failed: ${error.message}`);
+  }
 }
 
 // ==========================================
@@ -488,8 +567,8 @@ export async function getSystemConfig() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  // Fetch user from DB to get role
-  const dbUser = await prisma.user.findFirst({
+  // Fetch user from DB to get role using unique ID lookup
+  const dbUser = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, role: true }
   });
@@ -523,7 +602,7 @@ export async function saveSystemConfig(config: LLMConfig) {
     throw new Error("Unauthorized: Invalid session");
   }
 
-  const dbUser = await prisma.user.findFirst({
+  const dbUser = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, role: true }
   });

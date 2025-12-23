@@ -1,247 +1,237 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import { Shield, Brain, Zap, AlertTriangle, FileText, Activity, ArrowLeft, ShieldCheck } from 'lucide-react';
+import PremiumBackground from '@/components/PremiumBackground';
 import {
-    Chart as ChartJS,
-    RadialLinearScale,
-    PointElement,
-    LineElement,
-    Filler,
-    Tooltip,
-    Legend,
-} from 'chart.js';
-import { Radar } from 'react-chartjs-2';
+    Building2,
+    ArrowLeft,
+    AlertTriangle,
+    FileText,
+    ShieldCheck,
+    Clock,
+    ExternalLink,
+    MailOpen,
+    Phone,
+    Globe,
+    Edit3,
+    Trash2
+} from 'lucide-react';
 
-ChartJS.register(
-    RadialLinearScale,
-    PointElement,
-    LineElement,
-    Filler,
-    Tooltip,
-    Legend
-);
+const TABS = ['Overview', 'Risks', 'Contracts', 'Assessments'];
 
-export default function VendorDNA({ params }: { params: Promise<{ id: string }> }) {
+const CRITICALITY_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
+    critical: { label: 'Critical', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+    high: { label: 'High', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
+    medium: { label: 'Medium', color: 'text-amber-400', bgColor: 'bg-amber-500/10' },
+    low: { label: 'Low', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
+};
+
+export default function VendorDetailPage() {
+    const params = useParams();
     const router = useRouter();
-    const { id } = use(params);
-    const [data, setData] = useState<any>(null);
+    const vendorId = params.id as string;
+
+    const [vendor, setVendor] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('Overview');
 
     useEffect(() => {
-        fetch(`/api/vendors/${id}`)
-            .then(res => res.json())
-            .then(json => {
-                setData(json);
+        async function fetchVendor() {
+            try {
+                const res = await fetch(`/api/vendors/${vendorId}`);
+                if (!res.ok) throw new Error('Vendor not found');
+                const data = await res.json();
+                setVendor(data.vendor || data);
+            } catch (error) {
+                console.error('Failed to fetch vendor:', error);
+            } finally {
                 setLoading(false);
-            });
-    }, [id]);
+            }
+        }
+        if (vendorId) fetchVendor();
+    }, [vendorId]);
 
-    if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-500">Deciphering DNA...</div>;
+    if (loading) {
+        return (
+            <div className="min-h-screen text-foreground">
+                <PremiumBackground />
+                <Header />
+                <div className="relative z-10 p-8 pt-32 max-w-7xl mx-auto">
+                    <div className="h-64 bg-slate-900/40 animate-pulse rounded-2xl" />
+                </div>
+            </div>
+        );
+    }
 
-    if (data?.error || !data?.vendor) return (
-        <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center">
-            <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Vendor DNA Not Found</h1>
-            <p className="text-slate-400 mb-6">The requested vendor profile could not be located in the constellation.</p>
-            <button onClick={() => router.back()} className="px-6 py-2 bg-slate-800 rounded-lg hover:bg-slate-700">Return to Grid</button>
-        </div>
-    );
-
-    const { vendor, radarMetrics = { security: 0, privacy: 0, legal: 0, availability: 0, financial: 0, reputation: 0 } } = data;
-
-    const radarData = {
-        labels: ['Security', 'Privacy', 'Legal', 'Availability', 'Financial', 'Reputation'],
-        datasets: [
-            {
-                label: 'Risk Exposure',
-                data: [
-                    radarMetrics.security,
-                    radarMetrics.privacy,
-                    radarMetrics.legal,
-                    radarMetrics.availability,
-                    radarMetrics.financial,
-                    radarMetrics.reputation,
-                ],
-                backgroundColor: 'rgba(239, 68, 68, 0.2)', // Red
-                borderColor: 'rgba(239, 68, 68, 1)',
-                borderWidth: 2,
-            },
-            {
-                label: 'Control Coverage', // Simulated inverse
-                data: [
-                    100 - radarMetrics.security,
-                    100 - radarMetrics.privacy,
-                    100 - radarMetrics.legal,
-                    100 - radarMetrics.availability,
-                    100 - radarMetrics.financial,
-                    100 - radarMetrics.reputation,
-                ],
-                backgroundColor: 'rgba(16, 185, 129, 0.2)', // Emerald
-                borderColor: 'rgba(16, 185, 129, 1)',
-                borderWidth: 2,
-            },
-        ],
-    };
-
-    const radarOptions = {
-        scales: {
-            r: {
-                angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                pointLabels: { color: '#94a3b8', font: { size: 12 } },
-                ticks: { display: false, backdropColor: 'transparent' }
-            },
-        },
-        plugins: {
-            legend: { labels: { color: '#cbd5e1' } }
-        },
-        maintainAspectRatio: false
-    };
+    if (!vendor) {
+        return (
+            <div className="min-h-screen text-foreground">
+                <PremiumBackground />
+                <Header />
+                <div className="relative z-10 p-8 pt-32 max-w-7xl mx-auto text-center">
+                    <Building2 className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Vendor Not Found</h2>
+                    <button onClick={() => router.push('/vendors')} className="text-primary hover:underline">
+                        ← Back to Vendors
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-[#020617] text-white selection:bg-purple-500/30 font-sans">
+        <div className="min-h-screen text-foreground selection:bg-primary/30">
+            <PremiumBackground />
             <Header />
 
-            <main className="max-w-7xl mx-auto px-6 py-8 pt-32">
-                {/* Navigation */}
-                <button
-                    onClick={() => router.back()}
-                    className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 hover:-translate-x-1 transition-transform"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Return to Constellation
-                </button>
+            <div className="relative z-10 p-8 pt-32">
+                <div className="max-w-7xl mx-auto space-y-8">
+                    {/* Back Button */}
+                    <button
+                        onClick={() => router.push('/vendors')}
+                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Vendors
+                    </button>
 
-                {/* Identity Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-white/10 pb-8">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <span className="font-mono text-purple-500 text-sm tracking-widest uppercase">ID: {vendor.id.slice(-6)}</span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${vendor.status === 'active' ? 'border-emerald-500 text-emerald-500' : 'border-slate-500 text-slate-500'}`}>
-                                {vendor.status}
-                            </span>
-                        </div>
-                        <h1 className="text-5xl font-black tracking-tight mb-2 flex items-center gap-4">
-                            {vendor.name}
-                            <span className={`text-lg px-3 py-1 rounded-full border ${vendor.criticality === 'critical' ? 'border-red-500 bg-red-500/10 text-red-500' : 'border-blue-500 bg-blue-500/10 text-blue-500'}`}>
-                                {vendor.criticality || 'Medium'} Impact
-                            </span>
-                        </h1>
-                        <p className="text-slate-400 max-w-2xl text-lg">{vendor.services}</p>
-                    </div>
-                    <div className="text-right mt-6 md:mt-0">
-                        <div className="text-sm text-slate-500 uppercase tracking-widest mb-1">Composite Risk Score</div>
-                        <div className={`text-6xl font-black ${vendor.riskScore > 75 ? 'text-red-500' : 'text-emerald-500'}`}>
-                            {vendor.riskScore || 0}
-                        </div>
-                    </div>
-                </div>
-
-                {/* DNA Dashboard */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                    {/* Left: Risk Radar */}
-                    <div className="lg:col-span-1 bg-slate-900/50 border border-white/5 rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
-                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
-                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-purple-400" /> Risk Vector Analysis
-                        </h3>
-                        <div className="h-[300px] w-full">
-                            <Radar data={radarData} options={radarOptions} />
-                        </div>
-                        <div className="mt-4 text-center text-xs text-slate-500 font-mono">
-                            Live telemetry from {vendor._count.assessments} data points
-                        </div>
-                    </div>
-
-                    {/* Middle: AI Narrative */}
-                    <div className="lg:col-span-1 bg-slate-900/50 border border-white/5 rounded-2xl p-6 relative overflow-hidden">
-                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                            <Brain className="w-5 h-5 text-blue-400" /> AI Risk Narrative
-                        </h3>
-                        <div className="prose prose-invert prose-sm">
-                            <p className="text-slate-300 leading-relaxed">
-                                <span className="text-purple-400 font-bold">Analysis:</span> {vendor.name} presents a
-                                {vendor.riskScore > 50 ? ' significant ' : ' moderate '} risk profile, primarily driven by
-                                <span className="text-red-400"> Data Privacy </span> and <span className="text-red-400"> Availability </span> vectors.
-                            </p>
-                            <p className="text-slate-300 leading-relaxed mt-4">
-                                Recent signals indicate stability in financial health, but third-party sub-processor controls remain a gap.
-                                Recommended action: <span className="text-emerald-400 font-bold">Enhance audit frequency to Quarterly.</span>
-                            </p>
-                        </div>
-
-                        <div className="mt-8 space-y-3">
-                            <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                                <span className="text-sm text-slate-400">Data Sensitivity</span>
-                                <span className="text-sm font-bold text-white">High (PII/PHI)</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                                <span className="text-sm text-slate-400">Jurisdiction</span>
-                                <span className="text-sm font-bold text-white">EU / US Safe Harbor</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right: Compliance Shield */}
-                    <div className="lg:col-span-1 bg-slate-900/50 border border-white/5 rounded-2xl p-6 relative overflow-hidden flex flex-col items-center justify-center text-center">
-                        <div className="relative mb-6">
-                            <Shield className="w-24 h-24 text-emerald-500/20" />
-                            <ShieldCheck className="w-12 h-12 text-emerald-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                        </div>
-                        <h2 className="text-3xl font-bold text-white mb-1">94%</h2>
-                        <div className="text-emerald-400 text-sm font-bold uppercase tracking-wider mb-6">Compliance Adherence</div>
-
-                        <div className="w-full space-y-4">
-                            <div>
-                                <div className="flex justify-between text-xs text-slate-400 mb-1">
-                                    <span>ISO 27001</span>
-                                    <span>Verified</span>
-                                </div>
-                                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full w-full bg-emerald-500" />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-xs text-slate-400 mb-1">
-                                    <span>SOC 2 Type II</span>
-                                    <span>Pending Renewal</span>
-                                </div>
-                                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full w-[80%] bg-yellow-500" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* Connection Activity */}
-                <div className="mt-8 bg-slate-900/50 border border-white/5 rounded-2xl p-6">
-                    <h3 className="text-lg font-bold mb-6 text-white">Linked Risk Activity</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {vendor.vendorRisks?.map((vr: any) => (
-                            <div key={vr.id} className="p-4 bg-slate-950 border border-white/10 rounded-xl flex items-start gap-4">
-                                <div className="p-2 bg-red-500/10 rounded-lg text-red-500">
-                                    <AlertTriangle className="w-5 h-5" />
+                    {/* Header Card */}
+                    <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-8">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                            <div className="flex items-start gap-6">
+                                <div className="p-4 bg-primary/10 rounded-2xl">
+                                    <Building2 className="w-10 h-10 text-primary" />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-white mb-1">{vr.risk.narrative}</div>
-                                    <div className="text-xs text-slate-500">
-                                        Score: {vr.risk.score} | {vr.risk.category}
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <h1 className="text-3xl font-bold text-white">{vendor.name}</h1>
+                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${CRITICALITY_CONFIG[vendor.criticality]?.bgColor} ${CRITICALITY_CONFIG[vendor.criticality]?.color}`}>
+                                            {vendor.criticality}
+                                        </span>
                                     </div>
+                                    <p className="text-slate-400 text-sm">{vendor.category}</p>
+                                    {vendor.services && <p className="text-slate-500 text-sm mt-2 max-w-xl">{vendor.services}</p>}
                                 </div>
                             </div>
+
+                            <div className="flex items-center gap-3">
+                                <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors">
+                                    <Edit3 className="w-5 h-5 text-slate-400" />
+                                </button>
+                                <button className="p-3 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors">
+                                    <Trash2 className="w-5 h-5 text-red-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Contact Info */}
+                        <div className="mt-6 pt-6 border-t border-white/5 flex flex-wrap gap-6 text-sm">
+                            {vendor.contactEmail && (
+                                <div className="flex items-center gap-2 text-slate-400">
+                                    <MailOpen className="w-4 h-4 text-slate-500" />
+                                    <span>{vendor.contactEmail}</span>
+                                </div>
+                            )}
+                            {vendor.website && (
+                                <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                                    <Globe className="w-4 h-4" />
+                                    <span>Website</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                            )}
+                            <div className="flex items-center gap-2 text-slate-400">
+                                <Clock className="w-4 h-4 text-slate-500" />
+                                <span>Created: {new Date(vendor.createdAt).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex items-center gap-2 border-b border-white/5 pb-0">
+                        {TABS.map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-4 py-3 text-sm font-bold transition-all border-b-2 -mb-px ${activeTab === tab ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-white'}`}
+                            >
+                                {tab}
+                            </button>
                         ))}
-                        {(!vendor.vendorRisks || vendor.vendorRisks.length === 0) && (
-                            <div className="col-span-3 text-center py-8 text-slate-500 italic">No linked enterprise risks found.</div>
+                    </div>
+
+                    {/* Tab Content */}
+                    <div className="space-y-6">
+                        {activeTab === 'Overview' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <MetricCard label="Risk Score" value={vendor.riskScore} icon={AlertTriangle} color={vendor.riskScore >= 70 ? 'text-red-400' : 'text-emerald-400'} />
+                                <MetricCard label="Assessments" value={vendor._count?.assessments || 0} icon={FileText} color="text-blue-400" />
+                                <MetricCard label="Evidence" value={vendor._count?.evidences || 0} icon={ShieldCheck} color="text-purple-400" />
+                            </div>
+                        )}
+
+                        {activeTab === 'Risks' && (
+                            <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6">
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                                    Linked Risks
+                                </h3>
+                                {vendor.vendorRisks && vendor.vendorRisks.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {vendor.vendorRisks.map((vr: any) => (
+                                            <div key={vr.risk.id} className="p-4 bg-white/5 rounded-xl border border-white/5 flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-white font-medium">{vr.risk.narrative}</p>
+                                                    <p className="text-xs text-slate-500 mt-1">Score: {vr.risk.score}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => router.push(`/risks`)}
+                                                    className="text-primary text-sm font-bold hover:underline flex items-center gap-1"
+                                                >
+                                                    View <ExternalLink className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-500 text-sm">No risks linked to this vendor.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'Contracts' && (
+                            <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 text-center">
+                                <FileText className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                                <h3 className="text-lg font-bold text-white mb-2">No Contracts</h3>
+                                <p className="text-slate-500 text-sm">Contract management will be available in a future update.</p>
+                            </div>
+                        )}
+
+                        {activeTab === 'Assessments' && (
+                            <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 text-center">
+                                <ShieldCheck className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                                <h3 className="text-lg font-bold text-white mb-2">No Assessments</h3>
+                                <p className="text-slate-500 text-sm">Begin a vendor assessment to evaluate third-party risk.</p>
+                            </div>
                         )}
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+}
 
-            </main>
+function MetricCard({ label, value, icon: Icon, color }: any) {
+    return (
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 flex items-center gap-4">
+            <div className={`p-3 rounded-xl bg-white/5 ${color}`}>
+                <Icon className="w-6 h-6" />
+            </div>
+            <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-0.5">{label}</div>
+                <div className="text-2xl font-black text-white">{value}</div>
+            </div>
         </div>
     );
 }

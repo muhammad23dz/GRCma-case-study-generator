@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit-log';
 
 export async function GET(
     request: NextRequest,
@@ -77,6 +78,13 @@ export async function DELETE(
         }
 
         await prisma.control.delete({ where: { id } });
+
+        await logAudit({
+            entity: 'Control',
+            entityId: id,
+            action: 'DELETE',
+            changes: { id }
+        });
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
