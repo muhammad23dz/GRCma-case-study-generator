@@ -9,6 +9,7 @@ import PageTransition from '@/components/PageTransition';
 import PremiumBackground from '@/components/PremiumBackground';
 import RestrictedView from '@/components/SaaS/RestrictedView';
 import { Shield, AlertTriangle, PlayCircle, Zap, FileText, Search, Plus, Trash2, X, Filter, ArrowLeft } from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 interface Control {
     id: string;
@@ -30,6 +31,7 @@ export default function ControlsPage() {
     const { user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { t } = useLanguage();
     const initialTab = searchParams.get('type') || 'all';
     const initialSearch = searchParams.get('search') || '';
 

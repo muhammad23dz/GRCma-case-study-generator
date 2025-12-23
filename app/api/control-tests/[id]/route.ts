@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 
 export async function PUT(
     request: Request,
@@ -9,7 +10,7 @@ export async function PUT(
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { id } = params;
@@ -26,8 +27,9 @@ export async function PUT(
         });
 
         return NextResponse.json({ test });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error updating control test:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -36,13 +38,15 @@ export async function DELETE(
     context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const role = (session.user as any).role;
-        // Only managers/admins/analysts
+        const user = await currentUser();
+        const role = user?.publicMetadata?.role as string || 'user';
+
+        // Only managers/admins/analysts can delete
         if (role === 'user') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -51,7 +55,8 @@ export async function DELETE(
         await prisma.controlTest.delete({ where: { id } });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error deleting control test:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

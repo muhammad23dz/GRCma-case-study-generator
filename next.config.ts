@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: '1.0.0-demo',
   },
 
-  // Headers for security
+  // Security headers
   async headers() {
     return [
       {
@@ -33,6 +33,31 @@ const nextConfig: NextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.com https://*.clerk.accounts.dev",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: https: blob:",
+              "connect-src 'self' https://clerk.com https://*.clerk.accounts.dev https://api.lemonsqueezy.com wss:",
+              "frame-src 'self' https://clerk.com https://*.clerk.accounts.dev",
+              "frame-ancestors 'none'",
+            ].join('; '),
           },
         ],
       },

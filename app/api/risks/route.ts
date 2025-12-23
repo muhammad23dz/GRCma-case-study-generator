@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // GET /api/risks - List risks for current user
 export async function GET(request: NextRequest) {
@@ -46,8 +47,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ risks });
     } catch (error: any) {
-        console.error('[Risks] GET Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Risks GET');
+        return NextResponse.json({ error: message }, { status });
     }
 }
 
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ risk }, { status: 201 });
     } catch (error: any) {
-        console.error('[Risks] POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Risks POST');
+        return NextResponse.json({ error: message }, { status });
     }
 }

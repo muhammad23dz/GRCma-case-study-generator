@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError, checkRateLimit, getClientIP } from '@/lib/security';
 
 // GET /api/trust/public - Public Trust Center Data
 export async function GET(request: NextRequest) {
     try {
+        // Rate limit: 30 requests per minute per IP for public endpoint
+        const clientIP = getClientIP(request);
+        const isAllowed = checkRateLimit(clientIP, 30, 60000);
+        if (!isAllowed) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please try again later.' },
+                { status: 429 }
+            );
+        }
         // This endpoint can be partially public
         const { searchParams } = new URL(request.url);
         const organizationSlug = searchParams.get('org');
@@ -67,16 +77,17 @@ export async function GET(request: NextRequest) {
             orderBy: { updatedAt: 'desc' }
         });
 
-        // Get certifications (from evidence with type 'certification')
+        // Get certifications (from evidence with evidenceType 'certification')
         const certifications = await prisma.evidence.findMany({
             where: {
-                type: 'certification',
-                status: 'current'
+                evidenceType: 'certification',
+                status: 'approved'
             },
             select: {
                 id: true,
-                title: true,
-                validUntil: true
+                fileName: true,
+                description: true,
+                nextReviewDate: true
             }
         });
 
@@ -98,8 +109,8 @@ export async function GET(request: NextRequest) {
                     lastUpdated: p.updatedAt
                 })),
                 certifications: certifications.map(c => ({
-                    name: c.title,
-                    validUntil: c.validUntil
+                    name: c.fileName || c.description || 'Certification',
+                    validUntil: c.nextReviewDate
                 })),
                 securityMeasures: [
                     'End-to-end encryption',
@@ -111,15 +122,25 @@ export async function GET(request: NextRequest) {
                 ]
             }
         });
-    } catch (error: any) {
-        console.error('Error fetching trust center data:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error getting trust center data:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // POST /api/trust/public - Submit Trust Center Access Request
 export async function POST(request: NextRequest) {
     try {
+        // Rate limit: 10 requests per minute per IP for submissions
+        const clientIP = getClientIP(request);
+        const isAllowed = checkRateLimit(`post:${clientIP}`, 10, 60000);
+        if (!isAllowed) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please try again later.' },
+                { status: 429 }
+            );
+        }
+
         const body = await request.json();
         const { email, company, reason } = body;
 
@@ -128,7 +149,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Get IP address for audit
-        const ipAddress = request.headers.get('x-forwarded-for') || 'unknown';
+        const ipAddress = clientIP;
 
         const trustRequest = await prisma.trustRequest.create({
             data: {
@@ -144,8 +165,8 @@ export async function POST(request: NextRequest) {
             message: 'Access request submitted successfully',
             requestId: trustRequest.id
         }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating trust request:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

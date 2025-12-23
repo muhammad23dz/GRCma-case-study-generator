@@ -1,24 +1,27 @@
-
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 
 export async function PUT(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
-        const { userId } = auth();
+        const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
+        const role = user?.publicMetadata?.role as string || 'user';
 
         const { id } = params;
         const body = await request.json();
         const { status, reviewNotes } = body;
 
-        // Verify permissions
-        const role = (session.user as any).role;
+        // Verify permissions for approval
         const { canApprove } = await import('@/lib/permissions');
 
         if (status === 'approved' || status === 'rejected') {
@@ -32,7 +35,7 @@ export async function PUT(
             data: {
                 status,
                 reviewNotes,
-                reviewer: status !== 'draft' ? session.user.email : undefined,
+                reviewer: status !== 'draft' ? userEmail : undefined,
                 reviewedAt: status !== 'draft' ? new Date() : undefined,
             },
             include: {
@@ -45,9 +48,9 @@ export async function PUT(
         });
 
         return NextResponse.json({ evidence });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating evidence:', error);
-        return NextResponse.json({ error: error?.message || 'Unknown server error' }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -56,30 +59,30 @@ export async function DELETE(
     context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await context.params;
+        const user = await currentUser();
+        const role = user?.publicMetadata?.role as string || 'user';
 
         // Enforce RBAC for Deletion
-        const role = (session.user as any).role;
         const { canDeleteRecords } = await import('@/lib/permissions');
 
         if (!canDeleteRecords(role)) {
             return NextResponse.json({ error: 'Forbidden: Only Admins can delete evidence' }, { status: 403 });
         }
 
+        const { id } = await context.params;
+
         await prisma.evidence.delete({
             where: { id }
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting evidence:', error);
-        const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown server error during deletion';
-        console.error('Constructed error message:', errorMessage); // Debug log
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

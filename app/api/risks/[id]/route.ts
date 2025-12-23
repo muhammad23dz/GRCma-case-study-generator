@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
+import { safeError } from '@/lib/security';
 
 export async function DELETE(
     request: NextRequest,
@@ -47,7 +48,8 @@ export async function DELETE(
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error deleting risk:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

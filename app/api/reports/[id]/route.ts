@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
+import { safeError } from '@/lib/security';
 
 // Helper to get correct DB user ID
 async function getDbUserId(userId: string): Promise<string> {
@@ -50,9 +51,9 @@ export async function DELETE(
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting report:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -88,8 +89,8 @@ export async function GET(
         response.headers.set('Expires', '0');
 
         return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching report:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

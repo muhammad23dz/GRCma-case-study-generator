@@ -159,33 +159,6 @@ export default function DashboardPage() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 relative">
                         <div className="space-y-4">
                             <div className="flex flex-col gap-4">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest animate-fade-in">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                    </span>
-                                    {t('dash_system_live')}
-                                </div>
-
-                                {/* Live Intelligence Ticker */}
-                                <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2 backdrop-blur-md max-w-xl overflow-hidden group">
-                                    <div className="flex items-center gap-2 shrink-0 border-r border-white/10 pr-4">
-                                        <span className="relative flex h-2 w-2">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                                        </span>
-                                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">{t('dash_live_intel')}</span>
-                                    </div>
-                                    <div className="flex gap-8 animate-marquee whitespace-nowrap">
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">{t('dash_intel_audit')}</span>
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">•</span>
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">{t('dash_intel_scan')}</span>
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">•</span>
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">{t('dash_intel_soc2')}</span>
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">•</span>
-                                        <span className="text-[10px] font-bold text-slate-400 tracking-tight">{t('dash_intel_ok')}</span>
-                                    </div>
-                                </div>
                             </div>
                             <div>
                                 <h1 className="text-5xl font-black tracking-tighter text-white mb-3">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 export async function GET(request: NextRequest) {
     try {
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json(logs);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error fetching audit logs:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

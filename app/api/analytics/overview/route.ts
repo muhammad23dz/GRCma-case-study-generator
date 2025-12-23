@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // GET /api/analytics/overview - User-specific analytics
 export async function GET(request: NextRequest) {
@@ -146,8 +147,8 @@ export async function GET(request: NextRequest) {
             vendorsByStatus,
             heatmapRisks
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Analytics] Critical failure:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

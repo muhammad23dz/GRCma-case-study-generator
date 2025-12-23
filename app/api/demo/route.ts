@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (userId) {
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { hasUsedDemo: true }
+            select: { hasUsedDemo: true, email: true }
         });
 
         if (user?.hasUsedDemo) {
@@ -21,20 +21,20 @@ export async function POST(req: NextRequest) {
             }, { status: 403 });
         }
 
-        // Mark as used
-        await prisma.user.update({
-            where: { email: session.user.email },
-            data: { hasUsedDemo: true }
-        });
+        // Mark as used - use the user's email from DB
+        if (user?.email) {
+            await prisma.user.update({
+                where: { email: user.email },
+                data: { hasUsedDemo: true }
+            });
+        }
     }
 
     // 2. Anonymous User Check (Cookie Based - Browser Specific)
-    // Check if user has already used the demo
     const hasTried = cookieStore.get('grc_has_tried_demo');
-    // const isDev = process.env.NODE_ENV === 'development'; // Commented out to force strict mode
 
-    // If anonymous and has cookie, block
-    if (!session && hasTried) {
+    // If anonymous (no userId) and has cookie, block
+    if (!userId && hasTried) {
         return NextResponse.json({
             error: 'Demo limit reached',
             code: 'DEMO_LIMIT_EXCEEDED'
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         path: '/',
     });
 
-    // Set Persistent "Has Tried" Cookie (Long Term) - regardless of auth, to prevent logout exploit
+    // Set Persistent "Has Tried" Cookie (Long Term)
     response.cookies.set('grc_has_tried_demo', 'true', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

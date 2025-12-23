@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // GET /api/incidents - List incidents with RBAC isolation
 export async function GET(request: Request) {
@@ -31,8 +32,8 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ incidents });
     } catch (error: any) {
-        console.error('[Incidents] GET Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Incidents GET');
+        return NextResponse.json({ error: message }, { status });
     }
 }
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ incident });
     } catch (error: any) {
-        console.error('[Incidents] POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Incidents POST');
+        return NextResponse.json({ error: message }, { status });
     }
 }

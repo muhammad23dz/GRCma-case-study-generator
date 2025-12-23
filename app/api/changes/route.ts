@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 
 // GET /api/changes
 export async function GET() {
@@ -28,8 +29,9 @@ export async function GET() {
         });
 
         return NextResponse.json({ changes });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error fetching changes:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -92,8 +94,8 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json({ change }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating change:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

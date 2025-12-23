@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
+import { safeError } from '@/lib/security';
 
 export async function GET(
     request: NextRequest,
@@ -43,8 +44,9 @@ export async function GET(
         }
 
         return NextResponse.json({ control });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error fetching control:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -87,7 +89,8 @@ export async function DELETE(
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error deleting control:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

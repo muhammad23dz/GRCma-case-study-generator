@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // GET /api/reports - Get user's saved assessment reports
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
         response.headers.set('Expires', '0');
 
         return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Reports] GET Error:', error);
         return NextResponse.json({ reports: [] });
     }
@@ -61,8 +62,8 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ report, success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Reports] POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

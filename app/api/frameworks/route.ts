@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 
 // GET /api/frameworks - List all frameworks
 export async function GET(request: Request) {
@@ -26,16 +27,17 @@ export async function GET(request: Request) {
         });
 
         return NextResponse.json({ frameworks: sortedFrameworks });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error fetching frameworks:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // POST /api/frameworks - Create framework
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -47,7 +49,8 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ framework }, { status: 201 });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error creating framework:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

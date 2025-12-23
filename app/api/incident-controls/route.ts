@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 
 // GET /api/incident-controls - Get all incident-control relationships
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = auth();
+        const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const searchParams = request.nextUrl.searchParams;
@@ -44,17 +45,17 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ incidentControls });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching incident-controls:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // POST /api/incident-controls - Link incident to bypassed control
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -78,21 +79,18 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        // TODO: Optionally update control risk score
-        // TODO: Create action item for control improvement
-
         return NextResponse.json({ incidentControl }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating incident-control link:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // DELETE /api/incident-controls - Remove incident-control link
 export async function DELETE(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -108,8 +106,8 @@ export async function DELETE(request: NextRequest) {
         });
 
         return NextResponse.json({ message: 'Incident-control link removed successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting incident-control link:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

@@ -1,14 +1,14 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 
 // GET /api/policy-controls - Get all policy-control relationships
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = auth();
+        const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const searchParams = request.nextUrl.searchParams;
@@ -44,17 +44,17 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ policyControls });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching policy-controls:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // POST /api/policy-controls - Link policy to control
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -78,17 +78,17 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ policyControl }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating policy-control link:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // DELETE /api/policy-controls - Remove policy-control link
 export async function DELETE(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -104,8 +104,8 @@ export async function DELETE(request: NextRequest) {
         });
 
         return NextResponse.json({ message: 'Policy-control link removed successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting policy-control link:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

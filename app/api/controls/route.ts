@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // GET /api/controls - List controls for current user
 export async function GET(request: NextRequest) {
@@ -50,8 +51,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ controls });
     } catch (error: any) {
-        console.error('[Controls] GET Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Controls GET');
+        return NextResponse.json({ error: message }, { status });
     }
 }
 
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ control }, { status: 201 });
     } catch (error: any) {
-        console.error('[Controls] POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Controls POST');
+        return NextResponse.json({ error: message }, { status });
     }
 }

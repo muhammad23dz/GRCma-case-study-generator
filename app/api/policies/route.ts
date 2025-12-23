@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // GET /api/policies - List policies for current user
 export async function GET() {
@@ -30,8 +31,8 @@ export async function GET() {
 
         return NextResponse.json({ policies });
     } catch (error: any) {
-        console.error('[Policies] GET Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Policies GET');
+        return NextResponse.json({ error: message }, { status });
     }
 }
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ policy }, { status: 201 });
     } catch (error: any) {
-        console.error('[Policies] POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status } = safeError(error, 'Policies POST');
+        return NextResponse.json({ error: message }, { status });
     }
 }

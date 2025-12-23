@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/lib/auth'; // Keep this import for now, though it might become unused if authOptions are only for next-auth
+import { safeError } from '@/lib/security';
 
 // GET /api/changes/[id]
 export async function GET(
@@ -9,9 +9,9 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const { userId } = auth();
+        const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { id } = params;
@@ -33,8 +33,9 @@ export async function GET(
         }
 
         return NextResponse.json({ change });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error fetching change:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -44,10 +45,13 @@ export async function DELETE(
     context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const { userId } = await auth();
+        if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const user = await currentUser();
+        const role = user?.publicMetadata?.role as string || 'user';
 
         const { id } = await context.params;
 
@@ -60,7 +64,6 @@ export async function DELETE(
             return NextResponse.json({ error: 'Change not found' }, { status: 404 });
         }
 
-        const role = (session.user as any).role;
         const { canDeleteRecords } = await import('@/lib/permissions');
 
         // RBAC: Strict Admin Only for Hard Deletion
@@ -83,7 +86,8 @@ export async function DELETE(
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error('Error deleting change:', error);
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

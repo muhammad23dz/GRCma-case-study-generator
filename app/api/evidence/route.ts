@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { safeError } from '@/lib/security';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
@@ -43,9 +44,9 @@ export async function GET(request: Request) {
         });
 
         return NextResponse.json({ data: evidenceList });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching evidence:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
@@ -107,8 +108,8 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ data: evidence });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating evidence:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
