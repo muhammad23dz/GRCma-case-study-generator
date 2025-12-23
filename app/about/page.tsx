@@ -1,6 +1,5 @@
 'use client';
 
-
 import Header from '@/components/Header';
 import AboutView from '@/components/AboutView';
 import PremiumBackground from '@/components/PremiumBackground';
@@ -20,8 +19,8 @@ export default function AboutPage() {
 
             <footer className="relative z-10 bg-slate-950/80 backdrop-blur-xl py-12 border-t border-white/5">
                 <div className="container mx-auto px-4 text-center">
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.5em]">
-                        &copy; {new Date().getFullYear()} Gigachad GRC Intelligence. Structural Engineering by Mohamed Hmamouch.
+                    <p className="text-slate-500 text-xs">
+                        &copy; {new Date().getFullYear()} GRCma. Built by Mohamed Hmamouch.
                     </p>
                 </div>
             </footer>
