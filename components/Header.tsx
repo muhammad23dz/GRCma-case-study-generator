@@ -253,15 +253,6 @@ export default function Header({ }: HeaderProps = {}) {
                         )}
                         {!isPublicPage && user && (
                             <button
-                                onClick={() => router.push('/platform')}
-                                className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-sm font-black rounded-lg transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-                            >
-                                <Sparkles className="w-4 h-4" />
-                                {t('dash_btn_magic')}
-                            </button>
-                        )}
-                        {!isPublicPage && user && (
-                            <button
                                 onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
                                 className="px-2 py-1.5 rounded-lg border border-white/10 text-[10px] font-black hover:bg-white/10 transition-all text-slate-300 hover:text-white flex items-center gap-1.5"
                                 title={language === 'en' ? 'Passer en Français' : 'Switch to English'}
