@@ -1,6 +1,7 @@
-import { Linkedin, Shield, BarChart3, Users, FileCheck, Lock } from 'lucide-react';
+import { Linkedin, Shield, BarChart3, Users, FileCheck, Lock, ArrowRight } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+import Link from 'next/link';
 
 export default function AboutView() {
     const { user } = useUser();
@@ -13,10 +14,17 @@ export default function AboutView() {
                 <h1 className="text-5xl font-bold tracking-tight mb-6 text-white">
                     About GRCma
                 </h1>
-                <p className="text-xl text-slate-400 leading-relaxed max-w-3xl mx-auto">
+                <p className="text-xl text-slate-400 leading-relaxed max-w-3xl mx-auto mb-8">
                     A comprehensive Governance, Risk, and Compliance platform designed to help organizations
                     manage their security posture, track compliance requirements, and mitigate operational risks.
                 </p>
+                <Link
+                    href="/dashboard"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-semibold transition-all hover:scale-105"
+                >
+                    Go to Dashboard
+                    <ArrowRight className="w-5 h-5" />
+                </Link>
             </div>
 
             {/* What We Offer */}
