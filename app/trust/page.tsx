@@ -27,7 +27,9 @@ export default function TrustPage() {
         { title: 'Employee Management', desc: 'Track personnel, roles, and security training completion.' },
         { title: 'Evidence Collection', desc: 'Store and organize audit evidence with version control.' },
         { title: 'Compliance Reporting', desc: 'Generate reports for frameworks like ISO 27001, SOC 2, GDPR.' },
-        { title: 'Zero Trust Analytics', desc: 'Visualize security posture across identity, device, network, app, and data.' }
+        { title: 'Zero Trust Analytics', desc: 'Visualize security posture across identity, device, network, app, and data.' },
+        { title: 'AI Intelligence Studio', desc: 'AI-powered risk analysis, control suggestions, policy drafting, and gap detection.' },
+        { title: 'DevSecOps Center', desc: 'CI/CD integrations, Config as Code (YAML/JSON), and Git sync for GRC resources.' }
     ];
 
     const frameworks = ['ISO 27001', 'SOC 2', 'NIST CSF', 'GDPR', 'PCI-DSS', 'HIPAA', 'Law 09-08'];
@@ -50,7 +52,7 @@ export default function TrustPage() {
                                 </h1>
                                 <p className="text-xl text-slate-400 max-w-md leading-relaxed font-light mb-8">
                                     A unified Governance, Risk, and Compliance management system.
-                                    14 integrated modules for control mapping, risk tracking, and audit readiness.
+                                    16 integrated modules including AI Intelligence and DevSecOps automation.
                                 </p>
                                 <ul className="space-y-3 text-slate-300">
                                     <li className="flex items-center gap-3">
@@ -111,7 +113,7 @@ export default function TrustPage() {
                     <div className="mb-40">
                         <div className="mb-20">
                             <h2 className="text-sm font-black uppercase tracking-[0.4em] text-[#C1272D] mb-4">Platform Modules</h2>
-                            <h3 className="text-4xl font-bold">14 GRC Management Tools</h3>
+                            <h3 className="text-4xl font-bold">16 GRC Management Tools</h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-l border-t border-white/5">
