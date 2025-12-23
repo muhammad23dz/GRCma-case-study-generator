@@ -24,7 +24,7 @@ export default function Footer() {
                             <Linkedin className="w-5 h-5" />
                         </a>
                         <a
-                            href="https://github.com/hmamouch"
+                            href="https://github.com/muhammad23dz"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-slate-400 hover:text-white transition-colors"
