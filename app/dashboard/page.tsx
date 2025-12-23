@@ -19,6 +19,7 @@ import { ActivityFeedWidget } from '@/components/dashboard/widgets/ActivityFeedW
 import { ActionItemsWidget } from '@/components/dashboard/widgets/ActionItemsWidget';
 import { ComplianceCalendarWidget } from '@/components/dashboard/widgets/ComplianceCalendarWidget';
 import { GigachadModulesWidget } from '@/components/dashboard/widgets/GigachadModulesWidget';
+import GRCIntelligenceWidget from '@/components/dashboard/GRCIntelligenceWidget';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -261,7 +262,7 @@ export default function DashboardPage() {
                             { label: t('nav_governance'), href: '/controls', icon: Shield, color: 'blue', desc: t('nav_risk') },
                             { label: t('nav_operations'), href: '/incidents', icon: Siren, color: 'orange', desc: t('stat_incidents') },
                             { label: t('employees_title') || 'Workforce', href: '/employees', icon: GitPullRequest, color: 'purple', desc: 'Compliance' },
-                            { label: 'Intelligence', href: '/reports', icon: BarChart, color: 'cyan', desc: 'Reporting' },
+                            { label: 'AI Intelligence', href: '/intelligence', icon: Sparkles, color: 'cyan', desc: 'GRC AI' },
                         ].map((nav) => (
                             <button
                                 key={nav.label}
@@ -454,6 +455,9 @@ export default function DashboardPage() {
                                     <ActivityFeedWidget activities={activity} limit={5} />
                                 </div>
                             </div>
+
+                            {/* GRC Intelligence Widget */}
+                            <GRCIntelligenceWidget />
                         </div>
                     </div>
                 </div>
