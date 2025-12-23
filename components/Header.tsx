@@ -246,12 +246,6 @@ export default function Header({ }: HeaderProps = {}) {
                     {/* Right Side */}
                     <div className="flex items-center gap-3">
                         {!isPublicPage && user && (
-                            <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">Security Pulse: Nominal</span>
-                            </div>
-                        )}
-                        {!isPublicPage && user && (
                             <button
                                 onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
                                 className="px-2 py-1.5 rounded-lg border border-white/10 text-[10px] font-black hover:bg-white/10 transition-all text-slate-300 hover:text-white flex items-center gap-1.5"
