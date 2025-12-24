@@ -8,9 +8,149 @@ import {
     BookOpen, Shield, AlertTriangle, FileText, Users,
     CheckCircle2, ArrowRight, Play, ChevronDown, ChevronUp,
     BarChart3, ClipboardCheck, Settings, Zap, Target, Building2,
-    Lock, Eye, Wrench, BookMarked, Scale, Network
+    Lock, Eye, Wrench, BookMarked, Scale, Network, Globe, Mail,
+    GraduationCap, Award, Database, Brain, Workflow, Key
 } from 'lucide-react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+
+// ==========================================
+// PLATFORM FEATURES - ALL MODULES
+// ==========================================
+const platformFeatures = [
+    {
+        category: 'Core GRC',
+        icon: <Shield className="w-6 h-6" />,
+        color: 'emerald',
+        modules: [
+            { name: 'Controls', href: '/controls', desc: 'Manage security controls with framework mappings' },
+            { name: 'Risks', href: '/risks', desc: 'Risk register with 5×5 matrix scoring' },
+            { name: 'Policies', href: '/policies', desc: 'Policy management with version control' },
+            { name: 'Vendors', href: '/vendors', desc: 'Third-party risk management (TPRM)' },
+            { name: 'Incidents', href: '/incidents', desc: 'Incident tracking with risk feedback' },
+            { name: 'Actions', href: '/actions', desc: 'Remediation workflow and task tracking' },
+        ]
+    },
+    {
+        category: 'Audit & Compliance',
+        icon: <ClipboardCheck className="w-6 h-6" />,
+        color: 'blue',
+        modules: [
+            { name: 'Audit Management', href: '/audit', desc: 'Plan, execute, and track audits' },
+            { name: 'Auditor Portal', href: '/auditor-portal/manage', desc: 'Secure access for external auditors' },
+            { name: 'Evidence', href: '/evidence', desc: 'Evidence collection and management' },
+            { name: 'Frameworks', href: '/frameworks', desc: 'ISO 27001, SOC 2, NIST, GDPR mappings' },
+            { name: 'Gap Analysis', href: '/reports/coverage', desc: 'Compliance gap identification' },
+        ]
+    },
+    {
+        category: 'Security Awareness',
+        icon: <Users className="w-6 h-6" />,
+        color: 'purple',
+        modules: [
+            { name: 'Employees', href: '/employees', desc: 'Employee directory and access' },
+            { name: 'Training', href: '/training', desc: 'Security awareness courses' },
+            { name: 'Phishing Simulations', href: '/phishing', desc: 'Test employees with simulated phishing' },
+            { name: 'Questionnaires', href: '/questionnaires', desc: 'Security questionnaires and assessments' },
+            { name: 'Knowledge Base', href: '/knowledge-base', desc: 'Reusable Q&A library' },
+        ]
+    },
+    {
+        category: 'Enterprise Features',
+        icon: <Globe className="w-6 h-6" />,
+        color: 'orange',
+        modules: [
+            { name: 'Trust Center', href: '/trust-center', desc: 'Public security portal for customers' },
+            { name: 'Business Continuity', href: '/bcdr', desc: 'BCDR plans with RTO/RPO tracking' },
+            { name: 'Asset Inventory', href: '/assets', desc: 'IT asset classification and tracking' },
+            { name: 'Change Management', href: '/changes', desc: 'Change requests with risk assessment' },
+            { name: 'Runbooks', href: '/runbooks', desc: 'Operational procedures and playbooks' },
+        ]
+    },
+    {
+        category: 'AI & Intelligence',
+        icon: <Brain className="w-6 h-6" />,
+        color: 'pink',
+        modules: [
+            { name: 'AI Platform', href: '/platform', desc: 'Generate GRC assessments with AI' },
+            { name: 'Intelligence Studio', href: '/intelligence', desc: 'Risk analysis and control suggestions' },
+            { name: 'DevSecOps', href: '/devsecops', desc: 'CI/CD integration and Git sync' },
+            { name: 'Zero Trust', href: '/zero-trust', desc: 'Zero trust posture analytics' },
+        ]
+    },
+    {
+        category: 'Reports & Analytics',
+        icon: <BarChart3 className="w-6 h-6" />,
+        color: 'cyan',
+        modules: [
+            { name: 'Dashboard', href: '/dashboard', desc: 'Executive summary and metrics' },
+            { name: 'Reports', href: '/reports', desc: 'Compliance and risk reports' },
+            { name: 'Integrations', href: '/integrations', desc: 'Connect external tools' },
+            { name: 'Settings', href: '/settings', desc: 'Organization and user settings' },
+        ]
+    }
+];
+
+// ==========================================
+// BEGINNER QUICK TOUR
+// ==========================================
+const beginnerTour = [
+    {
+        step: 1,
+        title: 'Start with AI Assessment',
+        description: 'Generate your first compliance baseline using AI. This creates sample controls, risks, and policies.',
+        action: 'Go to Platform → Enter your company details → Generate Assessment → Push to Dashboard',
+        link: '/platform',
+        time: '5 mins'
+    },
+    {
+        step: 2,
+        title: 'Explore Your Dashboard',
+        description: 'See the big picture with your GRC metrics, risk heatmap, and compliance status.',
+        action: 'Review widgets: Risk Overview, Compliance Rate, Recent Activity, Upcoming Actions',
+        link: '/dashboard',
+        time: '3 mins'
+    },
+    {
+        step: 3,
+        title: 'Review Your Risks',
+        description: 'Understand identified risks and how controls mitigate them.',
+        action: 'Check risk scores (Likelihood × Impact), view heatmap, assign owners',
+        link: '/risks',
+        time: '5 mins'
+    },
+    {
+        step: 4,
+        title: 'Map Controls to Frameworks',
+        description: 'Link your security controls to compliance frameworks like ISO 27001 or SOC 2.',
+        action: 'Select a control → Add Framework Mapping → Choose requirements',
+        link: '/controls',
+        time: '10 mins'
+    },
+    {
+        step: 5,
+        title: 'Set Up Security Training',
+        description: 'Assign training courses to employees and track completion.',
+        action: 'Create courses → Assign to employees → Monitor completion rates',
+        link: '/training',
+        time: '5 mins'
+    },
+    {
+        step: 6,
+        title: 'Configure Trust Center',
+        description: 'Create a public-facing security portal for your customers.',
+        action: 'Set branding → Add sections → Auto-populate from GRC data → Publish',
+        link: '/trust-center',
+        time: '10 mins'
+    },
+    {
+        step: 7,
+        title: 'Prepare for Audit',
+        description: 'Set up your first audit and generate evidence packages.',
+        action: 'Create audit → Link framework → Collect evidence → Add auditor access',
+        link: '/audit',
+        time: '15 mins'
+    }
+];
 
 // ==========================================
 // GRC EXPERT CONTENT - FRAMEWORKS
@@ -121,7 +261,7 @@ const auditPrep = [
     {
         phase: 'During Audit',
         tasks: [
-            'Provide auditor with read-only platform access',
+            'Provide auditor with read-only platform access via Auditor Portal',
             'Respond to evidence requests within 24 hours',
             'Document all auditor questions and responses',
             'Escalate issues immediately to audit liaison',
@@ -140,106 +280,10 @@ const auditPrep = [
     }
 ];
 
-// ==========================================
-// GETTING STARTED STEPS
-// ==========================================
-const guideSteps = [
-    {
-        id: '1',
-        title: 'Generate Your First Assessment',
-        description: 'Use AI to create a compliance baseline tailored to your organization.',
-        icon: <Zap className="w-6 h-6" />,
-        link: '/platform',
-        substeps: [
-            'Navigate to the Platform (AI Assessment) page',
-            'Enter your company name, size, and target framework',
-            'Describe your key compliance challenge',
-            'Click "Generate Assessment" to create controls, risks, vendors, and incidents',
-            'Review the Executive Summary for problem analysis',
-            'Click "Push to Dashboard" to populate your GRC program'
-        ]
-    },
-    {
-        id: '2',
-        title: 'Review Your Risk Register',
-        description: 'Understand identified risks and their relationship to controls.',
-        icon: <AlertTriangle className="w-6 h-6" />,
-        link: '/risks',
-        substeps: [
-            'Navigate to the Risks page',
-            'Review each risk\'s likelihood, impact, and calculated score',
-            'Use the Risk Heatmap for visual analysis',
-            'Verify Risk-Control mappings (which controls mitigate which risks)',
-            'Assign risk owners and treatment plans',
-            'Track residual risk after control implementation'
-        ]
-    },
-    {
-        id: '3',
-        title: 'Validate Control Mappings',
-        description: 'Ensure controls are properly linked to risks and policies.',
-        icon: <Shield className="w-6 h-6" />,
-        link: '/controls',
-        substeps: [
-            'Navigate to the Controls page',
-            'Review control types (Preventive, Detective, Corrective, Directive)',
-            'Verify each control has an owner assigned',
-            'Check policy linkages (Controls → Policies)',
-            'Check risk linkages (Controls → Risks)',
-            'Define evidence requirements for each control'
-        ]
-    },
-    {
-        id: '4',
-        title: 'Review Vendor Risk Profile',
-        description: 'Assess third-party vendors and their associated risks.',
-        icon: <Building2 className="w-6 h-6" />,
-        link: '/vendors',
-        substeps: [
-            'Navigate to the Vendors page',
-            'Review vendor criticality ratings',
-            'Check Vendor-Risk linkages (TPRM)',
-            'Request vendor questionnaires for high-risk vendors',
-            'Document vendor due diligence activities',
-            'Set review cadence based on vendor criticality'
-        ]
-    },
-    {
-        id: '5',
-        title: 'Monitor Incident Response',
-        description: 'Track security incidents and their impact on controls.',
-        icon: <Target className="w-6 h-6" />,
-        link: '/incidents',
-        substeps: [
-            'Navigate to the Incidents page',
-            'Review incident severity and status',
-            'Check Incident-Control linkages (which controls failed)',
-            'Create remediation actions from incidents',
-            'Document lessons learned',
-            'Update controls based on incident findings'
-        ]
-    },
-    {
-        id: '6',
-        title: 'Prepare for Audit',
-        description: 'Use the platform to prepare evidence and documentation.',
-        icon: <ClipboardCheck className="w-6 h-6" />,
-        link: '/audit',
-        substeps: [
-            'Create an audit record in Audit Management',
-            'Link audit to target framework',
-            'Run compliance coverage report',
-            'Collect and tag evidence to controls',
-            'Document control testing results',
-            'Track and remediate audit findings'
-        ]
-    }
-];
-
 export default function GuidePage() {
     const { t } = useLanguage();
-    const [expandedStep, setExpandedStep] = useState<string | null>('1');
-    const [activeTab, setActiveTab] = useState<'quickstart' | 'frameworks' | 'controls' | 'risk' | 'audit'>('quickstart');
+    const [activeTab, setActiveTab] = useState<'tour' | 'features' | 'frameworks' | 'controls' | 'risk' | 'audit'>('tour');
+    const [expandedFeature, setExpandedFeature] = useState<string | null>('Core GRC');
 
     return (
         <div className="min-h-screen text-white">
@@ -247,93 +291,136 @@ export default function GuidePage() {
             <Header />
 
             <div className="relative z-10 p-8 pt-32">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-6xl mx-auto">
                     {/* Header */}
                     <div className="text-center mb-12">
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm font-bold mb-6">
                             <BookOpen className="w-4 h-4" />
-                            {t('nav_guide')}
+                            Beginner's Guide
                         </div>
                         <h1 className="text-5xl font-black text-white mb-4">
-                            {t('nav_guide')}
+                            Learn GRCma
                         </h1>
                         <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-                            {t('dash_module_ecosystem_desc')}
+                            Master Governance, Risk & Compliance with our comprehensive platform guide
                         </p>
                     </div>
 
                     {/* Tab Navigation */}
                     <div className="flex flex-wrap justify-center gap-2 mb-8">
                         {[
-                            { id: 'quickstart', label: 'Quick Start', icon: <Play className="w-4 h-4" /> },
-                            { id: 'frameworks', label: 'Frameworks', icon: <Scale className="w-4 h-4" /> },
-                            { id: 'controls', label: 'Control Types', icon: <Shield className="w-4 h-4" /> },
-                            { id: 'risk', label: 'Risk Methodology', icon: <AlertTriangle className="w-4 h-4" /> },
-                            { id: 'audit', label: 'Audit Prep', icon: <ClipboardCheck className="w-4 h-4" /> }
+                            { id: 'tour', label: '🚀 Quick Tour', desc: 'Start here' },
+                            { id: 'features', label: '📋 All Features', desc: 'Full platform' },
+                            { id: 'frameworks', label: '📜 Frameworks', desc: 'ISO, SOC 2, NIST' },
+                            { id: 'controls', label: '🛡️ Control Types', desc: 'Defense layers' },
+                            { id: 'risk', label: '⚠️ Risk Method', desc: '5×5 matrix' },
+                            { id: 'audit', label: '✅ Audit Prep', desc: 'Get ready' }
                         ].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all ${activeTab === tab.id
+                                className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === tab.id
                                     ? 'bg-emerald-500 text-white'
                                     : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                                     }`}
                             >
-                                {tab.icon}
                                 {tab.label}
                             </button>
                         ))}
                     </div>
 
-                    {/* QUICK START TAB */}
-                    {activeTab === 'quickstart' && (
-                        <div className="space-y-4">
-                            {guideSteps.map((step, index) => (
-                                <div
-                                    key={step.id}
-                                    className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl overflow-hidden transition-all"
-                                >
-                                    <button
-                                        onClick={() => setExpandedStep(expandedStep === step.id ? null : step.id)}
-                                        className="w-full p-6 flex items-center gap-4 text-left hover:bg-white/5 transition-all"
-                                    >
-                                        <div className="flex items-center justify-center w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-xl font-black text-xl">
-                                            {index + 1}
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-                                                {step.icon}
-                                                {step.title}
-                                            </h3>
-                                            <p className="text-sm text-slate-400 mt-1">{step.description}</p>
-                                        </div>
-                                        {expandedStep === step.id ? (
-                                            <ChevronUp className="w-6 h-6 text-slate-400" />
-                                        ) : (
-                                            <ChevronDown className="w-6 h-6 text-slate-400" />
-                                        )}
-                                    </button>
+                    {/* QUICK TOUR TAB */}
+                    {activeTab === 'tour' && (
+                        <div className="space-y-6">
+                            <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-white/10 rounded-2xl p-6 mb-8">
+                                <h2 className="text-2xl font-bold text-white mb-2">👋 Welcome to GRCma!</h2>
+                                <p className="text-slate-400">
+                                    Follow these 7 steps to set up your GRC program. Total time: <span className="text-emerald-400 font-bold">~1 hour</span>
+                                </p>
+                            </div>
 
-                                    {expandedStep === step.id && (
-                                        <div className="px-6 pb-6 border-t border-white/5">
-                                            <ul className="mt-4 space-y-3">
-                                                {step.substeps.map((substep, i) => (
-                                                    <li key={i} className="flex items-start gap-3 text-slate-300">
-                                                        <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                                                        <span>{substep}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            <Link
-                                                href={step.link}
-                                                className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg font-bold transition-all"
-                                            >
-                                                Go to {step.title.split(' ').slice(-1)} <ArrowRight className="w-4 h-4" />
-                                            </Link>
+                            <div className="grid gap-4">
+                                {beginnerTour.map((item) => (
+                                    <div key={item.step} className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:border-emerald-500/30 transition-all">
+                                        <div className="flex items-start gap-4">
+                                            <div className="flex-shrink-0 w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center font-black text-xl">
+                                                {item.step}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h3 className="text-lg font-bold text-white">{item.title}</h3>
+                                                    <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{item.time}</span>
+                                                </div>
+                                                <p className="text-slate-400 text-sm mb-3">{item.description}</p>
+                                                <div className="bg-slate-950/50 rounded-lg p-3 mb-4">
+                                                    <span className="text-emerald-400 font-semibold text-sm">→ </span>
+                                                    <span className="text-slate-300 text-sm">{item.action}</span>
+                                                </div>
+                                                <Link
+                                                    href={item.link}
+                                                    className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-semibold text-sm"
+                                                >
+                                                    Open {item.title.split(' ').pop()} <ArrowRight className="w-4 h-4" />
+                                                </Link>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ALL FEATURES TAB */}
+                    {activeTab === 'features' && (
+                        <div className="space-y-6">
+                            <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-6 mb-6">
+                                <h2 className="text-xl font-bold text-emerald-400 mb-2">Platform Overview</h2>
+                                <p className="text-slate-400">
+                                    GRCma includes 30+ modules organized into 6 categories. Click any module to open it.
+                                </p>
+                            </div>
+
+                            <div className="grid gap-4">
+                                {platformFeatures.map((category) => (
+                                    <div key={category.category} className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl overflow-hidden">
+                                        <button
+                                            onClick={() => setExpandedFeature(expandedFeature === category.category ? null : category.category)}
+                                            className="w-full p-6 flex items-center gap-4 text-left hover:bg-white/5 transition-all"
+                                        >
+                                            <div className={`p-3 bg-${category.color}-500/20 text-${category.color}-400 rounded-xl`}>
+                                                {category.icon}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="text-lg font-bold text-white">{category.category}</h3>
+                                                <p className="text-sm text-slate-500">{category.modules.length} modules</p>
+                                            </div>
+                                            {expandedFeature === category.category ? (
+                                                <ChevronUp className="w-5 h-5 text-slate-400" />
+                                            ) : (
+                                                <ChevronDown className="w-5 h-5 text-slate-400" />
+                                            )}
+                                        </button>
+
+                                        {expandedFeature === category.category && (
+                                            <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {category.modules.map((module) => (
+                                                    <Link
+                                                        key={module.name}
+                                                        href={module.href}
+                                                        className="bg-slate-800/50 hover:bg-slate-700/50 border border-white/5 rounded-xl p-4 transition-all group"
+                                                    >
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="font-semibold text-white group-hover:text-emerald-400 transition-colors">{module.name}</span>
+                                                            <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                                                        </div>
+                                                        <p className="text-xs text-slate-500">{module.desc}</p>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -383,7 +470,7 @@ export default function GuidePage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {controlTypes.map(ctrl => (
-                                    <div key={ctrl.type} className={`bg-slate-900/40 border border-${ctrl.color}-500/30 rounded-xl p-6`}>
+                                    <div key={ctrl.type} className="bg-slate-900/40 border border-white/5 rounded-xl p-6">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className={`p-3 bg-${ctrl.color}-500/10 text-${ctrl.color}-400 rounded-xl`}>
                                                 {ctrl.icon}
@@ -499,12 +586,20 @@ export default function GuidePage() {
                                 </div>
                             ))}
 
-                            <Link
-                                href="/audit"
-                                className="block w-full text-center py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl transition-all"
-                            >
-                                Go to Audit Management →
-                            </Link>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Link
+                                    href="/audit"
+                                    className="block text-center py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl transition-all"
+                                >
+                                    Go to Audit Management →
+                                </Link>
+                                <Link
+                                    href="/auditor-portal/manage"
+                                    className="block text-center py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all border border-white/10"
+                                >
+                                    Set Up Auditor Portal →
+                                </Link>
+                            </div>
                         </div>
                     )}
 
