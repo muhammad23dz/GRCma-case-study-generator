@@ -61,7 +61,7 @@ model User {
   llmUsage     LLMUsage[]
   subscription Subscription?
   createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([orgId])
   @@index([role])
