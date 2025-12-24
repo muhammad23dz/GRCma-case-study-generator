@@ -61,7 +61,7 @@ model User {
   llmUsage     LLMUsage[]
   subscription Subscription?
   createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  updatedAt    DateTime        @default(now()) @updatedAt
 
   @@index([orgId])
   @@index([role])
@@ -784,6 +784,12 @@ model Organization {
   runbooks          Runbook[]
   invitations       Invitation[]
   auditLogs         AuditLog[]
+
+  // Enterprise GRC Features
+  auditorAccess     AuditorAccess[]
+  auditRequests     AuditRequest[]
+  trustCenterConfig TrustCenterConfig?
+  knowledgeBase     KnowledgeBaseEntry[]
 }
 
 // ============================================
@@ -968,6 +974,10 @@ model Audit {
   tests          ControlTest[]
   organizationId String?
   organization   Organization?  @relation(fields: [organizationId], references: [id])
+
+  // Auditor Portal
+  auditorAccess AuditorAccess[]
+  auditRequests AuditRequest[]
 
   @@index([organizationId])
   @@index([status])
@@ -1441,6 +1451,137 @@ model TrainingAssignment {
   @@index([dueDate])
 }
 
+// Training Certificates - Auto-generated on completion
+model TrainingCertificate {
+  id           String @id @default(cuid())
+  assignmentId String @unique
+  employeeId   String
+  courseId     String
+
+  certificateNumber String    @unique // Unique verification ID (e.g., CERT-2024-ABC123)
+  issuedAt          DateTime  @default(now())
+  expiresAt         DateTime? // For courses requiring renewal
+
+  employeeName String // Snapshot at time of issue
+  courseName   String // Snapshot at time of issue
+  score        Float // Final score achieved
+
+  pdfUrl          String? // Generated PDF storage path
+  verificationUrl String? // Public verification URL
+
+  isValid       Boolean   @default(true)
+  revokedAt     DateTime?
+  revokedReason String?
+
+  organizationId String?
+
+  @@index([employeeId])
+  @@index([courseId])
+  @@index([certificateNumber])
+  @@index([organizationId])
+}
+
+// ============================================
+// FEATURE: PHISHING SIMULATION
+// Security awareness campaigns
+// ============================================
+
+model PhishingCampaign {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  templateId String? // Reference to email template
+  status     String  @default("draft") // draft, scheduled, running, completed, cancelled
+
+  // Scheduling
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Targeting
+  targetType   String  @default("all") // all, department, role, custom
+  targetFilter String? // JSON filter for custom targeting
+
+  // Settings
+  sendingRate        Int     @default(10) // Emails per minute
+  trackClicks        Boolean @default(true)
+  trackSubmissions   Boolean @default(true)
+  collectCredentials Boolean @default(false)
+
+  // Results (denormalized for quick access)
+  totalTargets  Int @default(0)
+  emailsSent    Int @default(0)
+  emailsOpened  Int @default(0)
+  linksClicked  Int @default(0)
+  dataSubmitted Int @default(0)
+
+  createdBy      String
+  organizationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  template PhishingTemplate? @relation(fields: [templateId], references: [id])
+  targets  PhishingTarget[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model PhishingTemplate {
+  id              String  @id @default(cuid())
+  name            String
+  subject         String
+  senderName      String
+  senderEmail     String
+  htmlContent     String // Email body HTML
+  landingPageHtml String? // Phishing page content
+
+  difficulty String @default("medium") // easy, medium, hard
+  category   String // credential_harvest, malware_link, data_disclosure, urgent_request
+
+  isActive       Boolean @default(true)
+  createdBy      String
+  organizationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns PhishingCampaign[]
+
+  @@index([organizationId])
+  @@index([category])
+}
+
+model PhishingTarget {
+  id         String @id @default(cuid())
+  campaignId String
+  employeeId String
+  email      String
+
+  // Tracking
+  emailSentAt     DateTime?
+  emailOpenedAt   DateTime?
+  linkClickedAt   DateTime?
+  dataSubmittedAt DateTime?
+
+  // Reported as phish
+  reportedAt DateTime?
+
+  // Training follow-up
+  trainingAssigned  Boolean @default(false)
+  trainingCompleted Boolean @default(false)
+
+  campaign PhishingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, employeeId])
+  @@index([campaignId])
+  @@index([employeeId])
+  @@index([email])
+}
+
 // Runbooks
 model Runbook {
   id               String  @id @default(cuid())
@@ -1498,4 +1639,187 @@ model RunbookExecution {
   @@index([runbookId])
   @@index([status])
   @@index([triggeredAt])
+}
+
+// ============================================
+// FEATURE: AUDITOR PORTAL
+// External auditor access for SOC 2/ISO audits
+// ============================================
+
+model AuditorAccess {
+  id             String    @id @default(cuid())
+  auditId        String
+  accessCode     String    @unique // Secure random code for auditor login
+  auditorEmail   String
+  auditorName    String
+  firmName       String?
+  expiresAt      DateTime
+  isActive       Boolean   @default(true)
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  audit          Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requests AuditRequest[]
+
+  @@index([auditId])
+  @@index([accessCode])
+  @@index([organizationId])
+}
+
+model AuditRequest {
+  id              String  @id @default(cuid())
+  auditId         String
+  auditorAccessId String?
+
+  title       String
+  description String
+  category    String // control_documentation, policy_review, evidence, interview, system_access, walkthrough
+  priority    String @default("medium") // low, medium, high, critical
+  status      String @default("open") // open, in_progress, submitted, under_review, approved, rejected
+
+  assignedTo  String?
+  dueDate     DateTime?
+  submittedAt DateTime?
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  controlId     String?
+  requirementId String?
+
+  notes           String?
+  auditorComments String?
+
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id])
+  audit          Audit          @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditorAccess  AuditorAccess? @relation(fields: [auditorAccessId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments AuditRequestAttachment[]
+
+  @@index([auditId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([organizationId])
+}
+
+model AuditRequestAttachment {
+  id         String @id @default(cuid())
+  requestId  String
+  fileName   String
+  fileUrl    String
+  fileSize   Int
+  mimeType   String
+  uploadedBy String
+
+  request AuditRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
+}
+
+// ============================================
+// FEATURE: TRUST CENTER
+// Public-facing security & compliance portal
+// ============================================
+
+model TrustCenterConfig {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  // Branding
+  companyName  String
+  logoUrl      String?
+  primaryColor String  @default("#006233")
+  accentColor  String  @default("#C1272D")
+  description  String?
+
+  // Settings
+  isPublished  Boolean @default(false)
+  customDomain String? @unique
+  slug         String  @unique // e.g., "company-name" for /trust/company-name
+
+  // Contact
+  contactEmail  String?
+  securityEmail String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections TrustCenterSection[]
+
+  @@index([slug])
+  @@index([isPublished])
+}
+
+model TrustCenterSection {
+  id       String @id @default(cuid())
+  configId String
+
+  sectionType  String // overview, certifications, controls, policies, updates, contact, faq
+  title        String
+  content      String // Rich text/markdown content
+  displayOrder Int     @default(0)
+  isVisible    Boolean @default(true)
+  icon         String? // Lucide icon name
+
+  config TrustCenterConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([configId])
+  @@index([sectionType])
+}
+
+// ============================================
+// FEATURE: KNOWLEDGE BASE
+// Reusable Q&A library for security questionnaires
+// ============================================
+
+model KnowledgeBaseEntry {
+  id String @id @default(cuid())
+
+  question String // The security question
+  answer   String // The approved answer
+  category String // security, privacy, compliance, infrastructure, governance, etc.
+  tags     String[] // For search and filtering
+
+  // Metadata
+  status     String    @default("draft") // draft, approved, archived
+  approvedBy String?
+  approvedAt DateTime?
+  version    Int       @default(1)
+
+  // Linking
+  controlId   String? // Link to related control
+  policyId    String? // Link to related policy
+  frameworkId String? // Link to framework requirement
+
+  // AI/Confidence
+  confidenceScore Float? // 0-1 confidence in answer accuracy
+  lastUsedAt      DateTime?
+  usageCount      Int       @default(0)
+
+  owner          String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([status])
 }

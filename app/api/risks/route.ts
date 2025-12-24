@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     try {
         const context = await getIsolationContext();
         if (!context) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
