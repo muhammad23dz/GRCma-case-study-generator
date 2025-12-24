@@ -784,6 +784,12 @@ model Organization {
   runbooks          Runbook[]
   invitations       Invitation[]
   auditLogs         AuditLog[]
+  
+  // Enterprise GRC Features
+  auditorAccess     AuditorAccess[]
+  auditRequests     AuditRequest[]
+  trustCenterConfig TrustCenterConfig?
+  knowledgeBase     KnowledgeBaseEntry[]
 }
 
 // ============================================
@@ -970,6 +976,10 @@ model Audit {
   tests          ControlTest[]
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  // Auditor Portal
+  auditorAccess  AuditorAccess[]
+  auditRequests  AuditRequest[]
   
   @@index([organizationId])
   @@index([status])
@@ -1502,4 +1512,186 @@ model RunbookExecution {
   @@index([triggeredAt])
 }
 
+// ============================================
+// FEATURE: AUDITOR PORTAL
+// External auditor access for SOC 2/ISO audits
+// ============================================
+
+model AuditorAccess {
+  id             String    @id @default(cuid())
+  auditId        String
+  accessCode     String    @unique // Secure random code for auditor login
+  auditorEmail   String
+  auditorName    String
+  firmName       String?
+  expiresAt      DateTime
+  isActive       Boolean   @default(true)
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+  
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  audit          Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  requests       AuditRequest[]
+
+  @@index([auditId])
+  @@index([accessCode])
+  @@index([organizationId])
+}
+
+model AuditRequest {
+  id             String    @id @default(cuid())
+  auditId        String
+  auditorAccessId String?
+  
+  title          String
+  description    String
+  category       String    // control_documentation, policy_review, evidence, interview, system_access, walkthrough
+  priority       String    @default("medium") // low, medium, high, critical
+  status         String    @default("open") // open, in_progress, submitted, under_review, approved, rejected
+  
+  assignedTo     String?
+  dueDate        DateTime?
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  
+  controlId      String?
+  requirementId  String?
+  
+  notes          String?
+  auditorComments String?
+  
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  audit          Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditorAccess  AuditorAccess? @relation(fields: [auditorAccessId], references: [id])
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  attachments    AuditRequestAttachment[]
+
+  @@index([auditId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([organizationId])
+}
+
+model AuditRequestAttachment {
+  id             String   @id @default(cuid())
+  requestId      String
+  fileName       String
+  fileUrl        String
+  fileSize       Int
+  mimeType       String
+  uploadedBy     String
+  
+  request        AuditRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime @default(now())
+
+  @@index([requestId])
+}
+
+// ============================================
+// FEATURE: TRUST CENTER
+// Public-facing security & compliance portal
+// ============================================
+
+model TrustCenterConfig {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  
+  // Branding
+  companyName    String
+  logoUrl        String?
+  primaryColor   String   @default("#006233")
+  accentColor    String   @default("#C1272D")
+  description    String?
+  
+  // Settings
+  isPublished    Boolean  @default(false)
+  customDomain   String?  @unique
+  slug           String   @unique // e.g., "company-name" for /trust/company-name
+  
+  // Contact
+  contactEmail   String?
+  securityEmail  String?
+  
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sections       TrustCenterSection[]
+
+  @@index([slug])
+  @@index([isPublished])
+}
+
+model TrustCenterSection {
+  id             String   @id @default(cuid())
+  configId       String
+  
+  sectionType    String   // overview, certifications, controls, policies, updates, contact, faq
+  title          String
+  content        String   // Rich text/markdown content
+  displayOrder   Int      @default(0)
+  isVisible      Boolean  @default(true)
+  icon           String?  // Lucide icon name
+  
+  config         TrustCenterConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([configId])
+  @@index([sectionType])
+}
+
+// ============================================
+// FEATURE: KNOWLEDGE BASE
+// Reusable Q&A library for security questionnaires
+// ============================================
+
+model KnowledgeBaseEntry {
+  id             String   @id @default(cuid())
+  
+  question       String   // The security question
+  answer         String   // The approved answer
+  category       String   // security, privacy, compliance, infrastructure, governance, etc.
+  tags           String[] // For search and filtering
+  
+  // Metadata
+  status         String   @default("draft") // draft, approved, archived
+  approvedBy     String?
+  approvedAt     DateTime?
+  version        Int      @default(1)
+  
+  // Linking
+  controlId      String?  // Link to related control
+  policyId       String?  // Link to related policy
+  frameworkId    String?  // Link to framework requirement
+  
+  // AI/Confidence
+  confidenceScore Float?  // 0-1 confidence in answer accuracy
+  lastUsedAt     DateTime?
+  usageCount     Int      @default(0)
+  
+  owner          String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([status])
+}
 

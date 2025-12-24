@@ -28,7 +28,8 @@ import {
     Users2,
     Workflow,
     ShieldAlert,
-    Plug
+    Plug,
+    Shield
 } from 'lucide-react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 
@@ -93,6 +94,9 @@ export default function Header({ }: HeaderProps = {}) {
                 { label: t('nav_training'), href: '/training', icon: GraduationCap, desc: 'Security training' },
                 { label: t('nav_questionnaires'), href: '/questionnaires', icon: FileCheck, desc: 'Assessments' },
                 { label: t('nav_runbooks'), href: '/runbooks', icon: BookMarked, desc: 'Procedures' },
+                { label: 'Knowledge Base', href: '/knowledge-base', icon: BookOpen, desc: 'Q&A Library' },
+                { label: 'Trust Center', href: '/trust-center', icon: Shield, desc: 'Public Security Portal' },
+                { label: 'Auditor Portal', href: '/auditor-portal/manage', icon: Users2, desc: 'External Auditor Access' },
             ]
         },
         {
