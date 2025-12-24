@@ -1453,6 +1453,138 @@ model TrainingAssignment {
   @@index([dueDate])
 }
 
+// Training Certificates - Auto-generated on completion
+model TrainingCertificate {
+  id             String    @id @default(cuid())
+  assignmentId   String    @unique
+  employeeId     String
+  courseId       String
+  
+  certificateNumber String  @unique // Unique verification ID (e.g., CERT-2024-ABC123)
+  issuedAt       DateTime  @default(now())
+  expiresAt      DateTime? // For courses requiring renewal
+  
+  employeeName   String    // Snapshot at time of issue
+  courseName     String    // Snapshot at time of issue
+  score          Float     // Final score achieved
+  
+  pdfUrl         String?   // Generated PDF storage path
+  verificationUrl String?  // Public verification URL
+  
+  isValid        Boolean   @default(true)
+  revokedAt      DateTime?
+  revokedReason  String?
+  
+  organizationId String?
+  
+  @@index([employeeId])
+  @@index([courseId])
+  @@index([certificateNumber])
+  @@index([organizationId])
+}
+
+// ============================================
+// FEATURE: PHISHING SIMULATION
+// Security awareness campaigns
+// ============================================
+
+model PhishingCampaign {
+  id             String    @id @default(cuid())
+  name           String
+  description    String?
+  
+  templateId     String?   // Reference to email template
+  status         String    @default("draft") // draft, scheduled, running, completed, cancelled
+  
+  // Scheduling
+  scheduledAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  
+  // Targeting
+  targetType     String    @default("all") // all, department, role, custom
+  targetFilter   String?   // JSON filter for custom targeting
+  
+  // Settings
+  sendingRate    Int       @default(10) // Emails per minute
+  trackClicks    Boolean   @default(true)
+  trackSubmissions Boolean @default(true)
+  collectCredentials Boolean @default(false)
+  
+  // Results (denormalized for quick access)
+  totalTargets   Int       @default(0)
+  emailsSent     Int       @default(0)
+  emailsOpened   Int       @default(0)
+  linksClicked   Int       @default(0)
+  dataSubmitted  Int       @default(0)
+  
+  createdBy      String
+  organizationId String?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  template       PhishingTemplate? @relation(fields: [templateId], references: [id])
+  targets        PhishingTarget[]
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model PhishingTemplate {
+  id             String    @id @default(cuid())
+  name           String
+  subject        String
+  senderName     String
+  senderEmail    String
+  htmlContent    String    // Email body HTML
+  landingPageHtml String?  // Phishing page content
+  
+  difficulty     String    @default("medium") // easy, medium, hard
+  category       String    // credential_harvest, malware_link, data_disclosure, urgent_request
+  
+  isActive       Boolean   @default(true)
+  createdBy      String
+  organizationId String?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  campaigns      PhishingCampaign[]
+  
+  @@index([organizationId])
+  @@index([category])
+}
+
+model PhishingTarget {
+  id             String    @id @default(cuid())
+  campaignId     String
+  employeeId     String
+  email          String
+  
+  // Tracking
+  emailSentAt    DateTime?
+  emailOpenedAt  DateTime?
+  linkClickedAt  DateTime?
+  dataSubmittedAt DateTime?
+  
+  // Reported as phish
+  reportedAt     DateTime?
+  
+  // Training follow-up
+  trainingAssigned Boolean @default(false)
+  trainingCompleted Boolean @default(false)
+  
+  campaign       PhishingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@unique([campaignId, employeeId])
+  @@index([campaignId])
+  @@index([employeeId])
+  @@index([email])
+}
+
+
 // Runbooks
 model Runbook {
   id              String    @id @default(cuid())

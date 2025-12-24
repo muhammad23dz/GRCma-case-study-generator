@@ -97,6 +97,7 @@ export default function Header({ }: HeaderProps = {}) {
                 { label: 'Knowledge Base', href: '/knowledge-base', icon: BookOpen, desc: 'Q&A Library' },
                 { label: 'Trust Center', href: '/trust-center', icon: Shield, desc: 'Public Security Portal' },
                 { label: 'Auditor Portal', href: '/auditor-portal/manage', icon: Users2, desc: 'External Auditor Access' },
+                { label: 'Phishing Simulations', href: '/phishing', icon: ShieldAlert, desc: 'Security awareness' },
             ]
         },
         {
