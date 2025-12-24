@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
 import {
     Shield, Globe, Eye, EyeOff, Save, Plus, Trash2,
-    ExternalLink, Palette, Mail, Building2, GripVertical
+    ExternalLink, Palette, Mail, Building2, GripVertical, Sparkles
 } from 'lucide-react';
 
 interface TrustCenterConfig {
@@ -47,6 +47,7 @@ export default function TrustCenterPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [autoPopulating, setAutoPopulating] = useState(false);
 
     const [form, setForm] = useState({
         companyName: '',
@@ -166,6 +167,30 @@ export default function TrustCenterPage() {
         }
     };
 
+    const handleAutoPopulate = async () => {
+        if (!config) {
+            alert('Save your config first to enable auto-populate');
+            return;
+        }
+        setAutoPopulating(true);
+        try {
+            const res = await fetch('/api/trust-center/auto-populate', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                alert(`Auto-populated! Controls: ${data.stats.controlsCount}, Policies: ${data.stats.policiesCount}, Frameworks: ${data.stats.frameworksCount}`);
+                // Refresh config to get new sections
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to auto-populate');
+            }
+        } catch (err) {
+            console.error('Failed to auto-populate:', err);
+        } finally {
+            setAutoPopulating(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen text-foreground">
@@ -206,6 +231,14 @@ export default function TrustCenterPage() {
                                     View Live
                                 </a>
                             )}
+                            <button
+                                onClick={handleAutoPopulate}
+                                disabled={autoPopulating}
+                                className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+                            >
+                                <Sparkles className="w-4 h-4" />
+                                {autoPopulating ? 'Populating...' : 'Auto-populate from GRC'}
+                            </button>
                             <button
                                 onClick={handleSaveConfig}
                                 disabled={saving}

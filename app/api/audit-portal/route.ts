@@ -118,6 +118,14 @@ export async function POST(request: NextRequest) {
             changes: { auditorEmail, firmName, expiresAt: expiresAt.toISOString() }
         });
 
+        // GRC Automation: Auto-generate standard audit requests
+        try {
+            const { generateAuditRequests } = await import('@/lib/grc-automation');
+            await generateAuditRequests(auditId, auditorAccess.id, audit.framework || null, context.orgId!);
+        } catch (error) {
+            console.error('[GRC Automation] Failed to generate audit requests:', error);
+        }
+
         return NextResponse.json({
             auditorAccess,
             // Include access code only in creation response
