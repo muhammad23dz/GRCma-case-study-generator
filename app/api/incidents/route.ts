@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
+import { z } from 'zod';
+
+// Input Validation Schema
+const createIncidentSchema = z.object({
+    title: z.string().min(5, "Title too short").max(200, "Title too long"),
+    description: z.string().min(10, "Description too short").max(10000, "Description too long"),
+    severity: z.enum(['Low', 'Medium', 'High', 'Critical']),
+    assignedTo: z.string().email("Invalid assignee email").optional()
+});
 
 // GET /api/incidents - List incidents with RBAC isolation
 export async function GET(request: Request) {
@@ -46,7 +55,17 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, description, severity, assignedTo } = body;
+
+        // Validate input
+        const parseResult = createIncidentSchema.safeParse(body);
+        if (!parseResult.success) {
+            return NextResponse.json({
+                error: 'Validation failed',
+                details: parseResult.error.flatten().fieldErrors
+            }, { status: 400 });
+        }
+
+        const { title, description, severity, assignedTo } = parseResult.data;
 
         const incident = await prisma.incident.create({
             data: {

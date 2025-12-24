@@ -3,6 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
+import { z } from 'zod';
+
+// Input Validation Schema
+const createRiskSchema = z.object({
+    assetId: z.string().max(100).optional().nullable(),
+    category: z.string().max(50).optional(),
+    likelihood: z.number().int().min(1).max(5).default(3),
+    impact: z.number().int().min(1).max(5).default(3),
+    narrative: z.string().min(10, "Description too short").max(5000, "Description too long").optional(),
+    status: z.enum(['open', 'mitigated', 'accepted', 'transferred']).default('open'),
+    controlId: z.string().cuid().optional(),
+    vendorId: z.string().cuid().optional()
+});
 
 // GET /api/risks - List risks for current user
 export async function GET(request: NextRequest) {
@@ -61,7 +74,17 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { assetId, category, likelihood, impact, narrative, status: riskStatus, controlId, vendorId } = body;
+
+        // Validate input
+        const parseResult = createRiskSchema.safeParse(body);
+        if (!parseResult.success) {
+            return NextResponse.json({
+                error: 'Validation failed',
+                details: parseResult.error.flatten().fieldErrors
+            }, { status: 400 });
+        }
+
+        const { assetId, category, likelihood, impact, narrative, status: riskStatus, controlId, vendorId } = parseResult.data;
 
         const calculatedScore = (likelihood || 3) * (impact || 3);
 

@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
+import { z } from 'zod';
+
+// Input Validation Schema
+const createPolicySchema = z.object({
+    title: z.string().min(3, "Title too short").max(200, "Title too long"),
+    version: z.string().max(20).default('1.0'),
+    content: z.string().min(50, "Content too short").max(50000, "Content too long"),
+    reviewDate: z.string().optional(),
+    controlIds: z.array(z.string().cuid()).optional()
+});
 
 // GET /api/policies - List policies for current user
 export async function GET() {
@@ -45,7 +55,17 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, version, content, reviewDate, controlIds } = body;
+
+        // Validate input
+        const parseResult = createPolicySchema.safeParse(body);
+        if (!parseResult.success) {
+            return NextResponse.json({
+                error: 'Validation failed',
+                details: parseResult.error.flatten().fieldErrors
+            }, { status: 400 });
+        }
+
+        const { title, version, content, reviewDate, controlIds } = parseResult.data;
 
         const policy = await prisma.policy.create({
             data: {

@@ -3,6 +3,17 @@ import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
+import { z } from 'zod';
+
+// Input Validation Schema
+const createControlSchema = z.object({
+    title: z.string().min(3, "Title too short").max(200, "Title too long"),
+    description: z.string().min(10, "Description too short").max(5000, "Description too long"),
+    controlType: z.enum(['preventive', 'detective', 'corrective', 'directive']).default('preventive'),
+    evidenceRequirements: z.string().max(2000).optional(),
+    policyId: z.string().cuid().optional(),
+    riskId: z.string().cuid().optional()
+});
 
 // GET /api/controls - List controls for current user
 export async function GET(request: NextRequest) {
@@ -65,7 +76,17 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, description, controlType, evidenceRequirements, policyId, riskId } = body;
+
+        // Validate input
+        const parseResult = createControlSchema.safeParse(body);
+        if (!parseResult.success) {
+            return NextResponse.json({
+                error: 'Validation failed',
+                details: parseResult.error.flatten().fieldErrors
+            }, { status: 400 });
+        }
+
+        const { title, description, controlType, evidenceRequirements, policyId, riskId } = parseResult.data;
 
         const control = await prisma.control.create({
             data: {

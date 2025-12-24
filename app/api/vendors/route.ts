@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
+import { z } from 'zod';
+
+// Input Validation Schema
+const createVendorSchema = z.object({
+    name: z.string().min(2, "Name too short").max(200, "Name too long"),
+    criticality: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
+    services: z.string().max(1000).optional(),
+    contactEmail: z.string().email("Invalid contact email").optional(),
+    category: z.string().max(100).default('Service Provider'),
+    riskScore: z.number().int().min(0).max(100).default(50)
+});
 
 // GET /api/vendors - List vendors for current user
 export async function GET() {
@@ -45,7 +56,17 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { name, criticality, services, contactEmail, category, riskScore } = body;
+
+        // Validate input
+        const parseResult = createVendorSchema.safeParse(body);
+        if (!parseResult.success) {
+            return NextResponse.json({
+                error: 'Validation failed',
+                details: parseResult.error.flatten().fieldErrors
+            }, { status: 400 });
+        }
+
+        const { name, criticality, services, contactEmail, category, riskScore } = parseResult.data;
 
         const vendor = await prisma.vendor.create({
             data: {
