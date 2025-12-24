@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { createCheckout } from '@lemonsqueezy/lemonsqueezy.js';
 import { configureLemonSqueezy, LEMONSQUEEZY_STORE_ID } from '@/lib/lemonsqueezy';
@@ -11,7 +11,12 @@ export async function POST(request: NextRequest) {
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 401 });
         }
 
         const { planId } = await request.json();
@@ -33,21 +38,24 @@ export async function POST(request: NextRequest) {
         // Ensure SDK is set up
         configureLemonSqueezy();
 
+        // Get origin from request headers
+        const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
         // Create Checkout
         const newCheckout = await createCheckout(
             LEMONSQUEEZY_STORE_ID,
             variantId,
             {
                 checkoutData: {
-                    email: session.user.email,
-                    name: session.user.name || undefined,
+                    email: user.emailAddresses[0]?.emailAddress,
+                    name: user.fullName || undefined,
                     custom: {
-                        userId: session.user.id,
+                        userId: userId,
                         planId: planId
                     }
                 },
                 productOptions: {
-                    redirectUrl: `${req.headers.get('origin')}/dashboard?payment=success`
+                    redirectUrl: `${origin}/dashboard?payment=success`
                 }
             }
         );

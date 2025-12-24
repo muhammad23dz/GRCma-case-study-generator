@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 // POST /api/changes/[id]/workflow
@@ -10,8 +10,16 @@ export async function POST(
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 401 });
+        }
+
+        const userEmail = user.emailAddresses[0]?.emailAddress || 'unknown';
+        const userName = user.fullName || user.firstName || 'User';
 
         const { id } = params;
 
@@ -29,11 +37,13 @@ export async function POST(
         let updateData: any = {};
         let newStatus = change.status;
 
-        // Workflow Transitions
+        // Workflow Transitions - get user role from DB
+        const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+        const userRole = dbUser?.role || 'user';
+
         const { canApprove } = await import('@/lib/permissions');
-        const userRole = (session.user as any).role;
         const isApprover = canApprove(userRole);
-        const isOwner = change.requestedBy === session.user.email;
+        const isOwner = change.requestedBy === userEmail;
 
         if (action === 'submit') {
             // Only Owner or Admin can submit
@@ -66,7 +76,7 @@ export async function POST(
 
             newStatus = 'scheduled';
             updateData.approvalStatus = 'approved';
-            updateData.approvedBy = session.user.email;
+            updateData.approvedBy = userEmail;
             updateData.approvedAt = new Date();
         }
         else if (action === 'reject') {
@@ -96,8 +106,8 @@ export async function POST(
         await prisma.changeComment.create({
             data: {
                 changeId: change.id,
-                authorEmail: session.user.email,
-                authorName: session.user.name || 'User',
+                authorEmail: userEmail,
+                authorName: userName,
                 comment: `Changed status to ${newStatus}. ${comments || ''}`,
                 commentType: 'workflow'
             }

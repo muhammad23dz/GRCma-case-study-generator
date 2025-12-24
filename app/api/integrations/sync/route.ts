@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const searchParams = req.nextUrl.searchParams;

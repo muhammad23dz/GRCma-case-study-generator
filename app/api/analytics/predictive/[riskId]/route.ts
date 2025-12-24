@@ -11,23 +11,23 @@ export async function GET(
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { riskId } = await params;
         if (!riskId) {
-            return new NextResponse('Risk ID is required', { status: 400 });
+            return NextResponse.json({ error: 'Risk ID is required' }, { status: 400 });
         }
 
         const forecast = await predictiveService.forecastRisk(riskId);
 
         if (!forecast) {
-            return new NextResponse('Risk not found or insufficient data', { status: 404 });
+            return NextResponse.json({ error: 'Risk not found or insufficient data' }, { status: 404 });
         }
 
         return NextResponse.json(forecast);
     } catch (error) {
         console.error('Error generating forecast:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

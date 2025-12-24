@@ -11,23 +11,23 @@ export async function GET(
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { frameworkId } = await params;
         if (!frameworkId) {
-            return new NextResponse('Framework ID is required', { status: 400 });
+            return NextResponse.json({ error: 'Framework ID is required' }, { status: 400 });
         }
 
         const impact = await impactService.analyzeFrameworkImpact(frameworkId);
 
         if (!impact) {
-            return new NextResponse('Framework not found', { status: 404 });
+            return NextResponse.json({ error: 'Framework not found' }, { status: 404 });
         }
 
         return NextResponse.json(impact);
     } catch (error) {
         console.error('Error analyzing impact:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

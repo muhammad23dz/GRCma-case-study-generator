@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { auth } from '@clerk/nextjs/server';
-import { sendEmail } from '@/lib/email'; // This import was added as per the instruction, though not directly used in the provided snippet's context.
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
     try {
         const { userId } = await auth();
         if (!userId) {
-            return new NextResponse('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { recipient, subject, htmlContent, attachments } = await request.json();
