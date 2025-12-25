@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { grcLLM } from '@/lib/llm/grc-service';
 import { logAudit } from '@/lib/audit-log';
+import { getIsolationContext } from '@/lib/isolation';
 
 const PROVIDER_URLS: Record<string, string> = {
   'openai': 'https://api.openai.com/v1',
