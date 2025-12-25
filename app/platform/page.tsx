@@ -1,20 +1,51 @@
 'use client';
 
-import { useState } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
+import { useUser, useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PremiumBackground from '@/components/PremiumBackground';
 import CaseInputForm from '@/components/CaseInputForm';
 import ReportView from '@/components/ReportView';
 import { CaseInput, GeneratedReport } from '@/types';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 export default function PlatformPage() {
-    const { user } = useUser();
+    const { user, isLoaded, isSignedIn } = useUser();
+    const { getToken } = useAuth();
+    const router = useRouter();
     const [step, setStep] = useState<'form' | 'generating' | 'report'>('form');
     const [report, setReport] = useState<GeneratedReport | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Redirect to sign-in if not authenticated
+    useEffect(() => {
+        if (isLoaded && !isSignedIn) {
+            router.push('/sign-in?redirect_url=/platform');
+        }
+    }, [isLoaded, isSignedIn, router]);
+
+    // Show loading while checking auth
+    if (!isLoaded) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+            </div>
+        );
+    }
+
+    // Don't render page if not signed in
+    if (!isSignedIn) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto mb-4" />
+                    <p className="text-white">Redirecting to sign in...</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleGenerate = async (data: CaseInput) => {
         setStep('generating');
