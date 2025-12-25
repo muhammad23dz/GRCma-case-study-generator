@@ -38,9 +38,52 @@ export async function GET(request: NextRequest) {
 // POST /api/reports - Save a new assessment report
 export async function POST(request: NextRequest) {
     try {
-        const context = await getIsolationContext();
+        // Try getIsolationContext first
+        let context = await getIsolationContext();
+
+        // Fallback: If context is null, try direct auth
         if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            console.log('[Reports POST] getIsolationContext returned null, trying direct auth...');
+            const { auth, currentUser } = await import('@clerk/nextjs/server');
+            const { userId } = await auth();
+
+            if (!userId) {
+                console.log('[Reports POST] No userId from direct auth either');
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            }
+
+            const user = await currentUser();
+            const email = user?.primaryEmailAddress?.emailAddress || '';
+
+            // Find or create user
+            let dbUser = await prisma.user.findUnique({ where: { id: userId } });
+            if (!dbUser && email) {
+                dbUser = await prisma.user.findUnique({ where: { email } });
+            }
+            if (!dbUser && email) {
+                console.log('[Reports POST] Auto-provisioning user:', email);
+                dbUser = await prisma.user.create({
+                    data: {
+                        id: userId,
+                        email,
+                        name: user?.fullName || 'User',
+                        role: 'user'
+                    }
+                });
+            }
+
+            if (!dbUser) {
+                return NextResponse.json({ error: 'Could not resolve user' }, { status: 401 });
+            }
+
+            context = {
+                userId: dbUser.id,
+                clerkId: userId,
+                email: dbUser.email || email,
+                orgId: dbUser.orgId,
+                role: dbUser.role || 'user',
+                securitySettings: undefined
+            };
         }
 
         const body = await request.json();
@@ -49,7 +92,7 @@ export async function POST(request: NextRequest) {
         // Create report linked to resolved DB User ID
         const report = await prisma.report.create({
             data: {
-                userId: context.userId,
+                userId: context!.userId,
                 sections: JSON.stringify(sections)
             }
         });
