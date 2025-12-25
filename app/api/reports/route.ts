@@ -37,76 +37,97 @@ export async function GET(request: NextRequest) {
 
 // POST /api/reports - Save a new assessment report
 export async function POST(request: NextRequest) {
+    console.log('[Reports POST] Starting...');
+
     try {
-        // Try getIsolationContext first
-        let context = await getIsolationContext();
+        // Step 1: Try to get authentication context
+        let userId: string | null = null;
+        let userEmail = '';
 
-        // Fallback: If context is null, try direct auth
-        if (!context) {
-            console.log('[Reports POST] getIsolationContext returned null, trying direct auth...');
+        try {
+            // Import auth at top level to avoid dynamic import issues
             const { auth, currentUser } = await import('@clerk/nextjs/server');
-            const { userId } = await auth();
+            const authResult = await auth();
+            userId = authResult.userId;
+            console.log('[Reports POST] Auth result userId:', userId);
 
-            if (!userId) {
-                console.log('[Reports POST] No userId from direct auth either');
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            if (userId) {
+                const user = await currentUser();
+                userEmail = user?.primaryEmailAddress?.emailAddress || '';
+                console.log('[Reports POST] User email:', userEmail);
             }
+        } catch (authError: any) {
+            console.error('[Reports POST] Auth error:', authError.message);
+        }
 
-            const user = await currentUser();
-            const email = user?.primaryEmailAddress?.emailAddress || '';
+        if (!userId) {
+            console.log('[Reports POST] No authenticated userId found');
+            return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
+        }
 
-            // Find or create user
-            let dbUser = await prisma.user.findUnique({ where: { id: userId } });
-            if (!dbUser && email) {
-                dbUser = await prisma.user.findUnique({ where: { email } });
-            }
-            if (!dbUser && email) {
-                console.log('[Reports POST] Auto-provisioning user:', email);
+        // Step 2: Find or create database user
+        let dbUser = await prisma.user.findUnique({ where: { id: userId } });
+        console.log('[Reports POST] DB user by ID:', dbUser?.id);
+
+        if (!dbUser && userEmail) {
+            dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
+            console.log('[Reports POST] DB user by email:', dbUser?.id);
+        }
+
+        if (!dbUser && userEmail) {
+            console.log('[Reports POST] Creating new user:', userEmail);
+            try {
                 dbUser = await prisma.user.create({
                     data: {
                         id: userId,
-                        email,
-                        name: user?.fullName || 'User',
+                        email: userEmail,
+                        name: userEmail.split('@')[0] || 'User',
                         role: 'user'
                     }
                 });
+                console.log('[Reports POST] Created user:', dbUser.id);
+            } catch (createError: any) {
+                console.error('[Reports POST] User creation error:', createError.message);
+                // Try to find user again in case of race condition
+                dbUser = await prisma.user.findUnique({ where: { id: userId } });
             }
-
-            if (!dbUser) {
-                return NextResponse.json({ error: 'Could not resolve user' }, { status: 401 });
-            }
-
-            context = {
-                userId: dbUser.id,
-                clerkId: userId,
-                email: dbUser.email || email,
-                orgId: dbUser.orgId,
-                role: dbUser.role || 'user',
-                securitySettings: undefined
-            };
         }
 
+        if (!dbUser) {
+            console.log('[Reports POST] Could not resolve or create user');
+            return NextResponse.json({ error: 'Could not resolve user account' }, { status: 401 });
+        }
+
+        // Step 3: Parse request body
         const body = await request.json();
         const { sections } = body;
+        console.log('[Reports POST] Sections received:', !!sections);
 
-        // Create report linked to resolved DB User ID
+        // Step 4: Create report
         const report = await prisma.report.create({
             data: {
-                userId: context!.userId,
+                userId: dbUser.id,
                 sections: JSON.stringify(sections)
             }
         });
+        console.log('[Reports POST] Report created:', report.id);
 
-        await logAudit({
-            entity: 'Report',
-            entityId: report.id,
-            action: 'CREATE',
-            changes: { timestamp: report.timestamp }
-        });
+        // Step 5: Audit log (non-blocking)
+        try {
+            await logAudit({
+                entity: 'Report',
+                entityId: report.id,
+                action: 'CREATE',
+                changes: { timestamp: report.timestamp }
+            });
+        } catch (auditError) {
+            console.error('[Reports POST] Audit log error (non-fatal):', auditError);
+        }
 
         return NextResponse.json({ report, success: true });
     } catch (error: unknown) {
-        console.error('[Reports] POST Error:', error);
+        console.error('[Reports POST] Unexpected Error:', error);
         return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
+
