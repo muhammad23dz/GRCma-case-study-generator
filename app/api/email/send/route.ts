@@ -16,23 +16,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Missing recipient or content" }, { status: 400 });
         }
 
-        // 1. Resolve User Context to find SMTP Settings
-        // The original code used session?.user?.id. With Clerk, userId is directly available.
-        let smtpConfig: any = {};
+        // 1. Fetch Global SMTP Settings from SystemSetting table
+        const settings = await prisma.systemSetting.findMany({
+            where: {
+                key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE', 'SMTP_FROM'] }
+            }
+        });
+        const smtpConfig = settings.reduce((acc: any, curr) => ({ ...acc, [curr.key]: curr.value }), {});
 
-        if (userId) {
-            // Fetch User's Personal SMTP Settings
-            const settings = await prisma.systemSetting.findMany({
-                where: { userId: userId }
-            });
-            smtpConfig = settings.reduce((acc: any, curr) => ({ ...acc, [curr.key]: curr.value }), {});
-        } else {
-            // Fallback to process.env (for unauth system emails, if any)
-            smtpConfig = process.env;
-        }
-
-        // Configure Transporter with User's Config
-        const isDev = process.env.NODE_ENV === 'development';
+        // Configure Transporter with saved SMTP settings
         const hasCreds = smtpConfig.SMTP_HOST && smtpConfig.SMTP_USER;
 
         if (!hasCreds) {

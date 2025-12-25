@@ -21,14 +21,14 @@ export async function GET(request: NextRequest) {
 
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { role: true } });
-        if (dbUser?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
+        // Fetch global SMTP settings (not per-user)
         const settings = await prisma.systemSetting.findMany({
-            where: { userId }
+            where: {
+                key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE', 'SMTP_FROM', 'NEXTAUTH_URL'] }
+            }
         });
 
-        log(`GET Found ${settings.length} settings for user ${userId}`);
+        log(`GET Found ${settings.length} global settings`);
 
         // Mask secrets
         const safeSettings = settings.map(s => ({
@@ -54,9 +54,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { role: true } });
-        if (dbUser?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
         const body = await request.json();
         const updates = Array.isArray(body) ? body : [body];
 
@@ -65,34 +62,42 @@ export async function POST(request: NextRequest) {
         for (const setting of updates) {
             // If value is masked (********), skip update
             if (setting.value === '********') {
-                log(`Skipping masking value for ${setting.key}`);
+                log(`Skipping masked value for ${setting.key}`);
                 continue;
             }
 
-            log(`Upserting ${setting.key} for User ${userId}`);
+            log(`Upserting global setting: ${setting.key}`);
 
             try {
-                await prisma.systemSetting.upsert({
-                    where: {
-                        userId_key: {
-                            userId,
-                            key: setting.key
-                        }
-                    },
-                    update: {
-                        value: setting.value,
-                        isSecret: setting.isSecret,
-                        description: setting.description
-                    },
-                    create: {
-                        userId,
-                        key: setting.key,
-                        value: setting.value,
-                        isSecret: setting.isSecret || false,
-                        description: setting.description
-                    }
+                // Save as global setting (use key as unique identifier)
+                // First try to find existing setting by key
+                const existing = await prisma.systemSetting.findFirst({
+                    where: { key: setting.key }
                 });
-                log(`Success ${setting.key}`);
+
+                if (existing) {
+                    // Update existing setting
+                    await prisma.systemSetting.update({
+                        where: { id: existing.id },
+                        data: {
+                            value: setting.value,
+                            isSecret: setting.isSecret,
+                            description: setting.description
+                        }
+                    });
+                } else {
+                    // Create new global setting (with userId for Prisma relation)
+                    await prisma.systemSetting.create({
+                        data: {
+                            userId,
+                            key: setting.key,
+                            value: setting.value,
+                            isSecret: setting.isSecret || false,
+                            description: setting.description
+                        }
+                    });
+                }
+                log(`Success: ${setting.key}`);
             } catch (innerError: any) {
                 log(`Upsert Failed for ${setting.key}: ${innerError.message}`);
                 throw innerError;
