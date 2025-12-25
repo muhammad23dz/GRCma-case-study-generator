@@ -8,20 +8,61 @@ import { safeError } from '@/lib/security';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+    console.log('[Reports GET] Starting...');
+
     try {
-        const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // Step 1: Try to get authentication
+        let userId: string | null = null;
+        let userEmail = '';
+
+        try {
+            const { auth, currentUser } = await import('@clerk/nextjs/server');
+            const authResult = await auth();
+            userId = authResult.userId;
+            console.log('[Reports GET] Auth result userId:', userId);
+
+            if (userId) {
+                const user = await currentUser();
+                userEmail = user?.primaryEmailAddress?.emailAddress || '';
+            }
+        } catch (authError: any) {
+            console.error('[Reports GET] Auth error:', authError.message);
         }
 
-        // Find reports by correct DB user ID using isolation utility
+        if (!userId) {
+            console.log('[Reports GET] No authenticated userId found');
+            return NextResponse.json({ reports: [] }); // Return empty instead of error for better UX
+        }
+
+        // Step 2: Find database user
+        let dbUserId = userId;
+        const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+
+        if (!dbUser && userEmail) {
+            const dbUserByEmail = await prisma.user.findUnique({ where: { email: userEmail } });
+            if (dbUserByEmail) {
+                dbUserId = dbUserByEmail.id;
+            }
+        }
+
+        console.log('[Reports GET] Looking for reports with userId:', dbUserId);
+
+        // Step 3: Find reports
         const reports = await prisma.report.findMany({
-            where: getIsolationFilter(context, 'Report'),
+            where: { userId: dbUserId },
             orderBy: { timestamp: 'desc' },
             take: 50
         });
 
-        const response = NextResponse.json({ reports });
+        console.log('[Reports GET] Found', reports.length, 'reports');
+
+        // Parse sections JSON for each report
+        const parsedReports = reports.map(report => ({
+            ...report,
+            sections: typeof report.sections === 'string' ? JSON.parse(report.sections) : report.sections
+        }));
+
+        const response = NextResponse.json({ reports: parsedReports });
 
         // Disable all caching to prevent stale data sync issues
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -30,7 +71,7 @@ export async function GET(request: NextRequest) {
 
         return response;
     } catch (error: unknown) {
-        console.error('[Reports] GET Error:', error);
+        console.error('[Reports GET] Error:', error);
         return NextResponse.json({ reports: [] });
     }
 }
