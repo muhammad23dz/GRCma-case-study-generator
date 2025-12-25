@@ -88,29 +88,61 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
   // 3. GENERATION
   try {
     // Comprehensive prompt with clear JSON schema specification
-    const promptText = `You are a Senior GRC (Governance, Risk, and Compliance) Auditor with 20+ years of experience at a Big 4 firm.
+    const promptText = `You are a Senior GRC (Governance, Risk, and Compliance) Auditor with 20+ years of experience at a Big 4 firm (Deloitte, PwC, EY, KPMG).
     
-    Conduct a professional, detailed, and realistic ${input.targetFramework} compliance assessment for:
-    - Company: ${input.companyName} (Industry: ${input.industry || 'Technology'})
-    - Size: ${input.companySize}
-    - Key Challenge: ${input.keyChallenge}
+    CRITICAL CONTEXT:
+    - Company: "${input.companyName}"
+    - Industry: "${input.industry || 'Technology'}"
+    - Company Size: "${input.companySize}"
+    - Target Framework: "${input.targetFramework}"
+    - Key Challenge: "${input.keyChallenge}"
 
-    Your assessment MUST be hyper-targeted to the provided Industry and Key Challenge. Avoid generic boilerplate (like "AWS" or "GitHub" unless they are the primary cause of the challenge). If the challenge is "Data Privacy in Healthcare", the incidents should be about HIPAA violations or EHR breaches, not generic phishing.
+    STRICT REQUIREMENTS FOR LOGICAL COHERENCE:
     
-    The Vendors and Incidents you generate MUST be interconnected. For example, if you list a specific SaaS vendor, a generated incident might involve a breach at that vendor. 
+    1. EVERYTHING must be directly relevant to "${input.industry || 'Technology'}" industry and "${input.keyChallenge}":
+       - If healthcare: Use HIPAA, EHR systems, PHI, medical device vendors
+       - If finance: Use SOX, PCI-DSS, trading systems, financial data vendors
+       - If retail: Use PCI-DSS, POS systems, e-commerce, payment processors
+       - If manufacturing: Use OT/ICS security, supply chain, SCADA systems
     
-    Use a professional consulting tone, focusing on "Business Risk" and "Material Impact".
+    2. CONTROLS must directly address "${input.keyChallenge}":
+       - Each control title should mention specific aspects of the challenge
+       - Control descriptions should explain HOW they mitigate the stated challenge
+    
+    3. RISKS must be realistic scenarios for "${input.companyName}":
+       - Narratives should describe plausible threat scenarios specific to this company
+       - Risk scores should reflect actual likelihood for this industry/size
+       - Small companies (1-50) face different risks than enterprises (1000+)
+    
+    4. VENDORS must be industry-specific and realistic:
+       - Healthcare: Epic, Cerner, Meditech, Allscripts (not generic AWS)
+       - Finance: Bloomberg, Refinitiv, FIS, Jack Henry
+       - Retail: Shopify, Square, Lightspeed, Oracle Retail
+       - Manufacturing: Siemens, Rockwell, Honeywell, SAP
+       - Technology: Specific SaaS tools relevant to stated challenge
+    
+    5. INCIDENTS must be causally linked to VENDORS or the KEY CHALLENGE:
+       - Each incident should reference a specific vendor breach or challenge failure
+       - Describe realistic attack vectors for this industry
+    
+    6. GAPS must show clear remediation paths tied to CONTROLS:
+       - Each gap should identify which controls need implementation
+       - Timeline and effort should be realistic for "${input.companySize}" company
 
-    Respond ONLY with the JSON object.
-    
-    You MUST respond with a valid JSON object containing these exact fields:
+    COHERENCE CHECK (You MUST ensure this):
+    - Every Risk has mitigatingControlTitles that EXACTLY match control titles you generated
+    - Every Incident is traceable to a Vendor or the Key Challenge
+    - Every Gap has a remediation plan that references specific controls
+    - The Executive Summary ties everything together into a coherent story
+
+    Respond with a VALID JSON object containing these exact fields:
 
     {
       "executiveSummary": {
-        "problemStatement": "A professional assessment of the specific GRC challenges cited.",
-        "context": "Organizational context and compliance scope.",
-        "scope": "Specific systems, processes, and locations covered.",
-        "recommendations": "Strategic roadmap for remediation (high-level)."
+        "problemStatement": "2-3 sentences describing how ${input.keyChallenge} specifically impacts ${input.companyName} in the ${input.industry || 'Technology'} sector.",
+        "context": "The organizational context: company size (${input.companySize}), regulatory requirements for ${input.industry || 'Technology'}, and compliance scope.",
+        "scope": "Specific systems, processes, and departments covered by this ${input.targetFramework} assessment.",
+        "recommendations": "3-4 prioritized strategic recommendations to address ${input.keyChallenge}."
       },
       "complianceMetrics": {
         "complianceScore": 0-100,
@@ -125,8 +157,8 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
       },
       "controls": [
         {
-          "title": "Specific Control Name",
-          "description": "Detailed description.",
+          "title": "Control name specific to ${input.targetFramework} and ${input.keyChallenge}",
+          "description": "Detailed description of how this control addresses ${input.keyChallenge}.",
           "controlType": "preventive" | "detective" | "corrective" | "directive",
           "status": "compliant" | "partially_compliant" | "non_compliant" | "not_applicable"
         }
@@ -134,58 +166,60 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
       "risks": [
         {
           "category": "Strategic" | "Operational" | "Financial" | "Compliance" | "Reputational",
-          "narrative": "Detailed risk scenario.",
+          "narrative": "Detailed risk scenario specific to ${input.companyName} and ${input.keyChallenge}.",
           "likelihood": 1-5,
           "impact": 1-5,
-          "mitigatingControlTitles": ["Exact Title of Control"],
+          "mitigatingControlTitles": ["EXACT title from controls array above"],
           "recommendedActions": [
-            { "title": "Action Title", "priority": "high" | "medium" | "low" }
+            { "title": "Specific action title", "priority": "high" | "medium" | "low" }
           ]
         }
       ],
       "gaps": [
         {
-          "title": "Gap Title",
-          "description": "Gap description.",
+          "title": "Gap title related to ${input.keyChallenge}",
+          "description": "Description of the compliance gap.",
           "severity": "critical" | "high" | "medium" | "low",
-          "remediationPlan": "Detailed steps",
+          "remediationPlan": "Specific steps referencing controls above",
           "effort": "high" | "medium" | "low",
-          "timeline": "e.g., 30 days"
+          "timeline": "Realistic timeline for ${input.companySize} company"
         }
       ],
       "policies": [
         {
-          "title": "Policy Name",
-          "category": "e.g., Security, Privacy",
-          "description": "Policy summary",
+          "title": "Policy name relevant to ${input.targetFramework}",
+          "category": "Category relevant to ${input.keyChallenge}",
+          "description": "Policy purpose and scope",
           "status": "active" | "draft" | "review"
         }
       ],
       "vendors": [
         {
-          "name": "Vendor Name",
-          "category": "Category",
-          "services": "Critical services",
+          "name": "Real vendor name specific to ${input.industry || 'Technology'} industry",
+          "category": "Vendor category",
+          "services": "Critical services this vendor provides",
           "riskScore": 0-100
         }
       ],
       "incidents": [
         {
-          "title": "Incident Title",
-          "description": "Description.",
+          "title": "Incident title referencing a vendor or ${input.keyChallenge}",
+          "description": "Incident description with realistic attack vector for ${input.industry || 'Technology'}.",
           "severity": "low" | "medium" | "high" | "critical",
           "status": "resolved" | "investigating" | "open"
         }
       ]
     }
 
-    Requirements:
-    1. Generate 6-8 comprehensive controls strictly specific to ${input.targetFramework}.
-    2. Identify 4-5 top risks. CRITICAL: For each risk, listed in "mitigatingControlTitles", you MUST include the EXACT titles of 1-2 controls from your "controls" list that help mitigate this risk.
-    3. For each risk, provide 1-2 specific "recommendedActions".
-    4. List 3 realistic vendors that are CRITICAL to this company's industry and operations. Do not just use AWS/GitHub unless they are the most relevant. Use industry leaders (e.g., Epic for Healthcare, Bloomberg for Finance, etc.).
-    5. Create 2 plausible incident scenarios that are directly triggered by the "Key Challenge" or involve the listed "Vendors".
-    6. Ensure the entire assessment tells a consistent story about the organization's current posture.
+    FINAL REQUIREMENTS:
+    1. Generate 6-8 controls strictly specific to ${input.targetFramework} addressing ${input.keyChallenge}
+    2. Generate 4-5 risks with mitigatingControlTitles that EXACTLY match your control titles
+    3. Generate 3 industry-specific vendors (NOT generic cloud providers unless directly relevant)
+    4. Generate 2 incidents causally linked to vendors or the key challenge
+    5. Generate 2-3 gaps with remediation plans referencing your controls
+    6. Generate 3-4 policies appropriate for ${input.targetFramework}
+    
+    The assessment must tell a coherent, interconnected story specific to "${input.companyName}" facing "${input.keyChallenge}" in the "${input.industry || 'Technology'}" industry.
 
     Respond ONLY with the JSON object.`;
 
