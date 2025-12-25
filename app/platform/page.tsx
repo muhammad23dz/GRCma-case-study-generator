@@ -25,6 +25,7 @@ export default function PlatformPage() {
             const response = await fetch('/api/grc/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Include auth cookies
                 body: JSON.stringify(data)
             });
 
@@ -39,6 +40,7 @@ export default function PlatformPage() {
             const saveResponse = await fetch('/api/reports', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // IMPORTANT: Include auth cookies
                 body: JSON.stringify({ sections: generatedReport.sections })
             });
 
