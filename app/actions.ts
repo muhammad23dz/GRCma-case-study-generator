@@ -68,7 +68,7 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
     // We still log usage but with 0 cost to Vendor.
     await prisma.lLMUsage.create({
       data: {
-        userId: user.id,
+        userId: user.userId,
         model: 'cache-hit',
         tokensIn: 0,
         tokensOut: 0,
@@ -207,7 +207,7 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
 
     await prisma.lLMUsage.create({
       data: {
-        userId: user.id,
+        userId: user.userId,
         model: result.provenance.model,
         tokensIn: inputTokens,
         tokensOut: outputTokens,
@@ -233,7 +233,7 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
     // Explode the report into granular DB records for the Dashboard
     try {
       const { persistReportData } = await import('@/lib/services/ai-mapper');
-      await persistReportData(user.id, parsedContent);
+      await persistReportData(user.userId, parsedContent);
     } catch (persistErr) {
       console.error("Persistence Warning:", persistErr);
     }
@@ -349,9 +349,50 @@ function generateFallbackGRCData(input: CaseInput) {
 }
 
 export async function applyReportToPlatform(report: GeneratedReport, clearData: boolean = false, userEmail: string, framework: string = 'ISO 27001') {
-  const context = await getIsolationContext();
+  // Try getIsolationContext first
+  let context = await getIsolationContext();
+
+  // Fallback: If context is null, try to resolve user directly
   if (!context) {
-    throw new Error("Unauthorized: Invalid session");
+    console.log('[applyReportToPlatform] getIsolationContext returned null, trying direct auth...');
+    const { userId } = await auth();
+
+    if (!userId) {
+      throw new Error("Unauthorized: Invalid session");
+    }
+
+    const user = await currentUser();
+    const email = user?.primaryEmailAddress?.emailAddress || userEmail;
+
+    // Find or create user
+    let dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!dbUser && email) {
+      dbUser = await prisma.user.findUnique({ where: { email } });
+    }
+    if (!dbUser && email) {
+      console.log('[applyReportToPlatform] Auto-provisioning user:', email);
+      dbUser = await prisma.user.create({
+        data: {
+          id: userId,
+          email,
+          name: user?.fullName || 'User',
+          role: 'user'
+        }
+      });
+    }
+
+    if (!dbUser) {
+      throw new Error("Unauthorized: Could not resolve user");
+    }
+
+    context = {
+      userId: dbUser.id,
+      clerkId: userId,
+      email: dbUser.email || email,
+      orgId: dbUser.orgId,
+      role: dbUser.role || 'user',
+      securitySettings: undefined
+    };
   }
 
   const effectiveEmail = context.email;
