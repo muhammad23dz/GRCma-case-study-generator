@@ -48,6 +48,7 @@ const SETTINGS_GROUPED = [
             { id: 'organization', label: 'Organization Hub', icon: Layout },
             { id: 'compliance', label: 'Framework Policy', icon: FileText },
             { id: 'integrations', label: 'Integrations', icon: Plug },
+            { id: 'email-config', label: 'Email (SMTP)', icon: Mail, adminOnly: true },
             { id: 'data', label: 'Data & Privacy', icon: Database },
         ]
     }
@@ -644,6 +645,7 @@ export default function SettingsPage() {
                                                         onClick={() => {
                                                             if (tab.id === 'users') router.push('/settings/users');
                                                             else if (tab.id === 'audit-logs') router.push('/settings/audit-logs');
+                                                            else if (tab.id === 'email-config') router.push('/admin/settings');
                                                             else setActiveTab(tab.id);
                                                         }}
                                                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive
