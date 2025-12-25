@@ -48,7 +48,7 @@ const SETTINGS_GROUPED = [
             { id: 'organization', label: 'Organization Hub', icon: Layout },
             { id: 'compliance', label: 'Framework Policy', icon: FileText },
             { id: 'integrations', label: 'Integrations', icon: Plug },
-            { id: 'email-config', label: 'Email (SMTP)', icon: Mail, adminOnly: true },
+            { id: 'email-config', label: 'Email (SMTP)', icon: Mail },
             { id: 'data', label: 'Data & Privacy', icon: Database },
         ]
     }
