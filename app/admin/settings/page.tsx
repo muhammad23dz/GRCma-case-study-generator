@@ -29,13 +29,11 @@ export default function SettingsPage() {
     });
 
     useEffect(() => {
-        if (isLoaded) {
-            const role = (user?.publicMetadata as any)?.role;
-            if (role !== 'admin') {
-                router.push('/');
-            } else {
-                fetchSettings();
-            }
+        if (isLoaded && user) {
+            // Allow all authenticated users to access SMTP settings
+            fetchSettings();
+        } else if (isLoaded && !user) {
+            router.push('/sign-in?redirect_url=/admin/settings');
         }
     }, [isLoaded, user]);
 
