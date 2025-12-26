@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 // GET /api/audit/calendar - Get Audit Calendar Events
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
+        const { userId, orgId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
         const audits = await prisma.audit.findMany({
             where: {
                 OR: [
-                    { leadAuditor: userEmail },
-                    { auditee: userEmail }
+                    { auditorName: userEmail },
+                    { organizationId: orgId || undefined }
                 ]
             },
             include: {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
             ...audits.map(audit => ({
                 id: `audit-${audit.id}`,
                 type: 'audit',
-                title: audit.name,
+                title: audit.title,
                 start: audit.startDate,
                 end: audit.endDate,
                 status: audit.status,

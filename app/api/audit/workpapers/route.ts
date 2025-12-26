@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 // GET /api/audit/workpapers - List Audit Workpapers (Evidence linked to audits)
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
+        const { userId, orgId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -20,29 +20,26 @@ export async function GET(request: NextRequest) {
         const evidence = await prisma.evidence.findMany({
             where: {
                 uploadedBy: userEmail,
-                ...(auditId && {
-                    // Filter by audit if auditId is provided
-                    // This would require a link between Evidence and Audit
-                })
+                organizationId: orgId || undefined
             },
             include: {
                 control: { select: { id: true, title: true } },
-                frameworkRequirement: { select: { id: true, title: true, requirementId: true } }
+                requirement: { select: { id: true, title: true, requirementId: true } }
             },
-            orderBy: { uploadedAt: 'desc' }
+            orderBy: { timestamp: 'desc' }
         });
 
         // Get audits for context
         const audits = await prisma.audit.findMany({
             where: {
                 OR: [
-                    { leadAuditor: userEmail },
-                    { auditee: userEmail }
+                    { auditorName: userEmail },
+                    { organizationId: orgId || undefined }
                 ]
             },
             select: {
                 id: true,
-                name: true,
+                title: true,
                 status: true,
                 startDate: true,
                 endDate: true
@@ -52,17 +49,17 @@ export async function GET(request: NextRequest) {
         // Organize as workpapers
         const workpapers = evidence.map(e => ({
             id: e.id,
-            title: e.title,
+            title: e.fileName || e.description || 'Untitled Evidence',
             description: e.description,
-            type: e.type,
+            type: e.evidenceType,
             source: e.source,
             status: e.status,
-            uploadedAt: e.uploadedAt,
-            validUntil: e.validUntil,
+            uploadedAt: e.timestamp,
+            validUntil: e.nextReviewDate,
             linkedControl: e.control,
-            linkedRequirement: e.frameworkRequirement,
+            linkedRequirement: e.requirement,
             fileUrl: e.fileUrl,
-            tags: e.tags
+            tags: null
         }));
 
         return NextResponse.json({
@@ -86,7 +83,7 @@ export async function GET(request: NextRequest) {
 // POST /api/audit/workpapers - Create Workpaper (Wrapper for evidence upload)
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
+        const { userId, orgId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -99,16 +96,16 @@ export async function POST(request: NextRequest) {
 
         const evidence = await prisma.evidence.create({
             data: {
-                title,
+                fileName: title,
                 description,
-                type: type || 'document',
+                evidenceType: type || 'document',
                 source: source || 'manual',
-                status: 'pending_review',
+                status: 'under_review',
                 fileUrl,
                 controlId,
                 requirementId,
                 uploadedBy: userEmail,
-                tags: auditId ? JSON.stringify({ auditId }) : null
+                organizationId: orgId || undefined
             }
         });
 
