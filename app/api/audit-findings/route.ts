@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
                     select: {
                         id: true,
                         title: true,
-                        category: true
+                        controlType: true
                     }
                 }
             }
