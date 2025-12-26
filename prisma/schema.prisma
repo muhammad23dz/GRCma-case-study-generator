@@ -1015,12 +1015,18 @@ model ControlTest {
   auditId        String?
   controlId      String
   testDate       DateTime
+  tester         String?
+  testType       String?   @default("design") // design, operating
   testProcedure  String
   sampleSize     Int?
-  result         String    // pass, fail, partial
+  result         String    @default("pending") // pass, fail, partial, pending
+  findings       String?
+  recommendations String?
   notes          String?
   evidenceId     String?
+  evidenceLinks  String?   // JSON string or URL
   createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
   
   audit          Audit?    @relation(fields: [auditId], references: [id])
   control        Control   @relation(fields: [controlId], references: [id])
