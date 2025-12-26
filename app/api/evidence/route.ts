@@ -32,7 +32,7 @@ export async function GET(request: Request) {
             where: whereClause,
             include: {
                 control: { select: { id: true, title: true } },
-                risk: { select: { id: true, title: true } },
+                risk: { select: { id: true, narrative: true } },
                 requirement: {
                     include: {
                         framework: { select: { id: true, name: true } }
