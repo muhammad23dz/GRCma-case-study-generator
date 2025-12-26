@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
                 name: name || provider,
                 status: 'active',
                 encryptedCredentials,
-                config: config ? JSON.stringify(config) : null,
+                config: config || undefined,
                 organizationId: org.id
             }
         });

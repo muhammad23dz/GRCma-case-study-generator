@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
                         score: (r.likelihood || 3) * (r.impact || 3),
                         status: 'open',
                         owner: userEmail,
-                        recommendedActions: JSON.stringify(r.recommendedActions || [])
+                        recommendedActions: r.recommendedActions || []
                     }
                 });
 

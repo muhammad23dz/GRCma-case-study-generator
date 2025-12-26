@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
         const report = await prisma.report.create({
             data: {
                 userId: dbUser.id,
-                sections: JSON.stringify(sections)
+                sections: sections || {}
             }
         });
         console.log('[Reports POST] Report created:', report.id);

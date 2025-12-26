@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
                     controlRisk: result.data.controlRisk,
                     evidenceRequirements: result.data.evidenceRequirements,
                     confidence: result.confidence,
-                    llmProvenance: JSON.stringify(result.provenance),
+                    llmProvenance: result.provenance as any,
                     owner: userEmail
                 }
             });

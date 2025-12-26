@@ -81,7 +81,7 @@ export async function POST(request: Request) {
                 requestedDate: new Date(body.requestedDate),
                 implementationPlan: body.implementationPlan,
                 backoutPlan: body.backoutPlan,
-                affectedSystems: JSON.stringify(body.affectedSystems || []),
+                affectedSystems: body.affectedSystems || [],
                 currentStage: 'assessment', // Initial stage
                 requestedBy: userEmail,
             }

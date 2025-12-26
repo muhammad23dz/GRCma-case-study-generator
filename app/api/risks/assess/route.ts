@@ -42,10 +42,10 @@ export async function POST(request: Request) {
                 score: result.data.score,
                 category: result.data.category,
                 narrative: result.data.narrative,
-                drivers: JSON.stringify(result.data.drivers),
-                recommendedActions: JSON.stringify(result.data.recommendedActions),
+                drivers: result.data.drivers as any,
+                recommendedActions: result.data.recommendedActions as any,
                 llmConfidence: result.confidence,
-                llmProvenance: JSON.stringify(result.provenance),
+                llmProvenance: result.provenance as any,
                 status: 'open'
             }
         });

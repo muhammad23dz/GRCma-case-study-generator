@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
                 );
                 await prisma.action.update({
                     where: { id: action.id },
-                    data: { playbook: JSON.stringify(playbook.data) }
+                    data: { playbook: playbook.data as any }
                 });
             } catch (e) {
                 console.error('[Actions] Playbook generation failed:', e);
