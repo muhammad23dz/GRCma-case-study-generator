@@ -72,33 +72,23 @@ export async function POST(request: NextRequest) {
     console.log('[Reports POST] Starting...');
 
     try {
-        // Step 1: Get authentication using getIsolationContext (proven to work based on server logs)
-        let userId: string | null = null;
-        let userEmail = '';
-
-        // Primary auth method: getIsolationContext (works reliably in all other routes)
-        const context = await getIsolationContext();
-        if (context) {
-            userId = context.userId;
-            userEmail = context.email;
-            console.log('[Reports POST] Context auth succeeded - userId:', userId, 'email:', userEmail);
-        } else {
-            // Fallback: try direct auth() call
-            console.log('[Reports POST] Context null, trying direct auth()...');
-            const authResult = await auth();
-            if (authResult.userId) {
-                userId = authResult.userId;
-                const user = await currentUser();
-                userEmail = user?.primaryEmailAddress?.emailAddress || '';
-                console.log('[Reports POST] Direct auth succeeded - userId:', userId);
-            }
-        }
+        // Step 1: Get authentication EXACTLY like /api/grc/generate which WORKS
+        // Auth must be called FIRST before any other async operations
+        const { userId } = await auth();
+        console.log('[Reports POST] Direct auth userId:', userId);
 
         if (!userId) {
-            console.log('[Reports POST] All auth methods failed');
-            console.log('[Reports POST] Request URL:', request.url);
-            console.log('[Reports POST] Cookie header present:', !!request.headers.get('cookie'));
+            console.log('[Reports POST] No userId from auth()');
             return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
+        }
+
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress;
+        console.log('[Reports POST] User email:', userEmail);
+
+        if (!userEmail) {
+            console.log('[Reports POST] No email found');
+            return NextResponse.json({ error: 'User email required' }, { status: 400 });
         }
 
         // Step 2: Find or create database user
