@@ -127,6 +127,7 @@ model Control {
   evidenceRequirements String?
   confidence           Float? // LLM mapping confidence 0-1
   llmProvenance        Json? // JSON: {prompt, model, temperature, timestamp}
+  status               String   @default("draft") // draft, implemented, retired
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

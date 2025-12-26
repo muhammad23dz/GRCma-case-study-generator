@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
             prisma.auditFinding.count({ where: { status: 'open', control: userFilter } }),
             prisma.remediationStep.count({ where: { status: 'pending', gap: userFilter } }),
             prisma.policy.count({ where: userFilter }),
-            prisma.policy.count({ where: { ...userFilter, status: 'approved' } }),
+            prisma.policy.count({ where: { ...userFilter, status: 'active' } }),
             // Gigachad GRC Modules - Secured with proper isolation
             (prisma as any).bCDRPlan?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0),
             (prisma as any).asset?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0),

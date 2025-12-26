@@ -11,6 +11,7 @@ const createControlSchema = z.object({
     description: z.string().min(10, "Description too short").max(5000, "Description too long"),
     controlType: z.enum(['preventive', 'detective', 'corrective', 'directive']).default('preventive'),
     evidenceRequirements: z.string().max(2000).optional(),
+    status: z.enum(['draft', 'implemented', 'retired']).default('draft'),
     policyId: z.string().cuid().optional(),
     riskId: z.string().cuid().optional()
 });
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const { title, description, controlType, evidenceRequirements, policyId, riskId } = parseResult.data;
+        const { title, description, controlType, evidenceRequirements, status, policyId, riskId } = parseResult.data;
 
         const control = await prisma.control.create({
             data: {
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
                 owner: context.email,
                 organizationId: context.orgId,
                 evidenceRequirements,
+                status: status || 'draft'
             }
         });
 

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
         const [total, pending, approved, expiring] = await Promise.all([
             prisma.evidence.count({ where: whereClause }),
-            prisma.evidence.count({ where: { ...whereClause, status: 'pending' } }),
+            prisma.evidence.count({ where: { ...whereClause, status: 'under_review' } }),
             prisma.evidence.count({ where: { ...whereClause, status: 'approved' } }),
             prisma.evidence.count({
                 where: {

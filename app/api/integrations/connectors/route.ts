@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
                 prisma.risk.count(),
                 prisma.risk.count({ where: { likelihood: { gte: 4 }, impact: { gte: 4 } } }),
                 prisma.policy.count(),
-                prisma.policy.count({ where: { status: 'approved' } }),
+                prisma.policy.count({ where: { status: 'active' } }),
                 prisma.vendor.count(),
                 prisma.vendor.count({ where: { status: 'active' } }),
                 prisma.incident.count(),
