@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         const audit = await prisma.audit.findFirst({
             where: {
                 id: auditId,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         const audit = await prisma.audit.findFirst({
             where: {
                 id: auditId,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
                 auditorName,
                 firmName,
                 expiresAt,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         // GRC Automation: Auto-generate standard audit requests
         try {
             const { generateAuditRequests } = await import('@/lib/grc-automation');
-            await generateAuditRequests(auditId, auditorAccess.id, audit.framework || null, context.orgId!);
+            await generateAuditRequests(auditId, auditorAccess.id, audit.framework || null, context.orgId as string);
         } catch (error) {
             console.error('[GRC Automation] Failed to generate audit requests:', error);
         }
@@ -157,7 +157,7 @@ export async function DELETE(request: NextRequest) {
         const access = await prisma.auditorAccess.findFirst({
             where: {
                 id,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 

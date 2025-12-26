@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Target user not found' }, { status: 404 });
             }
 
-            if (context.role !== 'admin' && targetUser.orgId !== context.orgId) {
+            if (context.role !== 'admin' && targetUser.orgId !== (context.orgId as string)) {
                 return NextResponse.json({ error: 'Forbidden: User belongs to another organization' }, { status: 403 });
             }
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Target user not found' }, { status: 404 });
             }
 
-            if (context.role !== 'admin' && targetUser.orgId !== context.orgId) {
+            if (context.role !== 'admin' && targetUser.orgId !== (context.orgId as string)) {
                 return NextResponse.json({ error: 'Forbidden: User belongs to another organization' }, { status: 403 });
             }
 
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
         if (action === 'list_users') {
             const users = await prisma.user.findMany({
-                where: context.role === 'admin' ? {} : { orgId: context.orgId },
+                where: context.role === 'admin' ? {} : { orgId: context.orgId || undefined },
                 select: {
                     id: true,
                     email: true,

@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
                 description: validatedInput.description,
                 status: 'open',
                 owner: context.email,
-                organizationId: context.orgId, // Org-scoped IAM support
+                organizationId: context.orgId || undefined, // Org-scoped IAM support
                 assignedTo: validatedInput.assignee || context.email,
                 dueDate: validatedInput.dueDate ? new Date(validatedInput.dueDate) : null,
                 priority: validatedInput.priority,

@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
                 services,
                 contactEmail,
                 owner: context.email,
-                organizationId: context.orgId, // Org-scoped IAM support
+                organizationId: context.orgId || undefined, // Org-scoped IAM support
                 status: 'active',
                 riskScore: riskScore || 50
             }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
                     score: criticality === 'critical' ? 16 : 9,
                     status: 'open',
                     owner: context.email,
-                    organizationId: context.orgId // Inherit org context
+                    organizationId: context.orgId || undefined // Inherit org context
                 }
             });
 

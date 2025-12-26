@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
         }
 
         const logs = await prisma.auditLog.findMany({
-            where: context.role === 'admin' ? {} : { organizationId: context.orgId },
+            where: context.role === 'admin' ? {} : { organizationId: context.orgId || undefined },
             orderBy: { timestamp: 'desc' },
             take: 100 // Limit to latest 100
         });

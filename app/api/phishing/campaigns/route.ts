@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
                 trackSubmissions: data.trackSubmissions,
                 totalTargets: targetCount,
                 createdBy: context.email,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 

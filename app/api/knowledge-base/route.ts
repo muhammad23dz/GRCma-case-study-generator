@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         const tag = searchParams.get('tag');
 
         const whereClause: any = {
-            organizationId: context.orgId
+            organizationId: context.orgId || undefined
         };
 
         if (category) whereClause.category = category;
@@ -67,13 +67,13 @@ export async function GET(request: NextRequest) {
         // Get category stats
         const categoryStats = await prisma.knowledgeBaseEntry.groupBy({
             by: ['category'],
-            where: { organizationId: context.orgId },
+            where: { organizationId: context.orgId || undefined },
             _count: true
         });
 
         // Get all unique tags
         const allEntries = await prisma.knowledgeBaseEntry.findMany({
-            where: { organizationId: context.orgId },
+            where: { organizationId: context.orgId || undefined },
             select: { tags: true }
         });
         const allTags = [...new Set(allEntries.flatMap(e => e.tags))];
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
             data: {
                 ...data,
                 owner: context.email,
-                organizationId: context.orgId,
+                organizationId: context.orgId || undefined,
                 status: 'draft'
             }
         });
@@ -162,7 +162,7 @@ export async function PATCH(request: NextRequest) {
 
         // Verify entry belongs to org
         const existing = await prisma.knowledgeBaseEntry.findFirst({
-            where: { id, organizationId: context.orgId }
+            where: { id, organizationId: context.orgId || undefined }
         });
 
         if (!existing) {
@@ -214,7 +214,7 @@ export async function DELETE(request: NextRequest) {
 
         // Verify entry belongs to org
         const existing = await prisma.knowledgeBaseEntry.findFirst({
-            where: { id, organizationId: context.orgId }
+            where: { id, organizationId: context.orgId || undefined }
         });
 
         if (!existing) {

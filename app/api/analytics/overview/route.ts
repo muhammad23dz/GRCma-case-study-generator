@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         const incidentFilter = getIsolationFilter(context, 'Incident');
         const reportFilter = getIsolationFilter(context, 'Report');
         // For models strictly scoped by Org ID (Expert Tier)
-        const orgFilter = { organizationId: context.orgId };
+        const orgFilter = { organizationId: context.orgId || undefined };
 
         const [
             totalControls,

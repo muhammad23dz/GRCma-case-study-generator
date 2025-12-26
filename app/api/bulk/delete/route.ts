@@ -35,13 +35,13 @@ export async function POST(request: NextRequest) {
                 break;
             case 'employees':
                 const empResult = await (prisma as any).employee?.deleteMany?.({
-                    where: { ...baseFilter, organizationId: context.orgId } // Scope by org if available, or fallback to owner if added later
+                    where: { ...baseFilter, organizationId: context.orgId || undefined } // Scope by org if available, or fallback to owner if added later
                 });
                 deleteCount = empResult?.count || 0;
                 break;
             case 'trainingCourses':
                 const trainResult = await (prisma as any).trainingCourse?.deleteMany?.({
-                    where: { ...baseFilter, organizationId: context.orgId }
+                    where: { ...baseFilter, organizationId: context.orgId || undefined }
                 });
                 deleteCount = trainResult?.count || 0;
                 break;
@@ -152,13 +152,13 @@ export async function DELETE(request: NextRequest) {
                 break;
             case 'employees':
                 const empResult = await (prisma as any).employee?.deleteMany?.({
-                    where: { organizationId: context.orgId }
+                    where: { organizationId: context.orgId || undefined }
                 });
                 deleteCount = empResult?.count || 0;
                 break;
             case 'trainingCourses':
                 const trainResult = await (prisma as any).trainingCourse?.deleteMany?.({
-                    where: { organizationId: context.orgId }
+                    where: { organizationId: context.orgId || undefined }
                 });
                 deleteCount = trainResult?.count || 0;
                 break;

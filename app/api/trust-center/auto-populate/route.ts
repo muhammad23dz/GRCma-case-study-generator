@@ -8,8 +8,8 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: NextRequest) {
     try {
         const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required' }, { status: 401 });
         }
 
         // Get trust center config

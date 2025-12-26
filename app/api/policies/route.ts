@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
                 content,
                 reviewDate: reviewDate ? new Date(reviewDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
                 owner: context.email,
-                organizationId: context.orgId, // Org-scoped IAM support
+                organizationId: context.orgId || undefined, // Org-scoped IAM support
                 status: 'draft'
             }
         });

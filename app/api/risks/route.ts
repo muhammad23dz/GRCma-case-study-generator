@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
                 narrative: narrative || 'New risk identified',
                 status: riskStatus || 'open',
                 owner: context.email,
-                organizationId: context.orgId // Org-scoped IAM support
+                organizationId: context.orgId || undefined // Org-scoped IAM support
             }
         });
 

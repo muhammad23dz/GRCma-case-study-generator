@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         }
 
         const users = await prisma.user.findMany({
-            where: context.role === 'admin' ? {} : { orgId: context.orgId },
+            where: context.role === 'admin' ? {} : { orgId: context.orgId || undefined },
             orderBy: { name: 'asc' },
             select: {
                 id: true,
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         });
 
         const invitations = await prisma.invitation.findMany({
-            where: context.role === 'admin' ? {} : { organizationId: context.orgId },
+            where: context.role === 'admin' ? {} : { organizationId: context.orgId || undefined },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             // Check if we can update this user (org scoping)
-            if (context.role !== 'admin' && existingUser.orgId !== context.orgId) {
+            if (context.role !== 'admin' && existingUser.orgId !== (context.orgId as string)) {
                 return NextResponse.json({ error: 'User belongs to another organization' }, { status: 403 });
             }
 
@@ -76,14 +76,14 @@ export async function POST(request: NextRequest) {
                 role,
                 invitedBy: context.email,
                 expires,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             },
             create: {
                 email,
                 role,
                 invitedBy: context.email,
                 expires,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
         console.log('[API] Invitation Upsert Success:', invitation.id);

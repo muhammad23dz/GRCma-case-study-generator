@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
                 description,
                 controlType: controlType || 'preventive',
                 owner: context.email,
-                organizationId: context.orgId,
+                organizationId: context.orgId || undefined,
                 evidenceRequirements,
                 status: status || 'draft'
             }

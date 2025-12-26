@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         const assignedTo = searchParams.get('assignedTo');
 
         const whereClause: any = {
-            organizationId: context.orgId
+            organizationId: context.orgId || undefined
         };
 
         if (auditId) whereClause.auditId = auditId;
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         // Get stats
         const stats = await prisma.auditRequest.groupBy({
             by: ['status'],
-            where: { organizationId: context.orgId },
+            where: { organizationId: context.orgId || undefined },
             _count: true
         });
 
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
         // Verify audit belongs to org
         const audit = await prisma.audit.findFirst({
-            where: { id: auditId, organizationId: context.orgId }
+            where: { id: auditId, organizationId: context.orgId || undefined }
         });
 
         if (!audit) {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
                 dueDate: dueDate ? new Date(dueDate) : null,
                 controlId,
                 requirementId,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 
@@ -158,7 +158,7 @@ export async function PATCH(request: NextRequest) {
 
         // Verify request belongs to org
         const existing = await prisma.auditRequest.findFirst({
-            where: { id, organizationId: context.orgId }
+            where: { id, organizationId: context.orgId || undefined }
         });
 
         if (!existing) {

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         const difficulty = searchParams.get('difficulty');
 
         const whereClause: any = {
-            organizationId: context.orgId,
+            organizationId: context.orgId || undefined,
             isActive: true
         };
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             data: {
                 ...data,
                 createdBy: context.email,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 
@@ -110,7 +110,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const existing = await prisma.phishingTemplate.findFirst({
-            where: { id, organizationId: context.orgId }
+            where: { id, organizationId: context.orgId || undefined }
         });
 
         if (!existing) {

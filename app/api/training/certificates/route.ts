@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         const courseId = searchParams.get('courseId');
 
         const whereClause: any = {
-            organizationId: context.orgId
+            organizationId: context.orgId || undefined
         };
 
         if (employeeId) whereClause.employeeId = employeeId;
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
                 score: assignment.score,
                 expiresAt,
                 verificationUrl: `/verify/certificate/${certNumber}`,
-                organizationId: context.orgId
+                organizationId: context.orgId || undefined
             }
         });
 
@@ -153,7 +153,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const certificate = await prisma.trainingCertificate.findFirst({
-            where: { id, organizationId: context.orgId }
+            where: { id, organizationId: context.orgId || undefined }
         });
 
         if (!certificate) {

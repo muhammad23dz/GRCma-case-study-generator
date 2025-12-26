@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
                 severity,
                 assignedTo,
                 reportedBy: context.email,
-                organizationId: context.orgId // Org-scoped IAM support
+                organizationId: context.orgId || undefined // Org-scoped IAM support
             }
         });
 

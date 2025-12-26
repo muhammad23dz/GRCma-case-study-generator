@@ -31,12 +31,12 @@ const sectionSchema = z.object({
 export async function GET(request: NextRequest) {
     try {
         const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required' }, { status: 401 });
         }
 
         let config = await prisma.trustCenterConfig.findUnique({
-            where: { organizationId: context.orgId },
+            where: { organizationId: context.orgId as string },
             include: {
                 sections: {
                     orderBy: { displayOrder: 'asc' }
@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required' }, { status: 401 });
         }
 
         const body = await request.json();
@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
 
         // Upsert config
         const config = await prisma.trustCenterConfig.upsert({
-            where: { organizationId: context.orgId },
+            where: { organizationId: context.orgId as string },
             create: {
-                organizationId: context.orgId,
+                organizationId: context.orgId as string,
                 ...data
             },
             update: data
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -147,7 +147,7 @@ export async function PUT(request: NextRequest) {
 
         // Get config
         const config = await prisma.trustCenterConfig.findUnique({
-            where: { organizationId: context.orgId }
+            where: { organizationId: context.orgId as string }
         });
 
         if (!config) {
@@ -189,8 +189,8 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -206,7 +206,7 @@ export async function DELETE(request: NextRequest) {
             include: { config: true }
         });
 
-        if (!section || section.config.organizationId !== context.orgId) {
+        if (!section || section.config.organizationId !== (context.orgId as string)) {
             return NextResponse.json({ error: 'Section not found' }, { status: 404 });
         }
 
