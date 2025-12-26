@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         // Fetch global SMTP settings (not per-user)
         const settings = await prisma.systemSetting.findMany({
             where: {
-                key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE', 'SMTP_FROM', 'NEXTAUTH_URL'] }
+                key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE', 'SMTP_FROM', 'NEXTAUTH_URL', 'APP_URL'] }
             }
         });
 

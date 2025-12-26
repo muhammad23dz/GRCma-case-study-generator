@@ -25,7 +25,7 @@ export default function SettingsPage() {
         SMTP_PASS: '',
         SMTP_SECURE: 'false',
         SMTP_FROM: '',
-        NEXTAUTH_URL: ''
+        APP_URL: ''
     });
 
     useEffect(() => {
@@ -54,7 +54,7 @@ export default function SettingsPage() {
                     SMTP_PORT: settingsMap.SMTP_PORT || (user?.primaryEmailAddress?.emailAddress?.includes('gmail') ? '587' : '587'),
                     SMTP_SECURE: settingsMap.SMTP_SECURE || 'false',
                     SMTP_FROM: settingsMap.SMTP_FROM || `GRCma Admin <${user?.primaryEmailAddress?.emailAddress}>`,
-                    NEXTAUTH_URL: settingsMap.NEXTAUTH_URL || window.location.origin
+                    APP_URL: settingsMap.APP_URL || settingsMap.NEXTAUTH_URL || window.location.origin
                 }));
             }
         } catch (error) {
@@ -132,6 +132,22 @@ export default function SettingsPage() {
                             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 flex gap-3 text-sm text-blue-300 mb-6">
                                 <CheckCircle className="w-5 h-5 shrink-0" />
                                 <p>{t('config_auto_fill')}</p>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-2">
+                                    <Server className="w-3 h-3" /> App Base URL
+                                </label>
+                                <input
+                                    type="text"
+                                    value={config.APP_URL}
+                                    onChange={e => setConfig({ ...config, APP_URL: e.target.value })}
+                                    className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 transition-colors font-mono text-sm"
+                                    placeholder="https://grcma.com"
+                                />
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Used for generating links in emails and callback URLs.
+                                </p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

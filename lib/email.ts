@@ -5,7 +5,7 @@ export async function sendInvitationEmail(to: string, role: string, inviterName:
     // Fetch Settings from DB
     const settings = await prisma.systemSetting.findMany({
         where: {
-            key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE', 'SMTP_FROM', 'NEXTAUTH_URL'] }
+            key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE', 'SMTP_FROM', 'NEXTAUTH_URL', 'APP_URL'] }
         }
     });
 
@@ -20,7 +20,7 @@ export async function sendInvitationEmail(to: string, role: string, inviterName:
     const port = config.SMTP_PORT || process.env.SMTP_PORT || '587';
     const secure = config.SMTP_SECURE ? config.SMTP_SECURE === 'true' : (process.env.SMTP_SECURE === 'true');
     const from = config.SMTP_FROM || process.env.SMTP_FROM || '"GRCma Platform" <noreply@example.com>';
-    const baseUrl = config.NEXTAUTH_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const baseUrl = config.APP_URL || config.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
     if (!host || !user) {
         console.warn('SMTP not configured in DB or ENV. Skipping email.');

@@ -40,12 +40,12 @@ export async function executeRaw(queryString: string, params?: unknown[]): Promi
     const sql = getDb();
     try {
         if (params && params.length > 0) {
-            // For parameterized queries, we need to construct the template
-            const result = await sql.call(null, [queryString] as unknown as TemplateStringsArray, ...params);
+            // For parameterized queries
+            const result = await (sql as any)(queryString, params);
             return result as unknown[];
         }
         // For simple queries without parameters
-        const result = await sql`${queryString}`;
+        const result = await (sql as any)(queryString);
         return result as unknown[];
     } catch (error) {
         console.error('Raw SQL execution error:', error);

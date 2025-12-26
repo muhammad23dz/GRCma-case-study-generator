@@ -8,9 +8,9 @@ export const CMI_CONFIG = {
     storeKey: process.env.CMI_STORE_KEY || 'Test1234', // Default Test Key
     clientId: process.env.CMI_CLIENT_ID || '600000000', // Default Test Client ID
     gatewayUrl: process.env.CMI_GATEWAY_URL || 'https://testpayment.cmi.co.ma/fim/est3Dgate',
-    okUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/payment/callback/ok`,
-    failUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/payment/callback/fail`,
-    shopUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}`,
+    okUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/payment/callback/ok`,
+    failUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/payment/callback/fail`,
+    shopUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'}`,
 };
 
 export function generateCmiHash(params: CmiParams): string {
