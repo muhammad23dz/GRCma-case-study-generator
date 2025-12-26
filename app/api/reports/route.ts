@@ -72,24 +72,52 @@ export async function POST(request: NextRequest) {
     console.log('[Reports POST] Starting...');
 
     try {
-        // Step 1: Get authentication EXACTLY like /api/grc/generate which WORKS
-        // Auth must be called FIRST before any other async operations
-        const { userId } = await auth();
-        console.log('[Reports POST] Direct auth userId:', userId);
+        // Step 1: Try cookie-based auth first
+        let userId: string | null = null;
+        let userEmail: string = '';
+
+        const authResult = await auth();
+        userId = authResult.userId;
+        console.log('[Reports POST] Cookie auth userId:', userId);
+
+        // Step 2: If cookie auth fails, try Bearer token from Authorization header
+        if (!userId) {
+            const authHeader = request.headers.get('Authorization');
+            if (authHeader?.startsWith('Bearer ')) {
+                const token = authHeader.substring(7);
+                console.log('[Reports POST] Trying Bearer token verification...');
+                try {
+                    // Verify the Clerk session token
+                    const { verifyToken } = await import('@clerk/backend');
+                    const verified = await verifyToken(token, {
+                        secretKey: process.env.CLERK_SECRET_KEY!
+                    });
+                    if (verified?.sub) {
+                        userId = verified.sub;
+                        console.log('[Reports POST] Bearer token verified - userId:', userId);
+                    }
+                } catch (tokenError: any) {
+                    console.error('[Reports POST] Token verification error:', tokenError.message);
+                }
+            }
+        }
 
         if (!userId) {
-            console.log('[Reports POST] No userId from auth()');
+            console.log('[Reports POST] All auth methods failed');
             return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
         }
 
+        // Get user email - try currentUser first, then DB lookup
         const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress;
-        console.log('[Reports POST] User email:', userEmail);
+        userEmail = user?.primaryEmailAddress?.emailAddress || '';
 
         if (!userEmail) {
-            console.log('[Reports POST] No email found');
-            return NextResponse.json({ error: 'User email required' }, { status: 400 });
+            // Fallback: get email from DB user
+            const dbUserForEmail = await prisma.user.findUnique({ where: { id: userId } });
+            userEmail = dbUserForEmail?.email || '';
         }
+
+        console.log('[Reports POST] User email:', userEmail);
 
         // Step 2: Find or create database user
         let dbUser = await prisma.user.findUnique({ where: { id: userId } });

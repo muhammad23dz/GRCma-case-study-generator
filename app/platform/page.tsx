@@ -68,10 +68,15 @@ export default function PlatformPage() {
             const generatedReport: GeneratedReport = await response.json();
 
             // Step 2: Immediately save to assessments history
+            // Use explicit session token to bypass cookie issues in Turbopack
+            const token = await getToken();
             const saveResponse = await fetch('/api/reports', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // IMPORTANT: Include auth cookies
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                credentials: 'include', // Also include cookies as fallback
                 body: JSON.stringify({ sections: generatedReport.sections })
             });
 
