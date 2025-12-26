@@ -46,13 +46,11 @@ export default async function PolicyDetailPage({ params }: { params: { id: strin
                                 <h1 className="text-3xl font-bold text-white mb-2">{policy.title}</h1>
                                 <div className="flex items-center gap-3 text-sm">
                                     <span className={`px-2.5 py-0.5 rounded-full border ${policy.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                            'bg-slate-500/10 text-slate-300 border-slate-500/20'
+                                        'bg-slate-500/10 text-slate-300 border-slate-500/20'
                                         }`}>
                                         {policy.status.toUpperCase()}
                                     </span>
                                     <span className="text-slate-400">v{policy.version}</span>
-                                    <span className="text-slate-500">•</span>
-                                    <span className="text-slate-400">{policy.category || 'General'}</span>
                                     <span className="text-slate-500">•</span>
                                     <span className="text-slate-400">Owner: {policy.owner}</span>
                                 </div>
