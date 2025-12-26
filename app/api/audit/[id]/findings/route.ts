@@ -85,6 +85,24 @@ export async function POST(
             }
         });
 
+        // GRC Automation: Auto-create remediation action for critical/major findings
+        if (['critical', 'major'].includes(severity.toLowerCase())) {
+            try {
+                const { linkFindingToRemediation } = await import('@/lib/grc-automation');
+                const audit = await prisma.audit.findUnique({ where: { id } });
+                await linkFindingToRemediation(
+                    finding.id,
+                    controlId,
+                    severity.toLowerCase(),
+                    audit?.organizationId || ''
+                );
+                console.log(`[GRC Automation] Created remediation action for finding: ${title}`);
+            } catch (automationError) {
+                console.error('[GRC Automation] Failed to create remediation:', automationError);
+                // Non-blocking - don't fail the request
+            }
+        }
+
         return NextResponse.json({ finding }, { status: 201 });
     } catch (error: any) {
         console.error('Error creating finding:', error);

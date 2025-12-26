@@ -188,6 +188,18 @@ export async function PATCH(request: NextRequest) {
             changes: parseResult.data
         });
 
+        // GRC Automation: Update audit progress when request status changes
+        if (parseResult.data.status && ['submitted', 'approved', 'rejected'].includes(parseResult.data.status)) {
+            try {
+                const { updateAuditProgress } = await import('@/lib/grc-automation');
+                const progressResult = await updateAuditProgress(existing.auditId);
+                console.log(`[GRC Automation] Audit progress updated: ${progressResult.progress}% complete`);
+            } catch (automationError) {
+                console.error('[GRC Automation] Failed to update audit progress:', automationError);
+                // Non-blocking - don't fail the request
+            }
+        }
+
         return NextResponse.json({ auditRequest });
     } catch (error: any) {
         const { message, status } = safeError(error, 'AuditRequests PATCH');
