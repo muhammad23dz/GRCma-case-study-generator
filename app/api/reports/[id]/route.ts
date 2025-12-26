@@ -21,13 +21,37 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
-        const { userId } = await auth();
+        // Step 1: Try cookie-based auth first
+        let userId: string | null = null;
+
+        const authResult = await auth();
+        userId = authResult.userId;
+
+        // Step 2: If cookie auth fails, try Bearer token from Authorization header
+        if (!userId) {
+            const authHeader = request.headers.get('Authorization');
+            if (authHeader?.startsWith('Bearer ')) {
+                const token = authHeader.substring(7);
+                try {
+                    const { verifyToken } = await import('@clerk/backend');
+                    const verified = await verifyToken(token, {
+                        secretKey: process.env.CLERK_SECRET_KEY!
+                    });
+                    if (verified?.sub) {
+                        userId = verified.sub;
+                    }
+                } catch (tokenError: any) {
+                    console.error('[Reports DELETE] Token verification error:', tokenError.message);
+                }
+            }
+        }
+
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const dbUserId = await getDbUserId(userId);
-        const { id } = params;
+        const { id } = await params;
 
         // Verify ownership using correct DB user ID
         const report = await prisma.report.findFirst({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
@@ -37,6 +37,7 @@ interface Assessment {
 
 export default function AssessmentsPage() {
     const { user, isLoaded } = useUser();
+    const { getToken } = useAuth();
     const router = useRouter();
     const { refreshAll } = useGRCData();
     const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -77,7 +78,14 @@ export default function AssessmentsPage() {
     const deleteAssessment = async (id: string) => {
         if (!confirm('Are you sure you want to delete this assessment?')) return;
         try {
-            const res = await fetch(`/api/reports/${id}`, { method: 'DELETE' });
+            const token = await getToken();
+            const res = await fetch(`/api/reports/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                credentials: 'include'
+            });
             if (res.ok) {
                 setAssessments(prev => prev.filter(a => a.id !== id));
                 if (selectedAssessment?.id === id) setSelectedAssessment(null);
@@ -94,8 +102,15 @@ export default function AssessmentsPage() {
 
         setIsDeleting(true);
         try {
+            const token = await getToken();
             for (const id of selectedIds) {
-                await fetch(`/api/reports/${id}`, { method: 'DELETE' });
+                await fetch(`/api/reports/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    credentials: 'include'
+                });
             }
             setAssessments(prev => prev.filter(a => !selectedIds.includes(a.id)));
             if (selectedIds.includes(selectedAssessment?.id || '')) {
