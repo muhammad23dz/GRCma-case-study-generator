@@ -19,7 +19,7 @@ export async function GET(
             where: { id },
             include: {
                 steps: { orderBy: { stepNumber: 'asc' } },
-                executions: { orderBy: { startedAt: 'desc' }, take: 10 }
+                executions: { orderBy: { triggeredAt: 'desc' }, take: 10 }
             }
         });
 
