@@ -85,7 +85,7 @@ export default function ChangesPage() {
 
                     <div className="flex gap-2">
                         {/* Delete All - Admin Only */}
-                        {changes.length > 0 && canDeleteRecords((session?.user as any)?.role) && (
+                        {changes.length > 0 && canDeleteRecords((user?.publicMetadata as any)?.role) && (
                             <button
                                 onClick={async () => {
                                     if (!confirm(`Are you sure you want to delete ALL ${changes.length} change requests? This cannot be undone.`)) return;
