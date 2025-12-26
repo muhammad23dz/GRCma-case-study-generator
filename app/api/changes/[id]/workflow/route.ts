@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 // POST /api/changes/[id]/workflow
 export async function POST(
-    request: Request,
-    { params }: { params: { id: string } }
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { userId } = await auth();
@@ -21,7 +21,7 @@ export async function POST(
         const userEmail = user.emailAddresses[0]?.emailAddress || 'unknown';
         const userName = user.fullName || user.firstName || 'User';
 
-        const { id } = params;
+        const { id } = await params;
 
         const body = await request.json();
         const { action, comments } = body; // action: 'submit', 'approve', 'reject', 'implement'

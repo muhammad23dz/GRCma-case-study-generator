@@ -18,7 +18,7 @@ async function getDbUserId(userId: string): Promise<string> {
 // DELETE /api/reports/[id] - Delete a specific report
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         // Step 1: Try cookie-based auth first
@@ -86,7 +86,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { userId } = await auth();
@@ -95,7 +95,7 @@ export async function GET(
         }
 
         const dbUserId = await getDbUserId(userId);
-        const { id } = params;
+        const { id } = await params;
 
         const report = await prisma.report.findFirst({
             where: { id, userId: dbUserId }

@@ -4,8 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
 
 export async function PUT(
-    request: Request,
-    { params }: { params: { id: string } }
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { userId } = await auth();
@@ -13,7 +13,7 @@ export async function PUT(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = params;
+        const { id } = await params;
         const body = await request.json();
         const { result, notes, evidenceId } = body;
 
