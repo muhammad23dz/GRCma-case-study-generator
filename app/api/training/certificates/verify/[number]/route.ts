@@ -6,10 +6,10 @@ import { safeError } from '@/lib/security';
 // No auth required - public certificate verification
 export async function GET(
     request: NextRequest,
-    { params }: { params: { number: string } }
+    { params }: { params: Promise<{ number: string }> }
 ) {
     try {
-        const { number } = params;
+        const { number } = await params;
 
         if (!number) {
             return NextResponse.json({ error: 'Certificate number required' }, { status: 400 });
