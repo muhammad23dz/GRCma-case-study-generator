@@ -87,6 +87,16 @@ const platformFeatures = [
             { name: 'Integrations', href: '/integrations', desc: 'Connect external tools' },
             { name: 'Settings', href: '/settings', desc: 'Organization and user settings' },
         ]
+    },
+    {
+        category: 'Admin Setup',
+        icon: <Key className="w-6 h-6" />,
+        color: 'red',
+        modules: [
+            { name: 'User Management', href: '/admin/users', desc: 'Manage users and assign RBAC roles' },
+            { name: 'SMTP Email', href: '/admin/settings', desc: 'Configure email sending for notifications' },
+            { name: 'System Config', href: '/settings', desc: 'AI, security, and organization settings' },
+        ]
     }
 ];
 
@@ -282,7 +292,7 @@ const auditPrep = [
 
 export default function GuidePage() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState<'tour' | 'features' | 'frameworks' | 'controls' | 'risk' | 'audit'>('tour');
+    const [activeTab, setActiveTab] = useState<'tour' | 'features' | 'frameworks' | 'controls' | 'risk' | 'audit' | 'admin'>('tour');
     const [expandedFeature, setExpandedFeature] = useState<string | null>('Core GRC');
 
     return (
@@ -314,7 +324,8 @@ export default function GuidePage() {
                             { id: 'frameworks', label: '📜 Frameworks', desc: 'ISO, SOC 2, NIST' },
                             { id: 'controls', label: '🛡️ Control Types', desc: 'Defense layers' },
                             { id: 'risk', label: '⚠️ Risk Method', desc: '5×5 matrix' },
-                            { id: 'audit', label: '✅ Audit Prep', desc: 'Get ready' }
+                            { id: 'audit', label: '✅ Audit Prep', desc: 'Get ready' },
+                            { id: 'admin', label: '⚙️ Admin Setup', desc: 'RBAC & Email' }
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -598,6 +609,153 @@ export default function GuidePage() {
                                     className="block text-center py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all border border-white/10"
                                 >
                                     Set Up Auditor Portal →
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ADMIN SETUP TAB */}
+                    {activeTab === 'admin' && (
+                        <div className="space-y-6">
+                            <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-6 mb-6">
+                                <h2 className="text-xl font-bold text-red-400 mb-2 flex items-center gap-2">
+                                    <Key className="w-6 h-6" />
+                                    Administrator Setup Guide
+                                </h2>
+                                <p className="text-slate-400">
+                                    Configure user access, roles, and email notifications for your organization.
+                                </p>
+                            </div>
+
+                            {/* RBAC SECTION */}
+                            <div className="bg-slate-900/40 border border-white/5 rounded-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
+                                        <Shield className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">Role-Based Access Control (RBAC)</h3>
+                                        <p className="text-purple-400 text-sm font-medium">Manage user permissions at /admin/users</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-bold text-slate-300 mb-3 uppercase tracking-wide">Available Roles</h4>
+                                    <div className="bg-slate-950/50 rounded-lg overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-white/10">
+                                                    <th className="text-left p-3 text-slate-400">Role</th>
+                                                    <th className="text-left p-3 text-slate-400">Access Level</th>
+                                                    <th className="text-left p-3 text-slate-400">Permissions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="border-b border-white/5">
+                                                    <td className="p-3"><span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded font-bold">ADMIN</span></td>
+                                                    <td className="p-3 text-white">Full Access</td>
+                                                    <td className="p-3 text-slate-400">All permissions, user management, system config</td>
+                                                </tr>
+                                                <tr className="border-b border-white/5">
+                                                    <td className="p-3"><span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded font-bold">MANAGER</span></td>
+                                                    <td className="p-3 text-white">Write Access</td>
+                                                    <td className="p-3 text-slate-400">CRUD all GRC entities, invite users, export reports</td>
+                                                </tr>
+                                                <tr className="border-b border-white/5">
+                                                    <td className="p-3"><span className="px-2 py-1 bg-teal-500/20 text-teal-400 rounded font-bold">ANALYST</span></td>
+                                                    <td className="p-3 text-white">Analyst Access</td>
+                                                    <td className="p-3 text-slate-400">Read/Write risks, controls; Read-only policies, vendors</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="p-3"><span className="px-2 py-1 bg-slate-500/20 text-slate-400 rounded font-bold">VIEWER</span></td>
+                                                    <td className="p-3 text-white">Read Only</td>
+                                                    <td className="p-3 text-slate-400">View reports, risks, controls, and policies</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-950/50 p-4 rounded-lg">
+                                    <h4 className="text-sm font-bold text-emerald-400 mb-2">How to Assign Roles:</h4>
+                                    <ol className="list-decimal list-inside text-slate-300 space-y-1 text-sm">
+                                        <li>Go to <span className="text-white font-mono bg-slate-800 px-2 py-0.5 rounded">/admin/users</span></li>
+                                        <li>Click <strong className="text-white">+ Add Member</strong> to invite new users</li>
+                                        <li>Select role during invitation, or...</li>
+                                        <li>Use the <strong className="text-white">role dropdown</strong> next to any user to change their role</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            {/* SMTP SECTION */}
+                            <div className="bg-slate-900/40 border border-white/5 rounded-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-3 bg-orange-500/10 text-orange-400 rounded-xl">
+                                        <Mail className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">SMTP Email Configuration</h3>
+                                        <p className="text-orange-400 text-sm font-medium">Configure at Settings → Email (SMTP)</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-bold text-slate-300 mb-3 uppercase tracking-wide">Required Settings</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="bg-slate-950/50 p-3 rounded-lg">
+                                            <span className="text-xs text-slate-500 uppercase">SMTP Host</span>
+                                            <div className="text-white font-mono">smtp.gmail.com</div>
+                                        </div>
+                                        <div className="bg-slate-950/50 p-3 rounded-lg">
+                                            <span className="text-xs text-slate-500 uppercase">SMTP Port</span>
+                                            <div className="text-white font-mono">587</div>
+                                        </div>
+                                        <div className="bg-slate-950/50 p-3 rounded-lg">
+                                            <span className="text-xs text-slate-500 uppercase">SMTP User</span>
+                                            <div className="text-white font-mono">your-email@gmail.com</div>
+                                        </div>
+                                        <div className="bg-slate-950/50 p-3 rounded-lg">
+                                            <span className="text-xs text-slate-500 uppercase">SMTP Password</span>
+                                            <div className="text-white font-mono">App Password (16 chars)</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-lg mb-4">
+                                    <h4 className="text-sm font-bold text-orange-400 mb-2">⚠️ Gmail App Password Setup:</h4>
+                                    <ol className="list-decimal list-inside text-slate-300 space-y-1 text-sm">
+                                        <li>Go to <span className="text-orange-300">myaccount.google.com/security</span></li>
+                                        <li>Enable <strong className="text-white">2-Step Verification</strong></li>
+                                        <li>Search for <span className="text-white font-bold">&quot;App Passwords&quot;</span></li>
+                                        <li>Create a new app password (name: GRCma)</li>
+                                        <li>Copy the <strong className="text-white">16-character code</strong></li>
+                                        <li>Use this code as your SMTP Password</li>
+                                    </ol>
+                                </div>
+
+                                <div className="bg-slate-950/50 p-4 rounded-lg">
+                                    <h4 className="text-sm font-bold text-emerald-400 mb-2">Email Features Enabled:</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-medium">User Invitations</span>
+                                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-medium">Report Delivery</span>
+                                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-medium">Alert Notifications</span>
+                                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-medium">Audit Reminders</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Link
+                                    href="/admin/users"
+                                    className="block text-center py-4 bg-purple-500 hover:bg-purple-400 text-white font-bold rounded-xl transition-all"
+                                >
+                                    Open User Management →
+                                </Link>
+                                <Link
+                                    href="/admin/settings"
+                                    className="block text-center py-4 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all"
+                                >
+                                    Configure SMTP Email →
                                 </Link>
                             </div>
                         </div>
