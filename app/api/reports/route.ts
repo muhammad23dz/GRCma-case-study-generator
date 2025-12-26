@@ -72,22 +72,34 @@ export async function POST(request: NextRequest) {
     console.log('[Reports POST] Starting...');
 
     try {
-        // Step 1: Get authentication using top-level import (more reliable than dynamic import)
-        const authResult = await auth();
-        const userId = authResult.userId;
-        console.log('[Reports POST] Auth result userId:', userId);
+        // Step 1: Get authentication using getIsolationContext (proven to work based on server logs)
+        let userId: string | null = null;
+        let userEmail = '';
+
+        // Primary auth method: getIsolationContext (works reliably in all other routes)
+        const context = await getIsolationContext();
+        if (context) {
+            userId = context.userId;
+            userEmail = context.email;
+            console.log('[Reports POST] Context auth succeeded - userId:', userId, 'email:', userEmail);
+        } else {
+            // Fallback: try direct auth() call
+            console.log('[Reports POST] Context null, trying direct auth()...');
+            const authResult = await auth();
+            if (authResult.userId) {
+                userId = authResult.userId;
+                const user = await currentUser();
+                userEmail = user?.primaryEmailAddress?.emailAddress || '';
+                console.log('[Reports POST] Direct auth succeeded - userId:', userId);
+            }
+        }
 
         if (!userId) {
-            console.log('[Reports POST] No authenticated userId found - checking headers');
-            // Log request details for debugging
+            console.log('[Reports POST] All auth methods failed');
             console.log('[Reports POST] Request URL:', request.url);
             console.log('[Reports POST] Cookie header present:', !!request.headers.get('cookie'));
             return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
         }
-
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
-        console.log('[Reports POST] User email:', userEmail);
 
         // Step 2: Find or create database user
         let dbUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -112,7 +124,6 @@ export async function POST(request: NextRequest) {
                 console.log('[Reports POST] Created user:', dbUser.id);
             } catch (createError: any) {
                 console.error('[Reports POST] User creation error:', createError.message);
-                // Try to find user again in case of race condition
                 dbUser = await prisma.user.findUnique({ where: { id: userId } });
             }
         }
