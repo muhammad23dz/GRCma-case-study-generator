@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
@@ -11,28 +12,18 @@ export async function GET(request: NextRequest) {
     console.log('[Reports GET] Starting...');
 
     try {
-        // Step 1: Try to get authentication
-        let userId: string | null = null;
-        let userEmail = '';
-
-        try {
-            const { auth, currentUser } = await import('@clerk/nextjs/server');
-            const authResult = await auth();
-            userId = authResult.userId;
-            console.log('[Reports GET] Auth result userId:', userId);
-
-            if (userId) {
-                const user = await currentUser();
-                userEmail = user?.primaryEmailAddress?.emailAddress || '';
-            }
-        } catch (authError: any) {
-            console.error('[Reports GET] Auth error:', authError.message);
-        }
+        // Step 1: Get authentication using top-level import
+        const authResult = await auth();
+        const userId = authResult.userId;
+        console.log('[Reports GET] Auth result userId:', userId);
 
         if (!userId) {
             console.log('[Reports GET] No authenticated userId found');
             return NextResponse.json({ reports: [] }); // Return empty instead of error for better UX
         }
+
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
 
         // Step 2: Find database user
         let dbUserId = userId;
@@ -81,30 +72,22 @@ export async function POST(request: NextRequest) {
     console.log('[Reports POST] Starting...');
 
     try {
-        // Step 1: Try to get authentication context
-        let userId: string | null = null;
-        let userEmail = '';
-
-        try {
-            // Import auth at top level to avoid dynamic import issues
-            const { auth, currentUser } = await import('@clerk/nextjs/server');
-            const authResult = await auth();
-            userId = authResult.userId;
-            console.log('[Reports POST] Auth result userId:', userId);
-
-            if (userId) {
-                const user = await currentUser();
-                userEmail = user?.primaryEmailAddress?.emailAddress || '';
-                console.log('[Reports POST] User email:', userEmail);
-            }
-        } catch (authError: any) {
-            console.error('[Reports POST] Auth error:', authError.message);
-        }
+        // Step 1: Get authentication using top-level import (more reliable than dynamic import)
+        const authResult = await auth();
+        const userId = authResult.userId;
+        console.log('[Reports POST] Auth result userId:', userId);
 
         if (!userId) {
-            console.log('[Reports POST] No authenticated userId found');
+            console.log('[Reports POST] No authenticated userId found - checking headers');
+            // Log request details for debugging
+            console.log('[Reports POST] Request URL:', request.url);
+            console.log('[Reports POST] Cookie header present:', !!request.headers.get('cookie'));
             return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
         }
+
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
+        console.log('[Reports POST] User email:', userEmail);
 
         // Step 2: Find or create database user
         let dbUser = await prisma.user.findUnique({ where: { id: userId } });
