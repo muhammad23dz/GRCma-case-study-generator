@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
                 riskControls: { include: { control: true } },
                 vendorRisks: { include: { vendor: true } },
                 assetRisks: { include: { asset: true } },
-                history: { orderBy: { recordedAt: 'desc' }, take: 30 }
+                history: { orderBy: { calculatedAt: 'desc' }, take: 30 }
             }
         });
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
         // Trend data (from history)
         const trendData = risks.flatMap(r => r.history || []).reduce((acc, h) => {
-            const date = new Date(h.recordedAt).toISOString().split('T')[0];
+            const date = new Date(h.calculatedAt).toISOString().split('T')[0];
             if (!acc[date]) acc[date] = { count: 0, totalScore: 0 };
             acc[date].count++;
             acc[date].totalScore += h.score;
