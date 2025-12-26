@@ -28,15 +28,15 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
         switch (resource) {
             case 'controls':
                 const controls = await prisma.control.findMany({
-                    include: { framework: true },
+                    include: { mappings: { include: { framework: true } } },
                 });
                 config.controls = controls.map(c => ({
                     id: c.id,
-                    name: c.name,
+                    title: c.title,
                     description: c.description,
-                    category: c.category,
-                    status: c.status,
-                    framework: c.framework?.name,
+                    controlType: c.controlType,
+                    owner: c.owner,
+                    controlRisk: c.controlRisk,
                     ...(request.includeMetadata && {
                         createdAt: c.createdAt,
                         updatedAt: c.updatedAt,
@@ -49,11 +49,11 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                 const policies = await prisma.policy.findMany();
                 config.policies = policies.map(p => ({
                     id: p.id,
-                    name: p.name,
-                    description: p.description,
-                    category: p.category,
+                    title: p.title,
+                    content: p.content,
                     status: p.status,
                     version: p.version,
+                    owner: p.owner,
                     ...(request.includeMetadata && {
                         createdAt: p.createdAt,
                         updatedAt: p.updatedAt,
@@ -69,10 +69,6 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                     name: f.name,
                     version: f.version,
                     description: f.description,
-                    ...(request.includeMetadata && {
-                        createdAt: f.createdAt,
-                        updatedAt: f.updatedAt,
-                    }),
                 }));
                 resourceCounts.frameworks = frameworks.length;
                 break;
@@ -81,12 +77,13 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                 const risks = await prisma.risk.findMany();
                 config.risks = risks.map(r => ({
                     id: r.id,
-                    name: r.name,
-                    description: r.description,
+                    narrative: r.narrative,
                     category: r.category,
                     likelihood: r.likelihood,
                     impact: r.impact,
+                    score: r.score,
                     status: r.status,
+                    owner: r.owner,
                     ...(request.includeMetadata && {
                         createdAt: r.createdAt,
                         updatedAt: r.updatedAt,
@@ -101,8 +98,10 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                     id: v.id,
                     name: v.name,
                     category: v.category,
-                    riskLevel: v.riskLevel,
+                    criticality: v.criticality,
                     status: v.status,
+                    owner: v.owner,
+                    riskScore: v.riskScore,
                     ...(request.includeMetadata && {
                         createdAt: v.createdAt,
                         updatedAt: v.updatedAt,
@@ -199,8 +198,8 @@ async function processControls(
     overwrite?: boolean
 ) {
     for (const control of controls) {
-        if (!control.name) {
-            errors.push({ path: `controls.${control.id || 'unknown'}`, message: 'Control name is required' });
+        if (!control.title) {
+            errors.push({ path: `controls.${control.id || 'unknown'}`, message: 'Control title is required' });
             continue;
         }
 
@@ -211,17 +210,18 @@ async function processControls(
                 changes.push({
                     resourceType: 'control',
                     resourceId: control.id,
-                    resourceName: control.name,
+                    resourceName: control.title,
                     action: 'update',
                 });
                 if (!dryRun) {
                     await prisma.control.update({
                         where: { id: control.id },
                         data: {
-                            name: control.name,
-                            description: control.description,
-                            category: control.category,
-                            status: control.status,
+                            title: control.title,
+                            description: control.description || '',
+                            controlType: control.controlType || 'preventive',
+                            owner: control.owner,
+                            controlRisk: control.controlRisk,
                         },
                     });
                 }
@@ -232,16 +232,17 @@ async function processControls(
         } else {
             changes.push({
                 resourceType: 'control',
-                resourceName: control.name,
+                resourceName: control.title,
                 action: 'create',
             });
             if (!dryRun) {
                 await prisma.control.create({
                     data: {
-                        name: control.name,
+                        title: control.title,
                         description: control.description || '',
-                        category: control.category || 'General',
-                        status: control.status || 'draft',
+                        controlType: control.controlType || 'preventive',
+                        owner: control.owner,
+                        controlRisk: control.controlRisk,
                     },
                 });
             }
@@ -259,11 +260,12 @@ async function processPolicies(
     overwrite?: boolean
 ) {
     for (const policy of policies) {
-        if (!policy.name) {
-            errors.push({ path: `policies.${policy.id || 'unknown'}`, message: 'Policy name is required' });
+        if (!policy.title && !policy.name) {
+            errors.push({ path: `policies.${policy.id || 'unknown'}`, message: 'Policy title is required' });
             continue;
         }
 
+        const title = policy.title || policy.name;
         const existing = policy.id ? await prisma.policy.findUnique({ where: { id: policy.id } }) : null;
 
         if (existing) {
@@ -271,18 +273,18 @@ async function processPolicies(
                 changes.push({
                     resourceType: 'policy',
                     resourceId: policy.id,
-                    resourceName: policy.name,
+                    resourceName: title,
                     action: 'update',
                 });
                 if (!dryRun) {
                     await prisma.policy.update({
                         where: { id: policy.id },
                         data: {
-                            name: policy.name,
-                            description: policy.description,
-                            category: policy.category,
+                            title: title,
                             status: policy.status,
                             version: policy.version,
+                            owner: policy.owner,
+                            content: policy.content || '',
                         },
                     });
                 }
@@ -293,18 +295,17 @@ async function processPolicies(
         } else {
             changes.push({
                 resourceType: 'policy',
-                resourceName: policy.name,
+                resourceName: title,
                 action: 'create',
             });
             if (!dryRun) {
                 await prisma.policy.create({
                     data: {
-                        name: policy.name,
-                        description: policy.description || '',
-                        category: policy.category || 'General',
+                        title: title,
                         status: policy.status || 'draft',
                         version: policy.version || '1.0',
-                        content: '',
+                        content: policy.content || '',
+                        owner: policy.owner,
                     },
                 });
             }
@@ -380,11 +381,12 @@ async function processRisks(
     overwrite?: boolean
 ) {
     for (const risk of risks) {
-        if (!risk.name) {
-            errors.push({ path: `risks.${risk.id || 'unknown'}`, message: 'Risk name is required' });
+        if (!risk.narrative && !risk.name) {
+            errors.push({ path: `risks.${risk.id || 'unknown'}`, message: 'Risk narrative is required' });
             continue;
         }
 
+        const narrative = risk.narrative || risk.name;
         const existing = risk.id ? await prisma.risk.findUnique({ where: { id: risk.id } }) : null;
 
         if (existing) {
@@ -392,19 +394,20 @@ async function processRisks(
                 changes.push({
                     resourceType: 'risk',
                     resourceId: risk.id,
-                    resourceName: risk.name,
+                    resourceName: narrative,
                     action: 'update',
                 });
                 if (!dryRun) {
                     await prisma.risk.update({
                         where: { id: risk.id },
                         data: {
-                            name: risk.name,
-                            description: risk.description,
+                            narrative: narrative,
                             category: risk.category,
                             likelihood: risk.likelihood,
                             impact: risk.impact,
+                            score: risk.score,
                             status: risk.status,
+                            owner: risk.owner,
                         },
                     });
                 }
@@ -415,18 +418,19 @@ async function processRisks(
         } else {
             changes.push({
                 resourceType: 'risk',
-                resourceName: risk.name,
+                resourceName: narrative,
                 action: 'create',
             });
             if (!dryRun) {
                 await prisma.risk.create({
                     data: {
-                        name: risk.name,
-                        description: risk.description || '',
+                        narrative: narrative,
                         category: risk.category || 'Operational',
                         likelihood: risk.likelihood || 3,
                         impact: risk.impact || 3,
+                        score: risk.score || (risk.likelihood * risk.impact) || 9,
                         status: risk.status || 'identified',
+                        owner: risk.owner,
                     },
                 });
             }
@@ -465,8 +469,10 @@ async function processVendors(
                         data: {
                             name: vendor.name,
                             category: vendor.category,
-                            riskLevel: vendor.riskLevel,
+                            criticality: vendor.criticality || vendor.riskLevel,
                             status: vendor.status,
+                            owner: vendor.owner,
+                            riskScore: vendor.riskScore,
                         },
                     });
                 }
@@ -485,8 +491,10 @@ async function processVendors(
                     data: {
                         name: vendor.name,
                         category: vendor.category || 'Technology',
-                        riskLevel: vendor.riskLevel || 'medium',
+                        criticality: vendor.criticality || vendor.riskLevel || 'medium',
                         status: vendor.status || 'active',
+                        owner: vendor.owner,
+                        riskScore: vendor.riskScore || 50,
                     },
                 });
             }
@@ -521,8 +529,8 @@ export function validateConfig(content: string, format: ConfigFormat): ConfigErr
             }
 
             items.forEach((item: any, index: number) => {
-                if (!item.name) {
-                    errors.push({ path: `${type}[${index}]`, message: 'name is required' });
+                if (!item.name && !item.title && !item.narrative) {
+                    errors.push({ path: `${type}[${index}]`, message: 'identification (name/title/narrative) is required' });
                 }
             });
         }
