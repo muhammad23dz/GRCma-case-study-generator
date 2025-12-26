@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/lib/generated/client';
 
 export async function POST(req: NextRequest) {
     try {

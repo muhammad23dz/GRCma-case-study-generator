@@ -1,6 +1,6 @@
 
 import { Connector, ConnectorConfig } from './types';
-import { Evidence } from '@prisma/client';
+import { Evidence } from '@/lib/generated/client';
 import { decrypt } from '@/lib/security/encryption';
 
 export class GitHubConnector implements Connector {
