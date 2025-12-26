@@ -17,7 +17,8 @@ import {
     Shield,
     FileText,
     MessageSquare,
-    Play
+    Play,
+    Lock
 } from 'lucide-react';
 
 export default function ChangeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -124,8 +125,7 @@ export default function ChangeDetailPage({ params }: { params: Promise<{ id: str
                                     {/* RBAC Gate - Only Admins/Managers can approve/reject */}
                                     {(() => {
                                         const canApproveChange = canApprove(
-                                            (user?.publicMetadata as any)?.role,
-                                            change
+                                            (user?.publicMetadata as any)?.role
                                         );
                                         return canApproveChange ? (
                                             <div className="flex gap-2">
@@ -275,7 +275,7 @@ export default function ChangeDetailPage({ params }: { params: Promise<{ id: str
             </main>
             {/* Debug Info */}
             <div className="fixed bottom-0 right-0 p-2 bg-black/80 text-xs text-slate-500 border-t border-l border-white/10 rounded-tl-lg z-50">
-                Role: <span className="text-white">{(session?.user as any)?.role || 'unknown'}</span> |
+                Role: <span className="text-white">{(user?.publicMetadata as any)?.role || 'unknown'}</span> |
                 Status: <span className="text-white">{change.status}</span>
             </div>
         </div>
