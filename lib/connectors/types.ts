@@ -1,5 +1,5 @@
 
-import { Evidence } from "@prisma/client";
+import { Evidence } from "@/lib/generated/client";
 
 export interface ConnectorConfig {
     encryptedCredentials: string;
