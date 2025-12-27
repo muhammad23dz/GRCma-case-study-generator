@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { generateReportAction } from '@/app/actions';
+import { generateReportService } from '@/lib/services/report-generator';
 
 // POST /api/grc/generate - AI-powered assessment generation
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
 
-        // Map API request to CaseInput expected by server action
+        // Map API request to CaseInput expected by service
         const input = {
             companyName: body.companyName,
             companySize: body.companySize,
@@ -30,13 +30,8 @@ export async function POST(request: NextRequest) {
             riskAppetite: 'Balanced'
         };
 
-        // Call the server action logic directly
-        // Note: In a real Next.js app we might mistakenly call a server action from an API route. 
-        // It's better to extract the logic, but generateReportAction is exported.
-        // If generateReportAction uses headers/cookies standard methods, it might fail in API route context without care.
-        // However, we are passing data explicitly.
-
-        const report = await generateReportAction(input, userEmail);
+        // Use the service directly, bypassing the Server Action context scope issues
+        const report = await generateReportService(input, { userId });
 
         return NextResponse.json(report);
 
