@@ -16,15 +16,22 @@ const globalForPrisma = globalThis as unknown as {
 
 // Create adapter-based client if URL is present, otherwise fallback (to avoid build crashes if env missing)
 const createPrismaClient = () => {
-    if (!connectionString) {
+    // Safety check: specific to Neon/Postgres adapter requirements
+    if (!connectionString || !connectionString.startsWith('postgres')) {
         return new PrismaClient();
     }
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaNeon(pool);
-    return new PrismaClient({
-        adapter,
-        log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-    });
+
+    try {
+        const pool = new Pool({ connectionString });
+        const adapter = new PrismaNeon(pool);
+        return new PrismaClient({
+            adapter,
+            log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+        });
+    } catch (e) {
+        console.error('Failed to initialize Neon adapter, falling back to standard PrismaClient:', e);
+        return new PrismaClient();
+    }
 };
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
