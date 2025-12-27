@@ -190,6 +190,6 @@ export interface ReportSection {
 }
 
 export interface LLMConfig {
-    provider: 'openai' | 'deepseek' | 'anthropic' | 'google' | 'mistral';
+    provider: 'openai' | 'deepseek' | 'anthropic' | 'google' | 'mistral' | 'github';
     apiKey: string;
 }

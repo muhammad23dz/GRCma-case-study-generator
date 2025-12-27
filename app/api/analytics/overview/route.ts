@@ -3,66 +3,90 @@ import { safeError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
+// Helper to generate deterministic demo numbers based on userId
+function getDemoValue(userId: string, base: number, variance: number = 0.5) {
+    const seed = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const offset = (seed % 100) / 100; // 0.0 to 0.99
+    return Math.round(base * (1 - variance + offset * (variance * 2)));
+}
+
+// Fixed demo analytics generator
+function getDemoAnalytics(userId: string) {
+    return {
+        overview: {
+            totalControls: getDemoValue(userId, 45, 0.2),
+            totalRisks: getDemoValue(userId, 25, 0.3),
+            totalVendors: getDemoValue(userId, 12, 0.2),
+            totalActions: getDemoValue(userId, 18, 0.4),
+            totalIncidents: getDemoValue(userId, 4, 0.5),
+            totalPolicies: getDemoValue(userId, 8, 0.2),
+            totalChanges: getDemoValue(userId, 5, 0.5),
+            criticalRisks: getDemoValue(userId, 2, 0.5),
+            highRisks: getDemoValue(userId, 6, 0.4),
+            openActions: getDemoValue(userId, 7, 0.5),
+            openIncidents: getDemoValue(userId, 1, 1),
+            openGaps: getDemoValue(userId, 4, 0.4),
+            openFindings: getDemoValue(userId, 3, 0.6),
+            activeRemediations: getDemoValue(userId, 3, 0.5),
+            complianceScore: getDemoValue(userId, 75, 0.1),
+            maturityLevel: 'Managed',
+            auditReadiness: getDemoValue(userId, 70, 0.15),
+            gapCount: getDemoValue(userId, 4, 0.4),
+            totalBCDRPlans: 2, totalAssets: getDemoValue(userId, 35, 0.3),
+            totalEmployees: getDemoValue(userId, 25, 0.4),
+            totalTrainingCourses: 5, totalQuestionnaires: 3,
+            totalRunbooks: 7, totalProcesses: 12
+        },
+        riskDistribution: [
+            { category: 'Security', _count: getDemoValue(userId, 8, 0.3) },
+            { category: 'Operational', _count: getDemoValue(userId, 6, 0.4) },
+            { category: 'Compliance', _count: 5 },
+            { category: 'Privacy', _count: 4 }
+        ],
+        controlsByType: [
+            { controlType: 'preventive', _count: getDemoValue(userId, 18, 0.2) },
+            { controlType: 'detective', _count: getDemoValue(userId, 12, 0.3) },
+            { controlType: 'corrective', _count: 9 },
+            { controlType: 'directive', _count: 8 }
+        ],
+        vendorsByCriticality: [
+            { criticality: 'critical', _count: getDemoValue(userId, 2, 0.5) },
+            { criticality: 'high', _count: 3 },
+            { criticality: 'medium', _count: 5 },
+            { criticality: 'low', _count: 2 }
+        ],
+        vendorsByStatus: [
+            { status: 'active', _count: getDemoValue(userId, 10, 0.2) },
+            { status: 'suspended', _count: 1 },
+            { status: 'terminated', _count: 1 }
+        ],
+        heatmapRisks: [
+            { id: 'demo-1', narrative: 'Unauthorized access to sensitive data', likelihood: 4, impact: 5, score: 20, category: 'security' },
+            { id: 'demo-2', narrative: 'System downtime during peak hours', likelihood: 3, impact: 4, score: 12, category: 'operational' },
+        ],
+        isDemo: true
+    };
+}
+
 // Check if we have a valid DATABASE_URL
 const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
 
-// Demo analytics for display when DB is unavailable
-const DEMO_ANALYTICS = {
-    overview: {
-        totalControls: 47, totalRisks: 23, totalVendors: 12, totalActions: 18, totalIncidents: 3,
-        totalPolicies: 8, totalChanges: 5, criticalRisks: 2, highRisks: 6, openActions: 7,
-        openIncidents: 1, openGaps: 4, openFindings: 2, activeRemediations: 3,
-        complianceScore: 72, maturityLevel: 'Managed', auditReadiness: 68,
-        gapCount: 4,
-        totalBCDRPlans: 2, totalAssets: 35, totalEmployees: 24, totalTrainingCourses: 5,
-        totalQuestionnaires: 3, totalRunbooks: 7, totalProcesses: 12
-    },
-    riskDistribution: [
-        { category: 'security', _count: 8 },
-        { category: 'operational', _count: 6 },
-        { category: 'compliance', _count: 5 },
-        { category: 'privacy', _count: 4 }
-    ],
-    controlsByType: [
-        { controlType: 'preventive', _count: 18 },
-        { controlType: 'detective', _count: 12 },
-        { controlType: 'corrective', _count: 9 },
-        { controlType: 'directive', _count: 8 }
-    ],
-    vendorsByCriticality: [
-        { criticality: 'critical', _count: 2 },
-        { criticality: 'high', _count: 3 },
-        { criticality: 'medium', _count: 5 },
-        { criticality: 'low', _count: 2 }
-    ],
-    vendorsByStatus: [
-        { status: 'active', _count: 10 },
-        { status: 'suspended', _count: 1 },
-        { status: 'terminated', _count: 1 }
-    ],
-    heatmapRisks: [
-        { id: 'demo-1', narrative: 'Unauthorized access to sensitive data', likelihood: 4, impact: 5, score: 20, category: 'security' },
-        { id: 'demo-2', narrative: 'System downtime during peak hours', likelihood: 3, impact: 4, score: 12, category: 'operational' },
-        { id: 'demo-3', narrative: 'GDPR compliance gaps', likelihood: 3, impact: 3, score: 9, category: 'compliance' },
-        { id: 'demo-4', narrative: 'Vendor data breach exposure', likelihood: 2, impact: 5, score: 10, category: 'security' }
-    ],
-    isDemo: true
-};
-
 // GET /api/analytics/overview - User-specific analytics
 export async function GET(request: NextRequest) {
-    // If no valid DB, return demo data immediately
+    // We need to resolve context first to get the userId for demo seeding
+    const { getIsolationContext, getIsolationFilter } = await import('@/lib/isolation');
+    const context = await getIsolationContext();
+
+    // If no valid DB, return seeded demo data immediately
     if (!hasValidDb) {
-        console.log('[Analytics] No valid DATABASE_URL, returning demo data');
-        return NextResponse.json(DEMO_ANALYTICS);
+        console.log('[Analytics] No valid DATABASE_URL, returning seeded demo data');
+        return NextResponse.json(getDemoAnalytics(context?.userId || 'guest'));
     }
 
     try {
         // Dynamic imports to avoid initialization errors
         const { prisma } = await import('@/lib/prisma');
-        const { getIsolationContext, getIsolationFilter } = await import('@/lib/isolation');
 
-        const context = await getIsolationContext();
         if (!context) {
             console.log('[Analytics] Unauthorized access attempt');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -206,6 +230,11 @@ export async function GET(request: NextRequest) {
     } catch (error: unknown) {
         console.error('[Analytics] Critical failure:', error);
         // Return demo data on any error
-        return NextResponse.json({ ...DEMO_ANALYTICS, error: safeError(error).message });
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+        return NextResponse.json({
+            ...getDemoAnalytics(context?.userId || 'guest'),
+            error: safeError(error).message
+        });
     }
 }

@@ -1,5 +1,4 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { prisma } from './prisma';
 
 export interface IsolationContext {
     userId: string; // Prisma DB ID
@@ -100,8 +99,26 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
 
         const user = await currentUser();
         const email = user?.primaryEmailAddress?.emailAddress || '';
+        const name = user?.fullName || user?.firstName || 'User';
 
         console.log('[Isolation] Auth check - clerkId:', clerkId, 'email:', email);
+
+        // Check if we have a valid DATABASE_URL
+        const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
+
+        if (!hasValidDb) {
+            console.warn('[Isolation] No valid DATABASE_URL, returning demo context');
+            return {
+                userId: clerkId, // Use clerkId as userId in demo mode
+                clerkId,
+                email,
+                orgId: `demo-org-${clerkId.slice(-8)}`, // User-specific demo org
+                role: 'admin', // Give admin rights in demo mode
+                securitySettings: { mfaRequired: false }
+            };
+        }
+
+        const { prisma } = await import('./prisma');
 
         // Robust DB User Resolution
         let dbUser = await prisma.user.findUnique({
@@ -119,9 +136,8 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
             }
         });
 
-        // Fallback search by email if ID doesn't match (e.g. migration sync)
+        // Fallback search by email if ID doesn't match
         if (!dbUser && email) {
-            console.log('[Isolation] User not found by ID, trying email...');
             dbUser = await prisma.user.findUnique({
                 where: { email },
                 select: {
@@ -138,47 +154,71 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
             });
         }
 
-        // Auto-provision if missing (Expert Level: Ensures consistency on every request)
         if (!dbUser && email) {
-            console.log('[Isolation] Auto-provisioning new user:', email);
-            dbUser = await prisma.user.create({
-                data: {
-                    id: clerkId,
-                    email,
-                    name: user?.fullName || user?.firstName || 'User',
-                    role: 'user'
-                },
-                select: {
-                    id: true,
-                    email: true,
-                    orgId: true,
-                    role: true,
-                    organization: {
-                        select: {
-                            securitySettings: true
+            try {
+                dbUser = await prisma.user.create({
+                    data: {
+                        id: clerkId,
+                        email,
+                        name,
+                        role: 'user'
+                    },
+                    select: {
+                        id: true,
+                        email: true,
+                        orgId: true,
+                        role: true,
+                        organization: {
+                            select: {
+                                securitySettings: true
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (createErr) {
+                console.error('[Isolation] Failed to auto-provision user:', createErr);
+                // Fallback to user-specific demo context if creation fails
+                return {
+                    userId: clerkId,
+                    clerkId,
+                    email,
+                    orgId: `demo-org-${clerkId.slice(-8)}`,
+                    role: 'user',
+                };
+            }
         }
 
         if (!dbUser) {
-            console.log('[Isolation] Could not resolve or create DB user');
-            return null;
+            return {
+                userId: clerkId,
+                clerkId,
+                email,
+                orgId: `demo-org-${clerkId.slice(-8)}`,
+                role: 'user',
+            };
         }
-
-        console.log('[Isolation] Context resolved for:', dbUser.email, 'role:', dbUser.role);
 
         return {
             userId: dbUser.id,
             clerkId,
             email: dbUser.email || email,
-            orgId: dbUser.orgId,
+            orgId: dbUser.orgId || `demo-org-${clerkId.slice(-8)}`,
             role: dbUser.role || 'user',
             securitySettings: dbUser.organization?.securitySettings as any
         };
     } catch (error) {
         console.error('[Isolation] Error resolving context:', error);
+        // Extreme fallback for corrupted environments
+        const clerkAuth = await auth();
+        if (clerkAuth.userId) {
+            return {
+                userId: clerkAuth.userId,
+                clerkId: clerkAuth.userId,
+                email: 'guest@grcma.io',
+                orgId: `demo-org-${clerkAuth.userId.slice(-8)}`,
+                role: 'user',
+            };
+        }
         return null;
     }
 }

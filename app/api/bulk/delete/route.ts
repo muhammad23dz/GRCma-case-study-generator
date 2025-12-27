@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getIsolationContext } from '@/lib/isolation';
+
+// Check if we have a valid DATABASE_URL
+const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
 
 // POST /api/bulk/delete - Bulk delete items from a module
 export async function POST(request: NextRequest) {
     try {
+        const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
         if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        if (!hasValidDb) {
+            console.warn('[Bulk Delete] No valid DATABASE_URL, returning success in demo mode');
+            return NextResponse.json({ success: true, deleted: 0, module: 'demo' });
+        }
+
+        const { prisma } = await import('@/lib/prisma');
         const body = await request.json();
         const { module, ids } = body;
 
@@ -35,7 +43,7 @@ export async function POST(request: NextRequest) {
                 break;
             case 'employees':
                 const empResult = await (prisma as any).employee?.deleteMany?.({
-                    where: { ...baseFilter, organizationId: context.orgId || undefined } // Scope by org if available, or fallback to owner if added later
+                    where: { ...baseFilter, organizationId: context.orgId || undefined }
                 });
                 deleteCount = empResult?.count || 0;
                 break;
@@ -123,11 +131,18 @@ export async function POST(request: NextRequest) {
 // DELETE /api/bulk/delete - Delete all items from a module
 export async function DELETE(request: NextRequest) {
     try {
+        const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
         if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        if (!hasValidDb) {
+            console.warn('[Bulk Delete] No valid DATABASE_URL, returning success in demo mode');
+            return NextResponse.json({ success: true, deleted: 0, module: 'demo' });
+        }
+
+        const { prisma } = await import('@/lib/prisma');
         const { searchParams } = new URL(request.url);
         const module = searchParams.get('module');
 

@@ -31,7 +31,9 @@ export async function generateReportService(
 
     // Fallback to Env
     if (!config?.apiKey) {
-        config = { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY || '' };
+        if (process.env.DEEPSEEK_API_KEY) config = { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY };
+        else if (process.env.OPENAI_API_KEY) config = { provider: 'openai', apiKey: process.env.OPENAI_API_KEY };
+        else if (process.env.GITHUB_TOKEN) config = { provider: 'github', apiKey: process.env.GITHUB_TOKEN };
     }
 
     if (!config?.apiKey) {

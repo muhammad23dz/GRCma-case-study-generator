@@ -53,7 +53,7 @@ class GRCLLMService {
     const maxTokens = request.maxTokens ?? 2000;
 
     // Initialize client dynamically based on provider
-    const provider = config?.provider || process.env.LLM_PROVIDER || 'deepseek';
+    const provider = config?.provider || process.env.LLM_PROVIDER || (process.env.DEEPSEEK_API_KEY ? 'deepseek' : process.env.OPENAI_API_KEY ? 'openai' : 'github');
 
     // Select API key based on provider (prioritize matching key)
     let apiKey = config?.apiKey || '';
@@ -69,7 +69,7 @@ class GRCLLMService {
           apiKey = process.env.GITHUB_TOKEN || '';
           break;
         default:
-          apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || '';
+          apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || process.env.GITHUB_TOKEN || '';
       }
     }
 
