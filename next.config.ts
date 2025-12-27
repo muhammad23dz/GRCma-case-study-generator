@@ -16,6 +16,52 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: '1.0.0-demo',
   },
 
+  // Permanent redirects for common URL variations
+  async redirects() {
+    return [
+      {
+        source: '/action',
+        destination: '/actions',
+        permanent: true,
+      },
+      {
+        source: '/assessment',
+        destination: '/assessments',
+        permanent: true,
+      },
+      {
+        source: '/control',
+        destination: '/controls',
+        permanent: true,
+      },
+      {
+        source: '/risk',
+        destination: '/risks',
+        permanent: true,
+      },
+      {
+        source: '/policy',
+        destination: '/policies',
+        permanent: true,
+      },
+      {
+        source: '/vendor',
+        destination: '/vendors',
+        permanent: true,
+      },
+      {
+        source: '/incident',
+        destination: '/incidents',
+        permanent: true,
+      },
+      {
+        source: '/integration',
+        destination: '/integrations',
+        permanent: true,
+      },
+    ];
+  },
+
   // Security headers
   async headers() {
     return [
