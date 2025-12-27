@@ -1,11 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
+
+export const dynamic = 'force-dynamic';
+
+// Check if we have a valid DATABASE_URL
+const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
+
+// Demo analytics for display when DB is unavailable
+const DEMO_ANALYTICS = {
+    overview: {
+        totalControls: 47, totalRisks: 23, totalVendors: 12, totalActions: 18, totalIncidents: 3,
+        totalPolicies: 8, totalChanges: 5, criticalRisks: 2, highRisks: 6, openActions: 7,
+        openIncidents: 1, openGaps: 4, openFindings: 2, activeRemediations: 3,
+        complianceScore: 72, maturityLevel: 'Managed', auditReadiness: 68,
+        gapCount: 4,
+        totalBCDRPlans: 2, totalAssets: 35, totalEmployees: 24, totalTrainingCourses: 5,
+        totalQuestionnaires: 3, totalRunbooks: 7, totalProcesses: 12
+    },
+    riskDistribution: [
+        { category: 'security', _count: 8 },
+        { category: 'operational', _count: 6 },
+        { category: 'compliance', _count: 5 },
+        { category: 'privacy', _count: 4 }
+    ],
+    controlsByType: [
+        { controlType: 'preventive', _count: 18 },
+        { controlType: 'detective', _count: 12 },
+        { controlType: 'corrective', _count: 9 },
+        { controlType: 'directive', _count: 8 }
+    ],
+    vendorsByCriticality: [
+        { criticality: 'critical', _count: 2 },
+        { criticality: 'high', _count: 3 },
+        { criticality: 'medium', _count: 5 },
+        { criticality: 'low', _count: 2 }
+    ],
+    vendorsByStatus: [
+        { status: 'active', _count: 10 },
+        { status: 'suspended', _count: 1 },
+        { status: 'terminated', _count: 1 }
+    ],
+    heatmapRisks: [
+        { id: 'demo-1', narrative: 'Unauthorized access to sensitive data', likelihood: 4, impact: 5, score: 20, category: 'security' },
+        { id: 'demo-2', narrative: 'System downtime during peak hours', likelihood: 3, impact: 4, score: 12, category: 'operational' },
+        { id: 'demo-3', narrative: 'GDPR compliance gaps', likelihood: 3, impact: 3, score: 9, category: 'compliance' },
+        { id: 'demo-4', narrative: 'Vendor data breach exposure', likelihood: 2, impact: 5, score: 10, category: 'security' }
+    ],
+    isDemo: true
+};
 
 // GET /api/analytics/overview - User-specific analytics
 export async function GET(request: NextRequest) {
+    // If no valid DB, return demo data immediately
+    if (!hasValidDb) {
+        console.log('[Analytics] No valid DATABASE_URL, returning demo data');
+        return NextResponse.json(DEMO_ANALYTICS);
+    }
+
     try {
+        // Dynamic imports to avoid initialization errors
+        const { prisma } = await import('@/lib/prisma');
+        const { getIsolationContext, getIsolationFilter } = await import('@/lib/isolation');
+
         const context = await getIsolationContext();
         if (!context) {
             console.log('[Analytics] Unauthorized access attempt');
@@ -149,6 +205,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: unknown) {
         console.error('[Analytics] Critical failure:', error);
-        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
+        // Return demo data on any error
+        return NextResponse.json({ ...DEMO_ANALYTICS, error: safeError(error).message });
     }
 }
