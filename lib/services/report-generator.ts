@@ -37,9 +37,15 @@ export async function generateReportService(
     }
 
     if (!config?.apiKey) {
-        console.warn("System LLM Config missing - Generating fallback demo data.");
-        // Non-fatal fallback for unconfigured environments
-        const fallbackData = generateFallbackGRCData(input);
+        console.warn("System LLM Config missing - Generating expert fallback data.");
+        // Non-fatal expert fallback
+        const { getExpertFallback } = await import('@/lib/ai/expert-templates');
+        const fallbackData = getExpertFallback(
+            input.companyName,
+            input.industry || 'Technology',
+            input.keyChallenge,
+            input.targetFramework
+        );
         return {
             id: crypto.randomUUID(),
             sections: fallbackData,

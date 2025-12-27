@@ -242,6 +242,7 @@ export function getIsolationFilter(context: IsolationContext, modelType: string)
     switch (modelType) {
         case 'Report':
         case 'AuditLog':
+        case 'User':
             return { userId };
         case 'Incident':
             return { reportedBy: email };
@@ -249,6 +250,10 @@ export function getIsolationFilter(context: IsolationContext, modelType: string)
             return { requestedBy: email };
         case 'Evidence':
             return { uploadedBy: email };
+        case 'Employee':
+        case 'TrainingCourse':
+        case 'SaaSApp':
+            return { organizationId: context.orgId };
         default:
             // Standard GRC modules use 'owner' email
             return { owner: email };

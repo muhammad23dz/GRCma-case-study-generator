@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/prisma';
-import { logAudit } from '@/lib/audit-log';
-import { safeError } from '@/lib/security';
 
-// Helper to get correct DB user ID
-async function getDbUserId(userId: string): Promise<string> {
-    const user = await currentUser();
-    const userEmail = user?.primaryEmailAddress?.emailAddress;
-    if (userEmail) {
-        const dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
-        if (dbUser) return dbUser.id;
-    }
-    return userId;
-}
+// Check if we have a valid DATABASE_URL
+const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
 
 // DELETE /api/reports/[id] - Delete a specific report
 export async function DELETE(
@@ -21,41 +9,27 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        // Step 1: Try cookie-based auth first
-        let userId: string | null = null;
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
 
-        const authResult = await auth();
-        userId = authResult.userId;
-
-        // Step 2: If cookie auth fails, try Bearer token from Authorization header
-        if (!userId) {
-            const authHeader = request.headers.get('Authorization');
-            if (authHeader?.startsWith('Bearer ')) {
-                const token = authHeader.substring(7);
-                try {
-                    const { verifyToken } = await import('@clerk/backend');
-                    const verified = await verifyToken(token, {
-                        secretKey: process.env.CLERK_SECRET_KEY!
-                    });
-                    if (verified?.sub) {
-                        userId = verified.sub;
-                    }
-                } catch (tokenError: any) {
-                    console.error('[Reports DELETE] Token verification error:', tokenError.message);
-                }
-            }
-        }
-
-        if (!userId) {
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUserId = await getDbUserId(userId);
         const { id } = await params;
 
-        // Verify ownership using correct DB user ID
+        if (!hasValidDb) {
+            console.warn('[Reports DELETE] No valid DATABASE_URL, returning success in demo mode');
+            return NextResponse.json({ success: true, isDemo: true });
+        }
+
+        const { prisma } = await import('@/lib/prisma');
+        const { logAudit } = await import('@/lib/audit-log');
+        const { safeError } = await import('@/lib/security');
+
+        // Verify ownership using context.userId (consistently resolved)
         const report = await prisma.report.findFirst({
-            where: { id, userId: dbUserId }
+            where: { id, userId: context.userId }
         });
 
         if (!report) {
@@ -72,11 +46,12 @@ export async function DELETE(
             entityId: id,
             action: 'DELETE',
             changes: { timestamp: report.timestamp, id }
-        });
+        }).catch(() => { });
 
         return NextResponse.json({ success: true });
     } catch (error: unknown) {
         console.error('Error deleting report:', error);
+        const { safeError } = await import('@/lib/security');
         return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
@@ -89,32 +64,50 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUserId = await getDbUserId(userId);
         const { id } = await params;
 
+        if (!hasValidDb) {
+            return NextResponse.json({
+                report: {
+                    id: 'demo-report',
+                    userId: context.userId,
+                    timestamp: new Date().toISOString(),
+                    sections: { executiveSummary: { problemStatement: 'Expert Demo' } }
+                }
+            });
+        }
+
+        const { prisma } = await import('@/lib/prisma');
+        const { safeError } = await import('@/lib/security');
+
         const report = await prisma.report.findFirst({
-            where: { id, userId: dbUserId }
+            where: { id, userId: context.userId }
         });
 
         if (!report) {
             return NextResponse.json({ error: 'Report not found' }, { status: 404 });
         }
 
-        const response = NextResponse.json({ report });
+        const response = NextResponse.json({
+            report: {
+                ...report,
+                sections: typeof report.sections === 'string' ? JSON.parse(report.sections) : report.sections
+            }
+        });
 
-        // Disable all caching to prevent stale data sync issues
+        // Disable all caching
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        response.headers.set('Pragma', 'no-cache');
-        response.headers.set('Expires', '0');
-
         return response;
     } catch (error: unknown) {
         console.error('Error fetching report:', error);
+        const { safeError } = await import('@/lib/security');
         return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
