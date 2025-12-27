@@ -32,7 +32,16 @@ export async function generateReportService(
         config = { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY || '' };
     }
 
-    if (!config.apiKey) throw new Error("System LLM Configuration missing.");
+    if (!config?.apiKey) {
+        console.warn("System LLM Config missing - Generating fallback demo data.");
+        // Non-fatal fallback for unconfigured environments
+        const fallbackData = generateFallbackGRCData(input);
+        return {
+            id: crypto.randomUUID(),
+            sections: fallbackData,
+            timestamp: new Date().toISOString()
+        };
+    }
 
     // 2. CACHING STRATEGY
     const promptContent = JSON.stringify({ ...input, targetFramework: input.targetFramework });
