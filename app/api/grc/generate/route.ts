@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { generateReportService } from '@/lib/services/report-generator';
+import { getLLMConfig } from '@/lib/llm-config';
 
 // POST /api/grc/generate - AI-powered assessment generation
 export async function POST(request: NextRequest) {
@@ -30,8 +31,15 @@ export async function POST(request: NextRequest) {
             riskAppetite: 'Balanced'
         };
 
+        // Resolve Config
+        const llmConfig = await getLLMConfig(userId);
+
+        if (!llmConfig?.apiKey) {
+            console.warn('[API] System LLM Config missing. Service might fail if no env var fallback exists.');
+        }
+
         // Use the service directly, bypassing the Server Action context scope issues
-        const report = await generateReportService(input, { userId });
+        const report = await generateReportService(input, { userId }, llmConfig || undefined);
 
         return NextResponse.json(report);
 
