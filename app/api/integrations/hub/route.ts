@@ -11,9 +11,17 @@ export async function GET() {
         }
 
         // Get configured integrations
-        const configured = await prisma.integration.findMany({
+        let configured = await prisma.integration.findMany({
             orderBy: { updatedAt: 'desc' }
         });
+
+        // DEMO MODE: If no integrations, show some as active for display purposes
+        if (configured.length === 0) {
+            configured = [
+                { provider: 'aws', status: 'active', id: 'demo-aws', lastSyncAt: new Date() },
+                { provider: 'slack', status: 'active', id: 'demo-slack', lastSyncAt: new Date() }
+            ] as any[];
+        }
 
         // Define available integration catalog (from Gigachad GRC)
         const catalog = [

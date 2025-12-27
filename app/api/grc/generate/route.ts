@@ -4,6 +4,8 @@ import { generateReportService } from '@/lib/services/report-generator';
 import { getLLMConfig } from '@/lib/llm-config';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/grc/generate - AI-powered assessment generation
 export async function POST(request: NextRequest) {
     try {
