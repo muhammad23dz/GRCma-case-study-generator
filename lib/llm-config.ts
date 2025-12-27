@@ -1,5 +1,7 @@
-import { prisma } from '@/lib/prisma';
 import { LLMConfig } from '@/types';
+
+// Check if we have a valid DATABASE_URL at module load time
+const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
 
 /**
  * Resolves the LLM Configuration for a given user context.
@@ -11,13 +13,34 @@ import { LLMConfig } from '@/types';
  */
 export async function getLLMConfig(userId: string): Promise<LLMConfig | null> {
     try {
+        // Skip database access if no valid connection string
+        if (!hasValidDb) {
+            // Direct env fallback
+            if (process.env.DEEPSEEK_API_KEY) {
+                return {
+                    provider: 'deepseek',
+                    apiKey: process.env.DEEPSEEK_API_KEY
+                };
+            }
+            return null;
+        }
+
+        // Dynamic import to avoid initialization errors
+        const { prisma } = await import('@/lib/prisma');
+
         // 1. Get User Role
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { id: true, role: true }
         });
 
-        if (!user) return null;
+        if (!user) {
+            // Env fallback if user not found
+            if (process.env.DEEPSEEK_API_KEY) {
+                return { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY };
+            }
+            return null;
+        }
 
         // 2. If Admin, try personal config
         if (user.role === 'admin') {
@@ -59,6 +82,10 @@ export async function getLLMConfig(userId: string): Promise<LLMConfig | null> {
 
     } catch (error) {
         console.error("Error resolving LLM config:", error);
+        // Final fallback to env
+        if (process.env.DEEPSEEK_API_KEY) {
+            return { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY };
+        }
         return null;
     }
 }
