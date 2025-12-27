@@ -1,7 +1,9 @@
 import { CaseInput, GeneratedReport, LLMConfig } from '@/types';
-import { prisma } from '@/lib/prisma';
 import { grcLLM } from '@/lib/llm/grc-service';
 import { createHash } from 'crypto';
+
+// Check if we have a valid DATABASE_URL
+const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
 
 /**
  * Service to handle report generation logic.
@@ -43,33 +45,41 @@ export async function generateReportService(
         };
     }
 
-    // 2. CACHING STRATEGY
+    // 2. CACHING STRATEGY (only if DB is available)
     const promptContent = JSON.stringify({ ...input, targetFramework: input.targetFramework });
     const promptHash = createHash('sha256').update(promptContent).digest('hex');
 
-    const cached = await prisma.lLMCache.findUnique({
-        where: { promptHash }
-    });
+    if (hasValidDb) {
+        try {
+            const { prisma } = await import('@/lib/prisma');
 
-    if (cached && cached.expiresAt > new Date()) {
-        console.log("CACHE HIT: Serving optimized response");
-        await prisma.lLMUsage.create({
-            data: {
-                userId: userContext.userId,
-                model: 'cache-hit',
-                tokensIn: 0,
-                tokensOut: 0,
-                cost: 0,
-                feature: 'report_generation'
+            const cached = await prisma.lLMCache.findUnique({
+                where: { promptHash }
+            });
+
+            if (cached && cached.expiresAt > new Date()) {
+                console.log("CACHE HIT: Serving optimized response");
+                await prisma.lLMUsage.create({
+                    data: {
+                        userId: userContext.userId,
+                        model: 'cache-hit',
+                        tokensIn: 0,
+                        tokensOut: 0,
+                        cost: 0,
+                        feature: 'report_generation'
+                    }
+                });
+
+                const data = JSON.parse(cached.response);
+                return {
+                    id: crypto.randomUUID(),
+                    sections: data,
+                    timestamp: new Date().toISOString()
+                };
             }
-        });
-
-        const data = JSON.parse(cached.response);
-        return {
-            id: crypto.randomUUID(),
-            sections: data,
-            timestamp: new Date().toISOString()
-        };
+        } catch (cacheError) {
+            console.warn('[ReportGenerator] Cache lookup failed, proceeding with generation:', cacheError);
+        }
     }
 
     // 3. GENERATION PROFILE
@@ -213,34 +223,42 @@ export async function generateReportService(
         const result = await grcLLM.generateReport(promptText, config);
         const parsedContent = result.data;
 
-        // 4. METERING
-        const usage = result.usage;
-        const inputTokens = usage?.prompt_tokens || 0;
-        const outputTokens = usage?.completion_tokens || 0;
-        const estimatedCost = (inputTokens * 0.00000014) + (outputTokens * 0.00000028);
+        // 4. METERING & 5. CACHE WRITE (only if DB is available)
+        if (hasValidDb) {
+            try {
+                const { prisma } = await import('@/lib/prisma');
 
-        await prisma.lLMUsage.create({
-            data: {
-                userId: userContext.userId,
-                model: result.provenance.model,
-                tokensIn: inputTokens,
-                tokensOut: outputTokens,
-                cost: estimatedCost,
-                feature: 'report_generation'
-            }
-        });
+                const usage = result.usage;
+                const inputTokens = usage?.prompt_tokens || 0;
+                const outputTokens = usage?.completion_tokens || 0;
+                const estimatedCost = (inputTokens * 0.00000014) + (outputTokens * 0.00000028);
 
-        // 5. CACHE WRITE
-        await prisma.lLMCache.upsert({
-            where: { promptHash },
-            update: { response: JSON.stringify(parsedContent), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-            create: {
-                promptHash,
-                response: JSON.stringify(parsedContent),
-                model: result.provenance.model,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                await prisma.lLMUsage.create({
+                    data: {
+                        userId: userContext.userId,
+                        model: result.provenance.model,
+                        tokensIn: inputTokens,
+                        tokensOut: outputTokens,
+                        cost: estimatedCost,
+                        feature: 'report_generation'
+                    }
+                });
+
+                // CACHE WRITE
+                await prisma.lLMCache.upsert({
+                    where: { promptHash },
+                    update: { response: JSON.stringify(parsedContent), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+                    create: {
+                        promptHash,
+                        response: JSON.stringify(parsedContent),
+                        model: result.provenance.model,
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                    }
+                });
+            } catch (dbError) {
+                console.warn('[ReportGenerator] Metering/caching failed:', dbError);
             }
-        });
+        }
 
         // 6. PERSISTENCE LAYER
         try {
