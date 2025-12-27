@@ -40,15 +40,25 @@ export default function FrameworksPage() {
     const handleSeed = async () => {
         setSeeding(true);
         try {
-            // Seed common frameworks
-            const common = [
-                { name: 'ISO 27001', version: '2022', description: 'Information Security Management' },
-                { name: 'SOC 2', version: 'Type II', description: 'Service Organization Control' },
-                { name: 'NIST CSF', version: '2.0', description: 'Cybersecurity Framework' },
-                { name: 'GDPR', version: 'EU 2016/679', description: 'General Data Protection Regulation' }
-            ];
+            // Fetch preferred frameworks from settings
+            const settingsRes = await fetch('/api/settings'); // Need to create this or use action
+            // Actually, let's just use the server action directly if possible, 
+            // but we can't easily mixed client/server in this file structure without correct imports.
+            // Let's use a hardcoded list augmented by a fetch to a new endpoint /api/frameworks/defaults
 
-            await Promise.all(common.map(fw =>
+            const defaultsRes = await fetch('/api/frameworks/defaults');
+            const defaultsData = await defaultsRes.json();
+
+            const frameworksToSeed = defaultsData.frameworks && defaultsData.frameworks.length > 0
+                ? defaultsData.frameworks
+                : [
+                    { name: 'ISO 27001', version: '2022', description: 'Information Security Management' },
+                    { name: 'SOC 2', version: 'Type II', description: 'Service Organization Control' },
+                    { name: 'NIST CSF', version: '2.0', description: 'Cybersecurity Framework' },
+                    { name: 'GDPR', version: 'EU 2016/679', description: 'General Data Protection Regulation' }
+                ];
+
+            await Promise.all(frameworksToSeed.map((fw: any) =>
                 fetch('/api/frameworks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

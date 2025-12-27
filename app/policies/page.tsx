@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Header from "@/components/Header";
 import PremiumBackground from "@/components/PremiumBackground";
-import { Shield, BookOpen, AlertTriangle, Loader2 } from "lucide-react";
+import { Shield, BookOpen, AlertTriangle, Loader2, Plus } from "lucide-react";
 import { PolicyList } from "@/components/policies/PolicyList";
+import Modal from "@/components/Modal";
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import RestrictedView from '@/components/SaaS/RestrictedView';
 
@@ -12,6 +13,16 @@ export default function PoliciesPage() {
     const { t } = useLanguage();
     const [policies, setPolicies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // New Policy Form State
+    const [newPolicy, setNewPolicy] = useState({
+        title: '',
+        version: '1.0',
+        content: '',
+        category: 'General'
+    });
 
     useEffect(() => {
         fetchPolicies();
@@ -26,6 +37,32 @@ export default function PoliciesPage() {
             console.error('Error fetching policies:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCreatePolicy = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const res = await fetch('/api/policies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPolicy)
+            });
+
+            if (res.ok) {
+                setShowCreateModal(false);
+                setNewPolicy({ title: '', version: '1.0', content: '', category: 'General' });
+                fetchPolicies(); // Refresh list
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.error || 'Failed to create policy'}`);
+            }
+        } catch (error) {
+            console.error('Error creating policy:', error);
+            alert('Failed to connect to server');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -72,6 +109,13 @@ export default function PoliciesPage() {
                                     {t('dash_stat_policy')}: {t('dash_module_ecosystem_desc')}
                                 </p>
                             </div>
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 font-bold flex items-center gap-2 group"
+                            >
+                                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                                New Policy
+                            </button>
                         </div>
 
                         {/* Stats Overview */}
@@ -117,6 +161,92 @@ export default function PoliciesPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Create Policy Modal - Correctly Centered */}
+                {/* Create Policy Modal - Correctly Centered */}
+                <Modal
+                    isOpen={showCreateModal}
+                    onClose={() => setShowCreateModal(false)}
+                    title={
+                        <div className="flex items-center gap-2">
+                            <Shield className="w-5 h-5 text-emerald-500" />
+                            Create New Policy
+                        </div>
+                    }
+                    maxWidth="max-w-2xl"
+                >
+                    <form onSubmit={handleCreatePolicy} className="space-y-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Policy Title</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newPolicy.title}
+                                    onChange={(e) => setNewPolicy({ ...newPolicy, title: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                                    placeholder="e.g. Acceptable Use Policy"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                                    <select
+                                        value={newPolicy.category}
+                                        onChange={(e) => setNewPolicy({ ...newPolicy, category: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all"
+                                    >
+                                        <option value="General">General</option>
+                                        <option value="Security">Security</option>
+                                        <option value="Privacy">Privacy</option>
+                                        <option value="Operational">Operational</option>
+                                        <option value="Legal">Legal</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Version</label>
+                                    <input
+                                        type="text"
+                                        value={newPolicy.version}
+                                        onChange={(e) => setNewPolicy({ ...newPolicy, version: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Policy Content</label>
+                                <textarea
+                                    required
+                                    value={newPolicy.content}
+                                    onChange={(e) => setNewPolicy({ ...newPolicy, content: e.target.value })}
+                                    rows={8}
+                                    className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-all resize-none font-mono text-sm"
+                                    placeholder="# Policy Statement..."
+                                />
+                                <p className="text-xs text-slate-500 mt-2 text-right">Markdown supported</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowCreateModal(false)}
+                                className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Policy'}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
             </div>
         </RestrictedView>
     );

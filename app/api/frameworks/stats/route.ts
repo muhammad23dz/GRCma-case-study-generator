@@ -14,8 +14,24 @@ export async function GET() {
         const user = await currentUser();
         const userEmail = user?.primaryEmailAddress?.emailAddress;
 
+        // Fetch user's preferred frameworks
+        const settings = await prisma.systemSetting.findUnique({
+            where: {
+                userId_key: {
+                    userId,
+                    key: 'compliance_defaultFrameworks'
+                }
+            }
+        });
+
+        const preferredFrameworks = settings?.value ? settings.value.split(',') : [];
+
         // Fetch frameworks with their requirements and mappings for the current user/org
+        // If preferredFrameworks is set, filter by name
         const frameworks = await prisma.framework.findMany({
+            where: preferredFrameworks.length > 0 ? {
+                name: { in: preferredFrameworks }
+            } : {},
             include: {
                 requirements: {
                     include: {
@@ -88,8 +104,8 @@ export async function GET() {
                 .slice(0, 3)
                 .map(req => ({
                     id: req.id,
-                    reference: (req as any).reference || 'REF-TBD',
-                    description: (req as any).description || 'No description'
+                    reference: req.requirementId || 'REF-TBD',
+                    description: req.description || 'No description'
                 }));
 
             return {

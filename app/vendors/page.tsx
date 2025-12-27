@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
+import Link from 'next/link';
+import Modal from "@/components/Modal";
 import {
     Building2,
     Plus,
@@ -14,7 +16,8 @@ import {
     ShieldCheck,
     TrendingUp,
     ExternalLink,
-    MailOpen
+    MailOpen,
+    Loader2
 } from 'lucide-react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 
@@ -51,21 +54,67 @@ export default function VendorsPage() {
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // New Vendor Form
+    const [newVendor, setNewVendor] = useState({
+        name: '',
+        category: 'Service Provider',
+        criticality: 'medium',
+        services: '',
+        contactEmail: '',
+        riskScore: 50
+    });
 
     useEffect(() => {
-        async function fetchVendors() {
-            try {
-                const res = await fetch('/api/vendors');
-                const data = await res.json();
-                setVendors(data.vendors || []);
-            } catch (error) {
-                console.error('Failed to fetch vendors:', error);
-            } finally {
-                setLoading(false);
-            }
-        }
         fetchVendors();
     }, []);
+
+    const fetchVendors = async () => {
+        try {
+            const res = await fetch('/api/vendors');
+            const data = await res.json();
+            setVendors(data.vendors || []);
+        } catch (error) {
+            console.error('Failed to fetch vendors:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateVendor = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const res = await fetch('/api/vendors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newVendor)
+            });
+
+            if (res.ok) {
+                setShowCreateModal(false);
+                setNewVendor({
+                    name: '',
+                    category: 'Service Provider',
+                    criticality: 'medium',
+                    services: '',
+                    contactEmail: '',
+                    riskScore: 50
+                });
+                fetchVendors();
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.error || 'Failed to onboard vendor'}`);
+            }
+        } catch (error) {
+            console.error('Error creating vendor:', error);
+            alert('Failed to connect to server');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const filteredVendors = vendors.filter(v =>
         v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -101,7 +150,8 @@ export default function VendorsPage() {
                             </p>
                         </div>
                         <button
-                            className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl transition-all font-bold shadow-lg shadow-primary/20"
+                            onClick={() => setShowCreateModal(true)}
+                            className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl transition-all font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95"
                         >
                             <Plus className="w-5 h-5" />
                             {t('vendor_btn_onboard')}
@@ -144,7 +194,12 @@ export default function VendorsPage() {
                         <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-12 text-center">
                             <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
                             <h3 className="text-xl font-bold text-white mb-2">{t('vendor_no_found')}</h3>
-                            <p className="text-slate-400">{t('vendor_start_onboard')}</p>
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="text-primary hover:text-primary/80 font-bold mt-2"
+                            >
+                                {t('vendor_start_onboard')}
+                            </button>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -204,10 +259,106 @@ export default function VendorsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Vendor Onboarding Modal */}
+            <Modal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                title={
+                    <div className="flex items-center gap-2 text-white">
+                        <Building2 className="w-5 h-5 text-primary" />
+                        Onboard New Vendor
+                    </div>
+                }
+                maxWidth="max-w-2xl"
+            >
+                <form onSubmit={handleCreateVendor} className="space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Vendor Name</label>
+                            <input
+                                type="text"
+                                required
+                                value={newVendor.name}
+                                onChange={e => setNewVendor({ ...newVendor, name: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50 transition-all"
+                                placeholder="Company Name LLC"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                            <select
+                                value={newVendor.category}
+                                onChange={e => setNewVendor({ ...newVendor, category: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50 transition-all"
+                            >
+                                <option value="Service Provider">Service Provider</option>
+                                <option value="Software Vendor">Software Vendor</option>
+                                <option value="Hardware Vendor">Hardware Vendor</option>
+                                <option value="Consultancy">Consultancy</option>
+                                <option value="Infrastructure">Infrastructure</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Criticality</label>
+                            <select
+                                value={newVendor.criticality}
+                                onChange={e => setNewVendor({ ...newVendor, criticality: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50 transition-all"
+                            >
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Services Provided</label>
+                            <textarea
+                                value={newVendor.services}
+                                onChange={e => setNewVendor({ ...newVendor, services: e.target.value })}
+                                rows={3}
+                                className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50 transition-all resize-none"
+                                placeholder="Description of services..."
+                            />
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Contact Email</label>
+                            <input
+                                type="email"
+                                value={newVendor.contactEmail}
+                                onChange={e => setNewVendor({ ...newVendor, contactEmail: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50 transition-all"
+                                placeholder="contact@vendor.com"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-white/10">
+                        <button
+                            type="button"
+                            onClick={() => setShowCreateModal(false)}
+                            className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Onboard Vendor'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }
-
 function StatBox({ label, value, icon: Icon, color }: any) {
     return (
         <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-5 rounded-2xl flex items-center gap-4">

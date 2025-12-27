@@ -82,13 +82,7 @@ export function PolicyList({ policies }: PolicyListProps) {
                         <option value="review">In Review</option>
                     </select>
 
-                    <button
-                        onClick={() => router.push('/policies/new')}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors ml-auto sm:ml-0"
-                    >
-                        <Plus className="w-4 h-4" />
-                        New Policy
-                    </button>
+
                 </div>
             </div>
 

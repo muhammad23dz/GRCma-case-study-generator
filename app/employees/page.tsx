@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import PremiumBackground from '@/components/PremiumBackground';
+import Modal from '@/components/Modal';
 import {
     Users2,
     Plus,
     Search,
     Edit,
     Trash2,
-    X,
     Mail,
     Building,
     GraduationCap,
@@ -232,7 +232,7 @@ export default function EmployeesPage() {
                             </button>
                         </div>
                     ) : (
-                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl overflow-hidden">
+                        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl overflow-hidden overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-white/5">
@@ -288,100 +288,94 @@ export default function EmployeesPage() {
             </div>
 
             {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg">
-                        <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-white">{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</h2>
-                            <button onClick={() => { setShowModal(false); setEditingEmployee(null); }} className="text-slate-400 hover:text-white">
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Full Name *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Email *</label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-1">Department</label>
-                                    <select
-                                        value={formData.department}
-                                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    >
-                                        <option value="" className="bg-slate-900">Select...</option>
-                                        {DEPARTMENTS.map(dept => (
-                                            <option key={dept} value={dept} className="bg-slate-900">{dept}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-1">Status</label>
-                                    <select
-                                        value={formData.status}
-                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    >
-                                        {STATUS_OPTIONS.map(status => (
-                                            <option key={status} value={status} className="bg-slate-900">{status.replace('_', ' ')}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Role</label>
-                                <input
-                                    type="text"
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Manager</label>
-                                <input
-                                    type="text"
-                                    value={formData.manager}
-                                    onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                            </div>
-                            <div className="flex gap-4 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowModal(false); setEditingEmployee(null); }}
-                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold"
-                                >
-                                    {editingEmployee ? 'Update' : 'Create'}
-                                </button>
-                            </div>
-                        </form>
+            <Modal
+                isOpen={showModal}
+                onClose={() => { setShowModal(false); setEditingEmployee(null); }}
+                title={editingEmployee ? 'Edit Employee' : 'Add New Employee'}
+            >
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-1">Full Name *</label>
+                        <input
+                            type="text"
+                            required
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
                     </div>
-                </div>
-            )}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-1">Email *</label>
+                        <input
+                            type="email"
+                            required
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Department</label>
+                            <select
+                                value={formData.department}
+                                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            >
+                                <option value="" className="bg-slate-900">Select...</option>
+                                {DEPARTMENTS.map(dept => (
+                                    <option key={dept} value={dept} className="bg-slate-900">{dept}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Status</label>
+                            <select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            >
+                                {STATUS_OPTIONS.map(status => (
+                                    <option key={status} value={status} className="bg-slate-900">{status.replace('_', ' ')}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-1">Role</label>
+                        <input
+                            type="text"
+                            value={formData.role}
+                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-1">Manager</label>
+                        <input
+                            type="text"
+                            value={formData.manager}
+                            onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                    </div>
+                    <div className="flex gap-4 pt-4">
+                        <button
+                            type="button"
+                            onClick={() => { setShowModal(false); setEditingEmployee(null); }}
+                            className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-1 px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold"
+                        >
+                            {editingEmployee ? 'Update' : 'Create'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }

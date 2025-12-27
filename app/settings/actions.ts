@@ -159,18 +159,80 @@ export async function updateDataRetention(retention: string) {
 // INTEGRATION SETTINGS
 // ==========================================
 
+// Provider mapping for integration names
+const PROVIDER_MAP: Record<string, string> = {
+    'Jira': 'jira',
+    'Slack': 'slack',
+    'Microsoft Teams': 'teams',
+    'AWS Security Hub': 'aws',
+    'ServiceNow': 'servicenow',
+    'Splunk': 'splunk',
+    'Zendesk': 'zendesk',
+    'Email (SMTP)': 'email',
+    'CrowdStrike': 'crowdstrike',
+    'Carbon Black': 'carbon_black',
+    'Tenable': 'tenable',
+    'GitHub': 'github',
+    'GitLab': 'gitlab'
+};
+
 export async function toggleIntegration(name: string, connected: boolean) {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
     try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { orgId: true, role: true }
+        });
+
+        if (!user || !user.orgId) throw new Error("Organization not found");
+
+        // Optimistically update SystemSetting for UI state preference
         const key = `integration_${name.replace(/\s+/g, '_')}`;
         await prisma.systemSetting.upsert({
             where: { userId_key: { userId, key } },
             create: { userId, key, value: String(connected), description: `Integration: ${name}` },
             update: { value: String(connected) }
         });
+
+        // ACTUALLY update the Integration model for Org-wide effect
+        const provider = PROVIDER_MAP[name];
+        if (provider) {
+            const existing = await prisma.integration.findFirst({
+                where: { organizationId: user.orgId, provider }
+            });
+
+            if (connected) {
+                if (existing) {
+                    await prisma.integration.update({
+                        where: { id: existing.id },
+                        data: { status: 'active' }
+                    });
+                } else {
+                    await prisma.integration.create({
+                        data: {
+                            organizationId: user.orgId,
+                            provider,
+                            name,
+                            status: 'active',
+                            config: {}, // Placeholder
+                            encryptedCredentials: '', // Placeholder for now
+                        }
+                    });
+                }
+            } else {
+                if (existing) {
+                    await prisma.integration.update({
+                        where: { id: existing.id },
+                        data: { status: 'inactive' }
+                    });
+                }
+            }
+        }
+
         revalidatePath('/settings');
+        revalidatePath('/integrations'); // Also revalidate integrations page
         return { success: true };
     } catch (error) {
         console.error("Failed to toggle integration:", error);

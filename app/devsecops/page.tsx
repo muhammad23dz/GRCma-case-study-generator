@@ -179,6 +179,11 @@ export default function DevSecOpsPage() {
             {/* Header */}
             <div className="border-b border-white/10 bg-black/20 backdrop-blur-xl sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className="mb-4">
+                        <a href="/dashboard" className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-2 transition-colors">
+                            ← Back to Dashboard
+                        </a>
+                    </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30">

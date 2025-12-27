@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
 import { writeFile, mkdir } from 'fs/promises';
@@ -90,6 +90,17 @@ export async function POST(request: NextRequest) {
             fileUrl = `/uploads/evidence/${fileName}`;
         }
 
+        const user = await currentUser();
+        const userEmail = user?.primaryEmailAddress?.emailAddress || userId;
+
+        // Fetch settings for default review cycle
+        const reviewCycleSetting = await prisma.systemSetting.findUnique({
+            where: { userId_key: { userId, key: 'compliance_evidenceReviewCycle' } }
+        });
+        const reviewDays = parseInt(reviewCycleSetting?.value || '30');
+        const nextReviewDate = new Date();
+        nextReviewDate.setDate(nextReviewDate.getDate() + reviewDays);
+
         const evidence = await prisma.evidence.create({
             data: {
                 controlId: controlId || undefined,
@@ -101,9 +112,10 @@ export async function POST(request: NextRequest) {
                 description,
                 fileName,
                 fileUrl,
-                uploadedBy: userId, // Use Clerk userId
-                organizationId: orgId || undefined, // Set orgId
+                uploadedBy: userEmail,
+                organizationId: orgId || undefined,
                 status: 'draft',
+                nextReviewDate
             }
         });
 

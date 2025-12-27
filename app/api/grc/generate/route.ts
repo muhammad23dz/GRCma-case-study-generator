@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { generateReportService } from '@/lib/services/report-generator';
 import { getLLMConfig } from '@/lib/llm-config';
+import { prisma } from '@/lib/prisma';
 
 // POST /api/grc/generate - AI-powered assessment generation
 export async function POST(request: NextRequest) {
@@ -20,6 +21,11 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
 
+        // Fetch user settings
+        const riskSetting = await prisma.systemSetting.findUnique({
+            where: { userId_key: { userId, key: 'compliance_riskAppetite' } }
+        });
+
         // Map API request to CaseInput expected by service
         const input = {
             companyName: body.companyName,
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
             targetFramework: body.targetFramework,
             // Add defaults for required fields if missing
             industry: 'Technology',
-            riskAppetite: 'Balanced'
+            riskAppetite: riskSetting?.value || 'Balanced'
         };
 
         // Resolve Config
