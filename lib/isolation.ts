@@ -98,7 +98,7 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
         }
 
         const user = await currentUser();
-        const email = user?.primaryEmailAddress?.emailAddress || '';
+        const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase() || '';
         const name = user?.fullName || user?.firstName || 'User';
 
         console.log('[Isolation] Auth check - clerkId:', clerkId, 'email:', email);
@@ -243,13 +243,30 @@ export function getIsolationFilter(context: IsolationContext, modelType: string)
         case 'Report':
         case 'AuditLog':
         case 'User':
+        case 'LLMUsage':
+        case 'Subscription':
             return { userId };
         case 'Incident':
             return { reportedBy: email };
         case 'Change':
             return { requestedBy: email };
         case 'Evidence':
+        case 'EvidenceFile':
             return { uploadedBy: email };
+        case 'Gap':
+        case 'RemediationStep':
+        case 'AuditFinding':
+        case 'Control':
+        case 'Risk':
+        case 'Policy':
+        case 'Vendor':
+        case 'Action':
+        case 'Asset':
+        case 'BCDRPlan':
+        case 'BusinessProcess':
+        case 'Questionnaire':
+        case 'Runbook':
+            return { owner: email };
         case 'Employee':
         case 'TrainingCourse':
         case 'SaaSApp':

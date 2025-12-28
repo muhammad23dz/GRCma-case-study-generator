@@ -9,18 +9,20 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) return NextResponse.json({ reports: [] });
+        const { getIsolationContext, getIsolationFilter } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+
+        if (!context) return NextResponse.json({ reports: [] });
 
         if (!hasValidDb) {
             console.warn('[Reports GET] No valid DATABASE_URL, returning demo reports');
             return NextResponse.json({
                 reports: [{
                     id: 'demo-report-1',
-                    userId: userId,
+                    userId: context.userId,
                     timestamp: new Date().toISOString(),
                     sections: {
-                        executiveSummary: { problemStatement: 'Demo Report (No Database Connected)' },
+                        executiveSummary: { problemStatement: 'Expert Demo Report (No Database Connected)' },
                         controls: [{ title: 'Access Control', description: 'Sample Control', controlType: 'preventive' }],
                         risks: [{ narrative: 'Sample Risk', likelihood: 3, impact: 3, category: 'General' }]
                     }
@@ -29,26 +31,16 @@ export async function GET(request: NextRequest) {
         }
 
         const { prisma } = await import('@/lib/prisma');
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
 
-        // Find database user
-        let dbUserId = userId;
-        const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+        // Use standard isolation filter
+        const filter = getIsolationFilter(context, 'Report');
 
-        if (!dbUser && userEmail) {
-            const dbUserByEmail = await prisma.user.findUnique({ where: { email: userEmail } });
-            if (dbUserByEmail) dbUserId = dbUserByEmail.id;
-        }
-
-        // Find reports
         const reports = await prisma.report.findMany({
-            where: { userId: dbUserId },
+            where: filter,
             orderBy: { timestamp: 'desc' },
             take: 50
         });
 
-        // Parse sections JSON for each report
         const parsedReports = reports.map(report => ({
             ...report,
             sections: typeof report.sections === 'string' ? JSON.parse(report.sections) : report.sections
@@ -66,14 +58,15 @@ export async function GET(request: NextRequest) {
 // POST /api/reports - Save a new assessment report
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+
+        if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         if (!hasValidDb) {
-            console.warn('[Reports POST] No valid DATABASE_URL, returning success in demo mode');
             const body = await request.json();
             return NextResponse.json({
-                report: { id: 'demo-' + Date.now(), userId, sections: body.sections, timestamp: new Date().toISOString() },
+                report: { id: 'demo-' + Date.now(), userId: context.userId, sections: body.sections, timestamp: new Date().toISOString() },
                 success: true
             });
         }
@@ -82,26 +75,12 @@ export async function POST(request: NextRequest) {
         const { logAudit } = await import('@/lib/audit-log');
         const { safeError } = await import('@/lib/security');
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
-
-        // Find or create database user
-        let dbUser = await prisma.user.findUnique({ where: { id: userId } });
-        if (!dbUser && userEmail) dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
-
-        if (!dbUser && userEmail) {
-            dbUser = await prisma.user.create({
-                data: { id: userId, email: userEmail, name: userEmail.split('@')[0] || 'User', role: 'user' }
-            });
-        }
-
-        if (!dbUser) return NextResponse.json({ error: 'Could not resolve user' }, { status: 401 });
-
         const body = await request.json();
         const { sections } = body;
 
+        // Use resolved context.userId consistently
         const report = await prisma.report.create({
-            data: { userId: dbUser.id, sections: sections || {} }
+            data: { userId: context.userId, sections: sections || {} }
         });
 
         try {

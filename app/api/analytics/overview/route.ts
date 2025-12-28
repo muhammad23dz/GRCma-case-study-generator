@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
             activeRemediations,
             totalRequiredPolicies,
             approvedPolicies,
-            // Gigachad GRC Modules
+            // Gigachad GRC Modules - Secured with proper isolation
             totalBCDRPlans,
             totalAssets,
             totalEmployees,
@@ -143,14 +143,14 @@ export async function GET(request: NextRequest) {
             prisma.remediationStep.count({ where: { status: 'pending', gap: userFilter } }),
             prisma.policy.count({ where: userFilter }),
             prisma.policy.count({ where: { ...userFilter, status: 'active' } }),
-            // Gigachad GRC Modules - Secured with proper isolation
-            (prisma as any).bCDRPlan?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0),
-            (prisma as any).asset?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0),
-            (prisma as any).employee?.count?.({ where: orgFilter }).catch(() => 0) ?? Promise.resolve(0),
-            (prisma as any).trainingCourse?.count?.({ where: orgFilter }).catch(() => 0) ?? Promise.resolve(0),
-            (prisma as any).questionnaire?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0),
-            (prisma as any).runbook?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0),
-            (prisma as any).businessProcess?.count?.({ where: userFilter }).catch(() => 0) ?? Promise.resolve(0)
+            // Safe counters for dynamic models
+            (prisma as any).bCDRPlan?.count({ where: userFilter }).catch(() => 0) || Promise.resolve(0),
+            (prisma as any).asset?.count({ where: userFilter }).catch(() => 0) || Promise.resolve(0),
+            (prisma as any).employee?.count({ where: orgFilter }).catch(() => 0) || Promise.resolve(0),
+            (prisma as any).trainingCourse?.count({ where: orgFilter }).catch(() => 0) || Promise.resolve(0),
+            (prisma as any).questionnaire?.count({ where: userFilter }).catch(() => 0) || Promise.resolve(0),
+            (prisma as any).runbook?.count({ where: userFilter }).catch(() => 0) || Promise.resolve(0),
+            (prisma as any).businessProcess?.count({ where: userFilter }).catch(() => 0) || Promise.resolve(0)
         ]);
 
         // Calculate Compliance Score (Expert Algorithm)
@@ -229,9 +229,33 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: unknown) {
         console.error('[Analytics] Critical failure:', error);
-        // Return demo data on any error
+
+        // If we have a valid DB but it's just empty/errored, return 0s instead of fake demo data
+        // This ensures the USER sees the result of their deletions
         const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
+
+        if (hasValidDb) {
+            return NextResponse.json({
+                overview: {
+                    totalControls: 0, totalRisks: 0, totalVendors: 0, totalActions: 0,
+                    totalIncidents: 0, totalPolicies: 0, totalChanges: 0, criticalRisks: 0,
+                    highRisks: 0, openActions: 0, openIncidents: 0, openGaps: 0,
+                    openFindings: 0, activeRemediations: 0, complianceScore: 0,
+                    maturityLevel: 'Initial', auditReadiness: 0, gapCount: 0,
+                    totalBCDRPlans: 0, totalAssets: 0, totalEmployees: 0,
+                    totalTrainingCourses: 0, totalQuestionnaires: 0, totalRunbooks: 0,
+                    totalProcesses: 0
+                },
+                riskDistribution: [],
+                controlsByType: [],
+                vendorsByCriticality: [],
+                vendorsByStatus: [],
+                heatmapRisks: [],
+                error: safeError(error).message
+            });
+        }
+
         return NextResponse.json({
             ...getDemoAnalytics(context?.userId || 'guest'),
             error: safeError(error).message

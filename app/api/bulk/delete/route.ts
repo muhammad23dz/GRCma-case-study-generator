@@ -31,7 +31,10 @@ async function performDeletion(module: string, ids?: string[]) {
         'trainingCourses': 'TrainingCourse',
         'questionnaires': 'Questionnaire',
         'runbooks': 'Runbook',
-        'businessProcesses': 'BusinessProcess'
+        'businessProcesses': 'BusinessProcess',
+        'gaps': 'Gap',
+        'findings': 'AuditFinding',
+        'changes': 'Change'
     };
 
     const modelType = modelMapping[module] || 'Control';
@@ -40,15 +43,21 @@ async function performDeletion(module: string, ids?: string[]) {
     // Combine with IDs if provided
     const finalWhere = ids ? { ...filter, id: { in: ids } } : filter;
 
+    console.log(`[Bulk Delete] Deleting from ${module} (Type: ${modelType}) where:`, JSON.stringify(finalWhere));
+
     let result;
     switch (module) {
-        case 'controls': result = await prisma.control.deleteMany({ where: finalWhere }); break;
+        case 'controls':
+            // Also delete related mappings/tests to avoid foreign key issues if applicable
+            result = await prisma.control.deleteMany({ where: finalWhere });
+            break;
         case 'risks': result = await prisma.risk.deleteMany({ where: finalWhere }); break;
         case 'policies': result = await prisma.policy.deleteMany({ where: finalWhere }); break;
         case 'vendors': result = await prisma.vendor.deleteMany({ where: finalWhere }); break;
         case 'incidents': result = await prisma.incident.deleteMany({ where: finalWhere }); break;
         case 'actions': result = await prisma.action.deleteMany({ where: finalWhere }); break;
         case 'reports': result = await prisma.report.deleteMany({ where: finalWhere }); break;
+        case 'gaps': result = await prisma.gap.deleteMany({ where: finalWhere }); break;
         case 'assets': result = await (prisma as any).asset?.deleteMany?.({ where: finalWhere }); break;
         case 'bcdrPlans': result = await (prisma as any).bCDRPlan?.deleteMany?.({ where: finalWhere }); break;
         case 'employees': result = await (prisma as any).employee?.deleteMany?.({ where: finalWhere }); break;
@@ -56,6 +65,8 @@ async function performDeletion(module: string, ids?: string[]) {
         case 'questionnaires': result = await (prisma as any).questionnaire?.deleteMany?.({ where: finalWhere }); break;
         case 'runbooks': result = await (prisma as any).runbook?.deleteMany?.({ where: finalWhere }); break;
         case 'businessProcesses': result = await (prisma as any).businessProcess?.deleteMany?.({ where: finalWhere }); break;
+        case 'findings': result = await (prisma as any).auditFinding?.deleteMany?.({ where: finalWhere }); break;
+        case 'changes': result = await (prisma as any).change?.deleteMany?.({ where: finalWhere }); break;
         default: throw new Error(`Unknown module: ${module}`);
     }
 
