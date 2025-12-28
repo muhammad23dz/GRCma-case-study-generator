@@ -5,7 +5,6 @@ import { ClerkProvider } from "@clerk/nextjs";
 export const dynamic = 'force-dynamic';
 
 import { LanguageProvider } from "@/lib/contexts/LanguageContext";
-import { DevModeProvider } from "@/lib/contexts/DevModeContext";
 import { GRCProvider } from "@/lib/contexts/GRCDataContext";
 import "./globals.css";
 
@@ -33,8 +32,6 @@ export const viewport: Viewport = {
 
 import Footer from "@/components/Footer";
 
-// ... existing imports ...
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,16 +44,14 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
           suppressHydrationWarning
         >
-          <DevModeProvider>
-            <GRCProvider>
-              <LanguageProvider>
-                <main className="flex-1">
-                  {children}
-                </main>
-                <Footer />
-              </LanguageProvider>
-            </GRCProvider>
-          </DevModeProvider>
+          <GRCProvider>
+            <LanguageProvider>
+              <main className="flex-1">
+                {children}
+              </main>
+              <Footer />
+            </LanguageProvider>
+          </GRCProvider>
         </body>
       </html>
     </ClerkProvider>

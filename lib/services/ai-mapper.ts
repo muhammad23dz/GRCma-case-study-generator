@@ -1,55 +1,26 @@
+import { prisma } from "@/lib/prisma";
+import { IsolationContext } from "@/lib/isolation";
+
 /**
  * Persists the AI-generated report into granular database records
  * (Risks, Controls, Policies, Vendors, Incidents).
  * This enables the Dashboard to display live, interactive data.
  */
-export async function persistReportData(userId: string, reportData: any) {
+export async function persistReportData(context: IsolationContext, reportData: any) {
     if (!reportData || !reportData.executiveSummary) {
         console.error("Invalid report data structure provided to persistence layer.");
         return;
     }
 
-    // Check if we have a valid DATABASE_URL
-    const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
-    if (!hasValidDb) {
-        console.warn("[Persistence] No valid DATABASE_URL, skipping real persistence (Demo Mode)");
-        return;
+    const orgId = context.orgId;
+    if (!orgId) {
+        throw new Error("Persistence failed: Organization context required for data isolation.");
     }
 
     try {
-        const { prisma } = await import("@/lib/prisma");
+        console.log(`Starting Persistence for User: ${context.email} (Org: ${orgId})`);
 
-        // 1. Get or Create Organization context
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, orgId: true, email: true }
-        });
-
-        if (!user) throw new Error("User not found during persistence");
-
-        let orgId = user.orgId;
-        if (!orgId) {
-            // Auto-create simplified org if missing
-            const newOrg = await prisma.organization.create({
-                data: {
-                    name: "Default Organization",
-                    subscriptionStatus: "ACTIVE",
-                    plan: "FREE"
-                }
-            });
-            orgId = newOrg.id;
-            // Link user to org
-            await prisma.user.update({
-                where: { id: userId },
-                data: { orgId: newOrg.id }
-            });
-        }
-
-        if (!orgId) throw new Error("Failed to resolve Organization ID");
-
-        console.log(`Starting Persistence for User: ${user.email} (Org: ${orgId})`);
-
-        // 2. Persist Controls
+        // 1. Persist Controls
         const controlTitleToIdMap = new Map<string, string>();
 
         if (Array.isArray(reportData.controls)) {
@@ -66,7 +37,7 @@ export async function persistReportData(userId: string, reportData: any) {
                             title: c.title,
                             description: c.description || '',
                             controlType: c.controlType || 'preventive',
-                            owner: user.email || 'System'
+                            owner: context.email || 'System'
                         }
                     });
                 }
@@ -75,7 +46,7 @@ export async function persistReportData(userId: string, reportData: any) {
             }
         }
 
-        // 3. Persist Policies
+        // 2. Persist Policies
         if (Array.isArray(reportData.policies)) {
             for (const p of reportData.policies) {
                 const existing = await prisma.policy.findFirst({
@@ -88,7 +59,7 @@ export async function persistReportData(userId: string, reportData: any) {
                             organizationId: orgId,
                             title: p.title,
                             content: p.description || '',
-                            owner: user.email || "System",
+                            owner: context.email || "System",
                             status: 'draft',
                             version: "1.0"
                         }
@@ -97,7 +68,7 @@ export async function persistReportData(userId: string, reportData: any) {
             }
         }
 
-        // 4. Persist Vendors
+        // 3. Persist Vendors
         if (Array.isArray(reportData.vendors)) {
             for (const v of reportData.vendors) {
                 const existing = await prisma.vendor.findFirst({
@@ -114,14 +85,14 @@ export async function persistReportData(userId: string, reportData: any) {
                             riskScore: v.riskScore || 0,
                             status: "active",
                             criticality: (v.riskScore || 0) > 75 ? 'critical' : (v.riskScore || 0) > 50 ? 'high' : 'medium',
-                            owner: user.email || 'System'
+                            owner: context.email || 'System'
                         }
                     });
                 }
             }
         }
 
-        // 5. Persist Risks & Link to Controls
+        // 4. Persist Risks & Link to Controls
         if (Array.isArray(reportData.risks)) {
             for (const r of reportData.risks) {
                 const existing = await prisma.risk.findFirst({
@@ -142,7 +113,7 @@ export async function persistReportData(userId: string, reportData: any) {
                             impact,
                             score,
                             status: 'open',
-                            owner: user.email || 'System'
+                            owner: context.email || 'System'
                         }
                     });
 
@@ -165,7 +136,7 @@ export async function persistReportData(userId: string, reportData: any) {
             }
         }
 
-        // 6. Persist Incidents
+        // 5. Persist Incidents
         if (Array.isArray(reportData.incidents)) {
             for (const i of reportData.incidents) {
                 const existing = await prisma.incident.findFirst({
@@ -180,7 +151,7 @@ export async function persistReportData(userId: string, reportData: any) {
                             description: i.description || '',
                             severity: i.severity || 'medium',
                             status: i.status || 'open',
-                            reportedBy: user.email || 'AI Assessment',
+                            reportedBy: context.email || 'AI Assessment',
                         }
                     });
                 }
@@ -190,5 +161,6 @@ export async function persistReportData(userId: string, reportData: any) {
         console.log("AI Data Persistence Complete.");
     } catch (error) {
         console.error("Failed to persist report data:", error);
+        throw error; // Rethrow to let the caller handle it
     }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ImpactService } from '@/lib/analytics/impact';
-import { auth } from '@clerk/nextjs/server';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 const impactService = new ImpactService();
 
@@ -9,9 +10,9 @@ export async function GET(
     { params }: { params: Promise<{ frameworkId: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const { frameworkId } = await params;
@@ -19,15 +20,15 @@ export async function GET(
             return NextResponse.json({ error: 'Framework ID is required' }, { status: 400 });
         }
 
-        const impact = await impactService.analyzeFrameworkImpact(frameworkId);
+        const impact = await impactService.analyzeFrameworkImpact(frameworkId, context.orgId);
 
         if (!impact) {
-            return NextResponse.json({ error: 'Framework not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Framework not found or inaccessible.' }, { status: 404 });
         }
 
         return NextResponse.json(impact);
     } catch (error) {
-        console.error('Error analyzing impact:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Impact Analytics');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

@@ -1,9 +1,11 @@
 /**
  * Config as Code Service
  * Export/Import GRC resources as YAML/JSON configuration files
+ * HARDENED: Strictly scoped via isolation layer
  */
 
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
 import {
     ConfigFormat,
     ConfigExportRequest,
@@ -20,6 +22,12 @@ import * as yaml from 'yaml';
 // =============================================================================
 
 export async function exportConfig(request: ConfigExportRequest): Promise<ConfigExportResult> {
+    const context = await getIsolationContext();
+    if (!context || !context.orgId) {
+        throw new Error("Unauthorized: Infrastructure context and organization required for export.");
+    }
+
+    const orgId = context.orgId;
     const config: Record<string, any> = {};
     const resourceCounts: Record<string, number> = {};
 
@@ -28,6 +36,7 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
         switch (resource) {
             case 'controls':
                 const controls = await prisma.control.findMany({
+                    where: { organizationId: orgId },
                     include: { mappings: { include: { framework: true } } },
                 });
                 config.controls = controls.map(c => ({
@@ -46,7 +55,9 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                 break;
 
             case 'policies':
-                const policies = await prisma.policy.findMany();
+                const policies = await prisma.policy.findMany({
+                    where: { organizationId: orgId }
+                });
                 config.policies = policies.map(p => ({
                     id: p.id,
                     title: p.title,
@@ -63,6 +74,7 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                 break;
 
             case 'frameworks':
+                // Frameworks are global in current schema
                 const frameworks = await prisma.framework.findMany();
                 config.frameworks = frameworks.map(f => ({
                     id: f.id,
@@ -74,7 +86,9 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                 break;
 
             case 'risks':
-                const risks = await prisma.risk.findMany();
+                const risks = await prisma.risk.findMany({
+                    where: { organizationId: orgId }
+                });
                 config.risks = risks.map(r => ({
                     id: r.id,
                     narrative: r.narrative,
@@ -93,7 +107,9 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
                 break;
 
             case 'vendors':
-                const vendors = await prisma.vendor.findMany();
+                const vendors = await prisma.vendor.findMany({
+                    where: { organizationId: orgId }
+                });
                 config.vendors = vendors.map(v => ({
                     id: v.id,
                     name: v.name,
@@ -133,6 +149,12 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
 // =============================================================================
 
 export async function importConfig(request: ConfigImportRequest): Promise<ConfigImportResult> {
+    const context = await getIsolationContext();
+    if (!context || !context.orgId) {
+        throw new Error("Unauthorized: Infrastructure context and organization required for import.");
+    }
+
+    const orgId = context.orgId;
     const changes: ConfigChange[] = [];
     const errors: ConfigError[] = [];
     const summary = { created: 0, updated: 0, deleted: 0, unchanged: 0 };
@@ -157,23 +179,23 @@ export async function importConfig(request: ConfigImportRequest): Promise<Config
 
     // Validate and process each resource type
     if (config.controls) {
-        await processControls(config.controls, changes, errors, summary, request.dryRun, request.overwriteExisting);
+        await processControls(config.controls, orgId, changes, errors, summary, request.dryRun, request.overwriteExisting);
     }
 
     if (config.policies) {
-        await processPolicies(config.policies, changes, errors, summary, request.dryRun, request.overwriteExisting);
+        await processPolicies(config.policies, orgId, changes, errors, summary, request.dryRun, request.overwriteExisting);
     }
 
     if (config.frameworks) {
-        await processFrameworks(config.frameworks, changes, errors, summary, request.dryRun, request.overwriteExisting);
+        await processFrameworks(config.frameworks, orgId, changes, errors, summary, request.dryRun, request.overwriteExisting);
     }
 
     if (config.risks) {
-        await processRisks(config.risks, changes, errors, summary, request.dryRun, request.overwriteExisting);
+        await processRisks(config.risks, orgId, changes, errors, summary, request.dryRun, request.overwriteExisting);
     }
 
     if (config.vendors) {
-        await processVendors(config.vendors, changes, errors, summary, request.dryRun, request.overwriteExisting);
+        await processVendors(config.vendors, orgId, changes, errors, summary, request.dryRun, request.overwriteExisting);
     }
 
     return {
@@ -191,6 +213,7 @@ export async function importConfig(request: ConfigImportRequest): Promise<Config
 
 async function processControls(
     controls: any[],
+    orgId: string,
     changes: ConfigChange[],
     errors: ConfigError[],
     summary: { created: number; updated: number; unchanged: number; deleted: number },
@@ -203,7 +226,9 @@ async function processControls(
             continue;
         }
 
-        const existing = control.id ? await prisma.control.findUnique({ where: { id: control.id } }) : null;
+        const existing = control.id ? await prisma.control.findFirst({
+            where: { id: control.id, organizationId: orgId }
+        }) : null;
 
         if (existing) {
             if (overwrite) {
@@ -243,6 +268,7 @@ async function processControls(
                         controlType: control.controlType || 'preventive',
                         owner: control.owner,
                         controlRisk: control.controlRisk,
+                        organizationId: orgId
                     },
                 });
             }
@@ -253,6 +279,7 @@ async function processControls(
 
 async function processPolicies(
     policies: any[],
+    orgId: string,
     changes: ConfigChange[],
     errors: ConfigError[],
     summary: { created: number; updated: number; unchanged: number; deleted: number },
@@ -266,7 +293,9 @@ async function processPolicies(
         }
 
         const title = policy.title || policy.name;
-        const existing = policy.id ? await prisma.policy.findUnique({ where: { id: policy.id } }) : null;
+        const existing = policy.id ? await prisma.policy.findFirst({
+            where: { id: policy.id, organizationId: orgId }
+        }) : null;
 
         if (existing) {
             if (overwrite) {
@@ -306,6 +335,7 @@ async function processPolicies(
                         version: policy.version || '1.0',
                         content: policy.content || '',
                         owner: policy.owner,
+                        organizationId: orgId
                     },
                 });
             }
@@ -316,6 +346,7 @@ async function processPolicies(
 
 async function processFrameworks(
     frameworks: any[],
+    _orgId: string,
     changes: ConfigChange[],
     errors: ConfigError[],
     summary: { created: number; updated: number; unchanged: number; deleted: number },
@@ -328,7 +359,9 @@ async function processFrameworks(
             continue;
         }
 
-        const existing = framework.id ? await prisma.framework.findUnique({ where: { id: framework.id } }) : null;
+        const existing = framework.id ? await prisma.framework.findUnique({
+            where: { id: framework.id }
+        }) : null;
 
         if (existing) {
             if (overwrite) {
@@ -374,6 +407,7 @@ async function processFrameworks(
 
 async function processRisks(
     risks: any[],
+    orgId: string,
     changes: ConfigChange[],
     errors: ConfigError[],
     summary: { created: number; updated: number; unchanged: number; deleted: number },
@@ -387,7 +421,9 @@ async function processRisks(
         }
 
         const narrative = risk.narrative || risk.name;
-        const existing = risk.id ? await prisma.risk.findUnique({ where: { id: risk.id } }) : null;
+        const existing = risk.id ? await prisma.risk.findFirst({
+            where: { id: risk.id, organizationId: orgId }
+        }) : null;
 
         if (existing) {
             if (overwrite) {
@@ -431,6 +467,7 @@ async function processRisks(
                         score: risk.score || (risk.likelihood * risk.impact) || 9,
                         status: risk.status || 'identified',
                         owner: risk.owner,
+                        organizationId: orgId
                     },
                 });
             }
@@ -441,6 +478,7 @@ async function processRisks(
 
 async function processVendors(
     vendors: any[],
+    orgId: string,
     changes: ConfigChange[],
     errors: ConfigError[],
     summary: { created: number; updated: number; unchanged: number; deleted: number },
@@ -453,7 +491,9 @@ async function processVendors(
             continue;
         }
 
-        const existing = vendor.id ? await prisma.vendor.findUnique({ where: { id: vendor.id } }) : null;
+        const existing = vendor.id ? await prisma.vendor.findFirst({
+            where: { id: vendor.id, organizationId: orgId }
+        }) : null;
 
         if (existing) {
             if (overwrite) {
@@ -495,6 +535,7 @@ async function processVendors(
                         status: vendor.status || 'active',
                         owner: vendor.owner,
                         riskScore: vendor.riskScore || 50,
+                        organizationId: orgId
                     },
                 });
             }

@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 import { safeError } from '@/lib/security';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
-// GET /api/evidence - List all evidence
+// GET /api/evidence - List all evidence for the organization
 export async function GET(request: Request) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -18,12 +18,10 @@ export async function GET(request: Request) {
         const riskId = searchParams.get('riskId');
         const requirementId = searchParams.get('requirementId');
 
-        // Filter by orgId if available
-        const whereClause: any = {};
-        if (process.env.DEV_MODE !== 'true' && orgId) {
-            whereClause.organizationId = orgId;
-        }
+        // Use standard isolation filter
+        const filter = getIsolationFilter(context, 'Evidence');
 
+        const whereClause: any = { ...filter };
         if (controlId) whereClause.controlId = controlId;
         if (riskId) whereClause.riskId = riskId;
         if (requirementId) whereClause.requirementId = requirementId;
@@ -45,17 +43,17 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ data: evidenceList });
     } catch (error: unknown) {
-        console.error('Error fetching evidence:', error);
-        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Evidence GET');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }
 
 // POST /api/evidence - Create evidence with file upload
 export async function POST(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const formData = await request.formData();
@@ -90,12 +88,9 @@ export async function POST(request: NextRequest) {
             fileUrl = `/uploads/evidence/${fileName}`;
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || userId;
-
         // Fetch settings for default review cycle
         const reviewCycleSetting = await prisma.systemSetting.findUnique({
-            where: { userId_key: { userId, key: 'compliance_evidenceReviewCycle' } }
+            where: { userId_key: { userId: context.userId, key: 'compliance_evidenceReviewCycle' } }
         });
         const reviewDays = parseInt(reviewCycleSetting?.value || '30');
         const nextReviewDate = new Date();
@@ -112,8 +107,8 @@ export async function POST(request: NextRequest) {
                 description,
                 fileName,
                 fileUrl,
-                uploadedBy: userEmail,
-                organizationId: orgId || undefined,
+                uploadedBy: context.email || context.userId,
+                organizationId: context.orgId,
                 status: 'draft',
                 nextReviewDate
             }
@@ -121,7 +116,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ data: evidence });
     } catch (error: unknown) {
-        console.error('Error creating evidence:', error);
-        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Evidence POST');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

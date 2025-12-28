@@ -118,37 +118,25 @@ export default function DashboardPage() {
 
     const overview = displayAnalytics.overview;
 
-    // Use real API data for control types breakdown (fallback to placeholder if not available)
+    // Use real API data for control types breakdown
     const controlsByType = displayAnalytics.controlsByType?.reduce((acc: Record<string, number>, item: any) => {
         acc[item.controlType || 'Other'] = item._count;
         return acc;
-    }, {}) || {
-        'Preventive': Math.round(overview.totalControls * 0.3),
-        'Detective': Math.round(overview.totalControls * 0.25),
-        'Corrective': Math.round(overview.totalControls * 0.2),
-        'Directive': Math.round(overview.totalControls * 0.25),
-    };
+    }, {}) || {};
 
     // Use real API data for vendor criticality breakdown
     const vendorCriticalityData = displayAnalytics.vendorsByCriticality?.reduce((acc: Record<string, number>, item: any) => {
         acc[item.criticality || 'medium'] = item._count;
         return acc;
-    }, { critical: 0, high: 0, medium: 0, low: 0 }) || {
-        critical: Math.round(overview.totalVendors * 0.1),
-        high: Math.round(overview.totalVendors * 0.2),
-        medium: Math.round(overview.totalVendors * 0.4),
-        low: Math.round(overview.totalVendors * 0.3),
-    };
+    }, { critical: 0, high: 0, medium: 0, low: 0 }) || { critical: 0, high: 0, medium: 0, low: 0 };
 
     // Use real API data for vendor status breakdown
     const vendorStatusData = displayAnalytics.vendorsByStatus?.reduce((acc: Record<string, number>, item: any) => {
         acc[item.status || 'active'] = item._count;
         return acc;
-    }, { active: 0, suspended: 0, terminated: 0 }) || {
-        active: Math.round(overview.totalVendors * 0.8),
-        suspended: Math.round(overview.totalVendors * 0.1),
-        terminated: Math.round(overview.totalVendors * 0.1),
-    };
+    }, { active: 0, suspended: 0, terminated: 0 }) || { active: 0, suspended: 0, terminated: 0 };
+
+
 
     return (
         <div className="min-h-screen text-foreground selection:bg-primary/30">

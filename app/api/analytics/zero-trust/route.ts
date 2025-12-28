@@ -1,59 +1,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress;
+        const orgId = context.orgId;
 
-        // Base filter for user-owned or organization-owned data
-        const filters = userEmail ? {
-            OR: [
-                { owner: userEmail },
-                { organization: { users: { some: { id: userId } } } }
-            ]
-        } : {};
-
-        // Incident uses reportedBy instead of owner in the schema
-        const incidentFilters = userEmail ? {
-            OR: [
-                { reportedBy: userEmail },
-                { organization: { users: { some: { id: userId } } } }
-            ]
-        } : {};
-
-        // Change uses requestedBy instead of owner
-        const changeFilters = userEmail ? {
-            OR: [
-                { requestedBy: userEmail },
-                { organization: { users: { some: { id: userId } } } }
-            ]
-        } : {};
-
-        // Evidence uses uploadedBy instead of owner
-        const evidenceFilters = userEmail ? {
-            OR: [
-                { uploadedBy: userEmail },
-                { organization: { users: { some: { id: userId } } } }
-            ]
-        } : {};
-
-        // Fetch all relevant data components
+        // Fetch all relevant data components for the organization
         const [risks, controls, vendors, incidents, changes, evidence] = await Promise.all([
             prisma.risk.findMany({
-                where: filters,
+                where: { organizationId: orgId },
                 orderBy: { createdAt: 'desc' }
             }),
             prisma.control.findMany({
-                where: filters,
+                where: { organizationId: orgId },
                 include: {
                     controlTests: {
                         orderBy: { testDate: 'desc' },
@@ -62,16 +30,16 @@ export async function GET() {
                 }
             }),
             prisma.vendor.findMany({
-                where: filters
+                where: { organizationId: orgId }
             }),
             prisma.incident.findMany({
-                where: incidentFilters
+                where: { organizationId: orgId }
             }),
             prisma.change.findMany({
-                where: changeFilters
+                where: { organizationId: orgId }
             }),
             prisma.evidence.findMany({
-                where: evidenceFilters
+                where: { organizationId: orgId }
             })
         ]);
 
@@ -123,7 +91,7 @@ export async function GET() {
                 score: calculatePillarScore(identityRisks, identityControls),
                 issues: identityRisks.filter(r => r.status === 'open').length,
                 controls: identityControls.length,
-                status: 'healthy', // placeholder updated later
+                status: 'healthy',
                 recentRisks: identityRisks.slice(0, 3).map(r => r.narrative)
             },
             device: {
@@ -169,7 +137,7 @@ export async function GET() {
         });
 
     } catch (error: any) {
-        console.error('Zero Trust metrics error:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Zero Trust Analytics');
+        return NextResponse.json({ success: false, error: message, code }, { status });
     }
 }

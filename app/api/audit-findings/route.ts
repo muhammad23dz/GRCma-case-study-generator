@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
-// GET /api/audit-findings - List all audit findings with filters
+// GET /api/audit-findings - List all audit findings with filters for the organization
 export async function GET(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -16,11 +17,11 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status');
         const controlId = searchParams.get('controlId');
 
-        // DEV_MODE bypass or org filter
-        const whereClause: any = {};
-        if (process.env.DEV_MODE !== 'true' && orgId) {
-            whereClause.audit = { organizationId: orgId };
-        }
+        const whereClause: any = {
+            audit: {
+                organizationId: context.orgId
+            }
+        };
 
         if (auditId) whereClause.auditId = auditId;
         if (severity) whereClause.severity = severity;
@@ -50,17 +51,17 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ data: findings });
     } catch (error: any) {
-        console.error('Error fetching audit findings:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Audit Findings GET');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }
 
 // POST /api/audit-findings - Create new audit finding
 export async function POST(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const body = await request.json();
@@ -77,6 +78,15 @@ export async function POST(request: NextRequest) {
 
         if (!auditId || !controlId || !severity || !title || !description) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        // Verify that the audit belongs to the organization
+        const audit = await prisma.audit.findUnique({
+            where: { id: auditId, organizationId: context.orgId }
+        });
+
+        if (!audit) {
+            return NextResponse.json({ error: 'Audit not found or unauthorized.' }, { status: 404 });
         }
 
         const finding = await prisma.auditFinding.create({
@@ -99,7 +109,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ data: finding }, { status: 201 });
     } catch (error: any) {
-        console.error('Error creating audit finding:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Audit Findings POST');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

@@ -107,15 +107,8 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
         const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
 
         if (!hasValidDb) {
-            console.warn('[Isolation] No valid DATABASE_URL, returning demo context');
-            return {
-                userId: clerkId, // Use clerkId as userId in demo mode
-                clerkId,
-                email,
-                orgId: `demo-org-${clerkId.slice(-8)}`, // User-specific demo org
-                role: 'admin', // Give admin rights in demo mode
-                securitySettings: { mfaRequired: false }
-            };
+            console.error('[Isolation] Internal Error: DATABASE_URL is not configured. Real operations cannot proceed.');
+            return null;
         }
 
         const { prisma } = await import('./prisma');
@@ -156,6 +149,7 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
 
         if (!dbUser && email) {
             try {
+                // Auto-provision user record if authenticated via Clerk but missing in DB
                 dbUser = await prisma.user.create({
                     data: {
                         id: clerkId,
@@ -177,48 +171,25 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
                 });
             } catch (createErr) {
                 console.error('[Isolation] Failed to auto-provision user:', createErr);
-                // Fallback to user-specific demo context if creation fails
-                return {
-                    userId: clerkId,
-                    clerkId,
-                    email,
-                    orgId: `demo-org-${clerkId.slice(-8)}`,
-                    role: 'user',
-                };
+                return null;
             }
         }
 
         if (!dbUser) {
-            return {
-                userId: clerkId,
-                clerkId,
-                email,
-                orgId: `demo-org-${clerkId.slice(-8)}`,
-                role: 'user',
-            };
+            console.error('[Isolation] Unauthorized: User record not found in system.');
+            return null;
         }
 
         return {
             userId: dbUser.id,
             clerkId,
             email: dbUser.email || email,
-            orgId: dbUser.orgId || `demo-org-${clerkId.slice(-8)}`,
+            orgId: dbUser.orgId,
             role: dbUser.role || 'user',
             securitySettings: dbUser.organization?.securitySettings as any
         };
     } catch (error) {
-        console.error('[Isolation] Error resolving context:', error);
-        // Extreme fallback for corrupted environments
-        const clerkAuth = await auth();
-        if (clerkAuth.userId) {
-            return {
-                userId: clerkAuth.userId,
-                clerkId: clerkAuth.userId,
-                email: 'guest@grcma.io',
-                orgId: `demo-org-${clerkAuth.userId.slice(-8)}`,
-                role: 'user',
-            };
-        }
+        console.error('[Isolation] Critical error resolving context:', error);
         return null;
     }
 }

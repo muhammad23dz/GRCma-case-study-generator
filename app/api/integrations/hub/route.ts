@@ -5,25 +5,24 @@ import { prisma } from '@/lib/prisma';
 // GET /api/integrations/hub - List Available Integrations
 export async function GET() {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get configured integrations
-        let configured = await prisma.integration.findMany({
+        const orgId = context.orgId;
+        if (!orgId) {
+            return NextResponse.json({ error: 'Organization context missing' }, { status: 400 });
+        }
+
+        // Get configured integrations for this organization
+        const configured = await prisma.integration.findMany({
+            where: { organizationId: orgId },
             orderBy: { updatedAt: 'desc' }
         });
 
-        // DEMO MODE: If no integrations, show some as active for display purposes
-        if (configured.length === 0) {
-            configured = [
-                { provider: 'aws', status: 'active', id: 'demo-aws', lastSyncAt: new Date() },
-                { provider: 'slack', status: 'active', id: 'demo-slack', lastSyncAt: new Date() }
-            ] as any[];
-        }
-
-        // Define available integration catalog (from Gigachad GRC)
+        // Define available integration catalog
         const catalog = [
             // SIEM
             { provider: 'splunk', type: 'siem', name: 'Splunk', description: 'Security event monitoring', logo: '/integrations/splunk.png' },
@@ -60,7 +59,6 @@ export async function GET() {
             { provider: 'gitlab', type: 'grc', name: 'GitLab', description: 'DevSecOps integration', logo: '/integrations/gitlab.png' },
         ];
 
-        // Merge configured status
         const integrations = catalog.map(item => {
             const config = configured.find(c => c.provider === item.provider);
             return {
@@ -72,7 +70,6 @@ export async function GET() {
             };
         });
 
-        // Group by type
         const byType = integrations.reduce((acc, i) => {
             if (!acc[i.type]) acc[i.type] = [];
             acc[i.type].push(i);
@@ -91,20 +88,24 @@ export async function GET() {
         });
     } catch (error: any) {
         console.error('Error fetching integrations hub:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Infrastructure Error: Could not retrieve integrations hub.' }, { status: 500 });
     }
 }
 
 // POST /api/integrations/hub - Configure Integration
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+        if (!context) {
+            return NextResponse.json({ error: 'Unauthorized: Valid session required' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
+        const orgId = context.orgId;
+        if (!orgId) {
+            return NextResponse.json({ error: 'Organization context missing' }, { status: 400 });
+        }
+        const userEmail = context.email;
 
         const body = await request.json();
         const { provider, type, name, config, apiKey } = body;
@@ -113,15 +114,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Provider and type are required' }, { status: 400 });
         }
 
-        // Get or create organization
-        let org = await prisma.organization.findFirst();
-        if (!org) {
-            org = await prisma.organization.create({
-                data: { name: 'Default Organization' }
-            });
-        }
-
-        // Encrypt sensitive data (in production, use proper encryption)
         const encryptedCredentials = apiKey
             ? Buffer.from(JSON.stringify({ apiKey, configuredBy: userEmail })).toString('base64')
             : '';
@@ -133,7 +125,7 @@ export async function POST(request: NextRequest) {
                 status: 'active',
                 encryptedCredentials,
                 config: config || undefined,
-                organizationId: org.id
+                organizationId: orgId
             }
         });
 
@@ -147,6 +139,7 @@ export async function POST(request: NextRequest) {
         }, { status: 201 });
     } catch (error: any) {
         console.error('Error configuring integration:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to configure integration in database' }, { status: 500 });
     }
 }
+

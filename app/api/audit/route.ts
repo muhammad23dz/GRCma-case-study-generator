@@ -1,39 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
-// GET /api/audit - List all audits
+// GET /api/audit - List all audits for organization
 export async function GET(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // DEV_MODE bypass
-        if (process.env.DEV_MODE === 'true') {
-            const audits = await prisma.audit.findMany({
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    findings: true,
-                    tests: true,
-                    _count: {
-                        select: {
-                            findings: true,
-                            tests: true
-                        }
-                    }
-                }
-            });
-            return NextResponse.json({ audits });
-        }
-
-        if (!orgId) {
-            return NextResponse.json({ error: 'No organization found' }, { status: 400 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const audits = await prisma.audit.findMany({
-            where: { organizationId: orgId },
+            where: { organizationId: context.orgId },
             orderBy: { createdAt: 'desc' },
             include: {
                 findings: true,
@@ -50,16 +29,16 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ audits });
     } catch (error: any) {
         console.error('Error fetching audits:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }
 
 // POST /api/audit - Create new audit
 export async function POST(request: NextRequest) {
     try {
-        const { userId, orgId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const body = await request.json();
@@ -79,7 +58,7 @@ export async function POST(request: NextRequest) {
                 auditorName,
                 auditorOrg,
                 status: 'planning',
-                organizationId: orgId || undefined
+                organizationId: context.orgId
             },
             include: {
                 findings: true,
@@ -90,6 +69,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ audit }, { status: 201 });
     } catch (error: any) {
         console.error('Error creating audit:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: safeError(error).message }, { status: 500 });
     }
 }

@@ -1,45 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
 import { generateReportService } from '@/lib/services/report-generator';
 import { getLLMConfig } from '@/lib/llm-config';
 
 export const dynamic = 'force-dynamic';
 
-// Check if we have a valid DATABASE_URL
-const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
-
 // POST /api/grc/generate - AI-powered assessment generation
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+        if (!context) {
+            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress;
-
-        if (!userEmail) {
-            return NextResponse.json({ error: 'User email required' }, { status: 400 });
-        }
+        const userId = context.userId;
+        const userEmail = context.email;
 
         const body = await request.json();
 
-        // Default risk appetite - skip DB lookup if no valid connection
+        // Default risk appetite
         let riskAppetite = 'Balanced';
 
-        if (hasValidDb) {
-            try {
-                const { prisma } = await import('@/lib/prisma');
-                const riskSetting = await prisma.systemSetting.findUnique({
-                    where: { userId_key: { userId, key: 'compliance_riskAppetite' } }
-                });
-                if (riskSetting?.value) {
-                    riskAppetite = riskSetting.value;
-                }
-            } catch (dbError) {
-                console.warn('[GRC Generate] DB lookup failed, using default risk appetite:', dbError);
-            }
+        const { prisma } = await import('@/lib/prisma');
+        const riskSetting = await prisma.systemSetting.findUnique({
+            where: { userId_key: { userId, key: 'compliance_riskAppetite' } }
+        });
+        if (riskSetting?.value) {
+            riskAppetite = riskSetting.value;
         }
 
         // Map API request to CaseInput expected by service
@@ -53,20 +40,22 @@ export async function POST(request: NextRequest) {
             riskAppetite
         };
 
-        // Resolve Config - this also handles DB gracefully
+        // Resolve Config
         const llmConfig = await getLLMConfig(userId);
 
         if (!llmConfig?.apiKey) {
-            console.warn('[API] System LLM Config missing. Service might fail if no env var fallback exists.');
+            return NextResponse.json({ error: 'LLM Configuration missing: API Key required for generation.' }, { status: 503 });
         }
 
-        // Use the service directly, bypassing the Server Action context scope issues
-        const report = await generateReportService(input, { userId }, llmConfig || undefined);
+        // Use the service directly
+        const report = await generateReportService(input, context, llmConfig);
+
 
         return NextResponse.json(report);
 
     } catch (error: any) {
         console.error('AI Generation API Error:', error);
-        return NextResponse.json({ error: error.message || 'Generation failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Generation Service Error: ' + (error.message || 'Processing failed') }, { status: 500 });
     }
 }
+

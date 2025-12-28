@@ -12,16 +12,11 @@ export async function DELETE(
         const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
 
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!hasValidDb || !context) {
+            return NextResponse.json({ error: 'Infrastructure Missing' }, { status: 503 });
         }
 
         const { id } = await params;
-
-        if (!hasValidDb) {
-            console.warn('[Reports DELETE] No valid DATABASE_URL, returning success in demo mode');
-            return NextResponse.json({ success: true, isDemo: true });
-        }
 
         const { prisma } = await import('@/lib/prisma');
         const { logAudit } = await import('@/lib/audit-log');
@@ -67,22 +62,11 @@ export async function GET(
         const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
 
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!hasValidDb || !context) {
+            return NextResponse.json({ error: 'Infrastructure Missing' }, { status: 503 });
         }
 
         const { id } = await params;
-
-        if (!hasValidDb) {
-            return NextResponse.json({
-                report: {
-                    id: 'demo-report',
-                    userId: context.userId,
-                    timestamp: new Date().toISOString(),
-                    sections: { executiveSummary: { problemStatement: 'Expert Demo' } }
-                }
-            });
-        }
 
         const { prisma } = await import('@/lib/prisma');
         const { safeError } = await import('@/lib/security');

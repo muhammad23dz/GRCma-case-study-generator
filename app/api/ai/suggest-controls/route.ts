@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { suggestControls } from '@/lib/ai/grc-intelligence';
 import { ControlSuggestionRequest } from '@/lib/ai/types';
 import { safeError } from '@/lib/security';
+import { getIsolationContext } from '@/lib/isolation';
 
 /**
  * POST /api/ai/suggest-controls
@@ -10,9 +10,9 @@ import { safeError } from '@/lib/security';
  */
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context) {
+            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
         }
 
         const body: ControlSuggestionRequest = await request.json();

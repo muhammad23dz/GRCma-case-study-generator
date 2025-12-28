@@ -25,23 +25,14 @@ export const PERMISSIONS = {
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
 
-// DEV MODE CHECK - Client-side
-export function isDevModeActive(): boolean {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem('DEV_MODE') === 'true';
-    }
-    return process.env.NEXT_PUBLIC_DEV_MODE === 'true';
-}
+/**
+ * Enterprise Access Control
+ * All bypasses (DEV_MODE) removed for production hardening.
+ */
 
 // Policy Definition Factory
 export function defineAbilitiesFor(user: { role: string; id: string }) {
     const rules: Ability[] = [];
-
-    // DEV MODE: Grant all permissions
-    if (isDevModeActive()) {
-        rules.push({ action: 'manage', subject: 'all' });
-        return rules;
-    }
 
     if (user.role === 'admin') {
         rules.push({ action: 'manage', subject: 'all' });
@@ -68,9 +59,6 @@ export function defineAbilitiesFor(user: { role: string; id: string }) {
 
 // Global "can" helper
 export function can(user: { role: string; id: string } | undefined, action: Action, subject: Subject, resource?: any): boolean {
-    // DEV MODE OVERRIDE
-    if (isDevModeActive()) return true;
-
     if (!user) return false;
 
     const abilities = defineAbilitiesFor(user);
@@ -93,9 +81,6 @@ export function can(user: { role: string; id: string } | undefined, action: Acti
 
 // Backward Compatibility Wrappers
 export function hasPermission(role: string | undefined, permission: Permission): boolean {
-    // DEV MODE OVERRIDE
-    if (isDevModeActive()) return true;
-
     if (!role) return false;
     const mockUser = { role, id: 'global-check' };
 
@@ -111,10 +96,10 @@ export function hasPermission(role: string | undefined, permission: Permission):
     }
 }
 
-// Helper Getters for UI - Now with DEV MODE support
-export const canManageUsers = (role?: string) => isDevModeActive() || hasPermission(role, PERMISSIONS.MANAGE_USERS);
-export const canConfigureSystem = (role?: string) => isDevModeActive() || hasPermission(role, PERMISSIONS.SYSTEM_CONFIG);
-export const canDeleteRecords = (role?: string) => isDevModeActive() || hasPermission(role, PERMISSIONS.DELETE_RECORDS);
-export const canApprove = (role?: string) => isDevModeActive() || hasPermission(role, PERMISSIONS.APPROVE_ITEMS);
-export const canEditContent = (role?: string) => isDevModeActive() || hasPermission(role, PERMISSIONS.EDIT_CONTENT);
-export const canEdit = (role?: string) => isDevModeActive() || hasPermission(role, PERMISSIONS.EDIT_CONTENT);
+// Helper Getters for UI
+export const canManageUsers = (role?: string) => hasPermission(role, PERMISSIONS.MANAGE_USERS);
+export const canConfigureSystem = (role?: string) => hasPermission(role, PERMISSIONS.SYSTEM_CONFIG);
+export const canDeleteRecords = (role?: string) => hasPermission(role, PERMISSIONS.DELETE_RECORDS);
+export const canApprove = (role?: string) => hasPermission(role, PERMISSIONS.APPROVE_ITEMS);
+export const canEditContent = (role?: string) => hasPermission(role, PERMISSIONS.EDIT_CONTENT);
+export const canEdit = (role?: string) => hasPermission(role, PERMISSIONS.EDIT_CONTENT);

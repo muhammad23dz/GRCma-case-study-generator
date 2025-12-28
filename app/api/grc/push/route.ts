@@ -1,47 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 // POST /api/grc/push - Push assessment data to dashboard (creates GRC entities)
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { getIsolationContext } = await import('@/lib/isolation');
+        const context = await getIsolationContext();
+        if (!context) {
+            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress;
-        if (!userEmail) {
-            return NextResponse.json({ error: 'User email required' }, { status: 400 });
-        }
-
-        // Resolve user by Email (Robust Sync)
-        let dbUser = null;
-        if (userEmail) {
-            dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
-        }
-
-        let targetUserId = userId; // Default to Clerk ID if creating new
-
-        if (dbUser) {
-            // User exists, use their ID
-            targetUserId = dbUser.id;
-        } else if (userEmail) {
-            // Create new user if strictly doesn't exist
-            // Check if userId is already taken (CUID collision impossible, but good practice)
-            const newUser = await prisma.user.create({
-                data: {
-                    id: userId,
-                    email: userEmail,
-                    name: user?.fullName || user?.firstName || 'User'
-                }
-            });
-            targetUserId = newUser.id;
-        }
-
-        // Use targetUserId is strictly for relations if we needed it, 
-        // but for now we rely on 'owner: userEmail' for data ownership.
+        const userEmail = context.email;
+        const orgId = context.orgId;
 
         const body = await request.json();
         const { sections } = body;
@@ -62,7 +32,8 @@ export async function POST(request: NextRequest) {
                         description: c.description || c.title || 'Security control',
                         controlType: c.controlType || 'preventive',
                         controlRisk: 'medium',
-                        owner: userEmail
+                        owner: userEmail,
+                        organizationId: orgId
                     }
                 });
                 controlMap.set(c.title, created.id);
@@ -82,7 +53,8 @@ export async function POST(request: NextRequest) {
                         score: (r.likelihood || 3) * (r.impact || 3),
                         status: 'open',
                         owner: userEmail,
-                        recommendedActions: r.recommendedActions || []
+                        recommendedActions: r.recommendedActions || [],
+                        organizationId: orgId
                     }
                 });
 
@@ -118,7 +90,8 @@ export async function POST(request: NextRequest) {
                                     priority: action.priority || 'high',
                                     owner: userEmail,
                                     parentType: 'Risk',
-                                    parentId: createdRisk.id
+                                    parentId: createdRisk.id,
+                                    organizationId: orgId
                                 }
                             });
                         }
@@ -136,7 +109,8 @@ export async function POST(request: NextRequest) {
                     services: v.services || v.name || 'Services',
                     riskScore: v.riskScore || 25,
                     status: 'active',
-                    owner: userEmail
+                    owner: userEmail,
+                    organizationId: orgId
                 }))
             });
         }
@@ -149,7 +123,8 @@ export async function POST(request: NextRequest) {
                     description: inc.description || 'Reported incident',
                     severity: inc.severity || 'medium',
                     status: inc.status || 'open',
-                    reportedBy: userEmail
+                    reportedBy: userEmail,
+                    organizationId: orgId
                 }))
             });
         }
@@ -163,7 +138,8 @@ export async function POST(request: NextRequest) {
                     content: 'This policy establishes security controls and risk management.',
                     status: 'draft',
                     owner: userEmail,
-                    reviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+                    reviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                    organizationId: orgId
                 }
             });
         }
@@ -177,7 +153,8 @@ export async function POST(request: NextRequest) {
                     type: 'preventive',
                     status: 'open',
                     priority: 'high',
-                    owner: userEmail
+                    owner: userEmail,
+                    organizationId: orgId
                 }
             });
         }

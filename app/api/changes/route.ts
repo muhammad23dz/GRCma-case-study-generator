@@ -1,22 +1,18 @@
-import { NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 // GET /api/changes
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
-        const userRole = (user?.publicMetadata as any)?.role || 'user';
-        const isAdmin = ['admin', 'manager'].includes(userRole);
-
-        const whereClause = isAdmin ? {} : { requestedBy: userEmail };
+        // Apply isolation filter
+        const whereClause = getIsolationFilter(context, 'Change');
 
         const changes = await prisma.change.findMany({
             where: whereClause,
@@ -36,25 +32,21 @@ export async function GET() {
 }
 
 // POST /api/changes
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress;
-
-        if (!userId || !userEmail) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // RBAC Check: All Authenticated Users can CREATE changes (Self-Service)
-        // We only block completely unauthenticated users (handled above)
-        // Managers/Admins will then process them.
+        const userEmail = context.email;
+        const orgId = context.orgId;
 
         const body = await request.json();
 
         // Auto-generate Change Number
         const year = new Date().getFullYear();
-        const count = await prisma.change.count();
+        const count = await prisma.change.count({ where: { organizationId: orgId } });
         const changeNumber = `CHG-${year}-${(count + 1).toString().padStart(3, '0')}`;
 
         // Basic Risk Calculation
@@ -78,19 +70,20 @@ export async function POST(request: Request) {
                 urgency,
                 complexity,
                 riskScore,
-                requestedDate: new Date(body.requestedDate),
+                requestedDate: body.requestedDate ? new Date(body.requestedDate) : new Date(),
                 implementationPlan: body.implementationPlan,
                 backoutPlan: body.backoutPlan,
                 affectedSystems: body.affectedSystems || [],
-                currentStage: 'assessment', // Initial stage
+                currentStage: 'assessment',
                 requestedBy: userEmail,
+                organizationId: orgId
             }
         });
 
         // GRC Automation: Auto-create Risk if Score is High (>12)
-        if (riskScore > 12) {
+        if (riskScore > 12 && orgId) {
             const { createChangeRisk } = await import('@/lib/grc-automation');
-            await createChangeRisk(change.id, riskScore);
+            await createChangeRisk(change.id, riskScore, orgId);
         }
 
         return NextResponse.json({ change }, { status: 201 });

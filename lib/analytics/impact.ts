@@ -21,20 +21,29 @@ export interface ImpactAnalysisResult {
 export class ImpactService {
     /**
      * Simulates the impact of a total failure of a specific Framework
-     * (e.g. if "SOC 2" requirements suddenly changed or were revoked)
-     * helping users identify critical massive dependencies.
+     * for a specific organization.
      */
-    async analyzeFrameworkImpact(frameworkId: string): Promise<ImpactAnalysisResult | null> {
+    async analyzeFrameworkImpact(frameworkId: string, organizationId: string): Promise<ImpactAnalysisResult | null> {
         const framework = await prisma.framework.findUnique({
             where: { id: frameworkId },
             include: {
                 requirements: {
                     include: {
                         mappings: {
+                            where: {
+                                control: {
+                                    organizationId: organizationId
+                                }
+                            },
                             include: {
                                 control: {
                                     include: {
                                         riskControls: {
+                                            where: {
+                                                risk: {
+                                                    organizationId: organizationId
+                                                }
+                                            },
                                             include: {
                                                 risk: true
                                             }

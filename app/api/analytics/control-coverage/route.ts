@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
-// GET /api/analytics/control-coverage - Calculate control coverage metrics
+// GET /api/analytics/control-coverage - Calculate control coverage metrics for the organization
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
-        const userEmail = dbUser?.email || '';
+        const orgId = context.orgId;
 
-        // Get all risks for user
+        // Get all risks for the organization
         const totalRisks = await prisma.risk.count({
-            where: { owner: userEmail }
+            where: { organizationId: orgId }
         });
 
         // Get risks with at least one control
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
             by: ['riskId'],
             where: {
                 risk: {
-                    owner: userEmail
+                    organizationId: orgId
                 }
             }
         });
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
             by: ['effectiveness'],
             where: {
                 risk: {
-                    owner: userEmail
+                    organizationId: orgId
                 }
             },
             _count: true
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         const risksWithResidual = await prisma.riskControl.findMany({
             where: {
                 risk: {
-                    owner: userEmail
+                    organizationId: orgId
                 }
             },
             select: {
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         // Get high-risk items without controls
         const highRisksWithoutControls = await prisma.risk.findMany({
             where: {
-                owner: userEmail,
+                organizationId: orgId,
                 score: { gte: 12 },
                 riskControls: {
                     none: {}
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error('Error calculating control coverage:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Control Coverage Analytics');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

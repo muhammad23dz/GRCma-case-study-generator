@@ -16,9 +16,6 @@ const PROVIDER_URLS: Record<string, string> = {
 
 import { createHash } from 'crypto';
 
-// Check if we have a valid DATABASE_URL
-const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
-
 export async function generateReportAction(input: CaseInput, userEmail: string, llmConfig?: LLMConfig): Promise<GeneratedReport> {
   const { getIsolationContext } = await import('@/lib/isolation');
   const context = await getIsolationContext();
@@ -27,63 +24,24 @@ export async function generateReportAction(input: CaseInput, userEmail: string, 
   }
 
   // Delegate business logic to the service
-  return await generateReportService(input, { userId: context.userId }, llmConfig);
+  return await generateReportService(input, context, llmConfig);
 }
 
-export async function applyReportToPlatform(report: GeneratedReport, clearData: boolean = false, userEmail: string, framework: string = 'ISO 27001') {
-  // If no valid DB, return success immediately (Simulated Push)
-  if (!hasValidDb) {
-    console.warn('[Push] No valid DATABASE_URL, skipping real persistence (Demo Mode)');
-    // Small delay to simulate work
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true, isDemo: true };
-  }
 
-  // Try getIsolationContext first
+export async function applyReportToPlatform(report: GeneratedReport, clearData: boolean = false, userEmail: string, framework: string = 'ISO 27001') {
   const { getIsolationContext } = await import('@/lib/isolation');
   const { prisma } = await import('@/lib/prisma');
 
-  let context = await getIsolationContext();
-
-  // Fallback: If context is null, try to resolve user directly 
-  // (Mostly for robustness if Isolation fails for some reason)
-  if (!context || context.orgId === 'demo-org-id') {
-    console.log('[applyReportToPlatform] getIsolationContext returned demo/null, trying direct auth...');
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized: Invalid session");
-
-    const user = await currentUser();
-    const email = user?.primaryEmailAddress?.emailAddress || userEmail;
-
-    // Find or create user
-    let dbUser = await prisma.user.findUnique({ where: { id: userId } });
-    if (!dbUser && email) dbUser = await prisma.user.findUnique({ where: { email } });
-
-    if (!dbUser && email) {
-      dbUser = await prisma.user.create({
-        data: { id: userId, email, name: user?.fullName || 'User', role: 'admin' }
-      });
-    }
-
-    if (!dbUser) throw new Error("Unauthorized: Could not resolve user");
-
-    context = {
-      userId: dbUser.id,
-      clerkId: userId,
-      email: dbUser.email || email,
-      orgId: dbUser.orgId,
-      role: dbUser.role || 'user',
-      securitySettings: undefined
-    };
+  const context = await getIsolationContext();
+  if (!context) {
+    throw new Error("Unauthorized: Active database connection and valid session required.");
   }
 
   const effectiveEmail = context.email;
   const orgId = context.orgId;
-
   const data = report.sections;
 
   try {
-    // 1. Optional Cleanup (outside transaction for safety)
     // 1. Optional Cleanup (strictly scoped)
     if (clearData) {
       await prisma.policy.deleteMany({ where: { owner: effectiveEmail } });
@@ -137,8 +95,6 @@ export async function applyReportToPlatform(report: GeneratedReport, clearData: 
           for (const title of r.mitigatingControlTitles) {
             const controlId = controlMap.get(title);
             if (controlId) {
-              // Verify uniqueness before insert to avoid crash? 
-              // create unique
               try {
                 await prisma.riskControl.create({
                   data: {
@@ -202,7 +158,7 @@ export async function applyReportToPlatform(report: GeneratedReport, clearData: 
       });
     }
 
-    // 6. Gaps Analysis (Phase 1 Enhancement)
+    // 6. Gaps Analysis
     if (data.gaps && Array.isArray(data.gaps) && data.gaps.length > 0) {
       for (const gap of data.gaps) {
         await prisma.gap.create({
@@ -221,7 +177,7 @@ export async function applyReportToPlatform(report: GeneratedReport, clearData: 
       }
     }
 
-    // 7. Policies (Phase 1 Enhancement)
+    // 7. Policies
     if (data.policies && Array.isArray(data.policies) && data.policies.length > 0) {
       await prisma.policy.createMany({
         data: data.policies.map((p: any) => ({
@@ -232,19 +188,6 @@ export async function applyReportToPlatform(report: GeneratedReport, clearData: 
           owner: effectiveEmail,
           organizationId: orgId
         }))
-      });
-    } else if (data.controls && data.controls.length > 0) {
-      // Fallback: Create one if none generated
-      await prisma.policy.create({
-        data: {
-          title: 'Information Security Policy',
-          version: '1.0',
-          content: 'This policy establishes security controls and risk management.',
-          status: 'draft',
-          owner: effectiveEmail,
-          organizationId: orgId,
-          reviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        }
       });
     }
 
@@ -273,18 +216,21 @@ export async function applyReportToPlatform(report: GeneratedReport, clearData: 
 
 // Helper to get global config
 async function getGlobalLLMConfig() {
-  if (!hasValidDb) return null;
   const { prisma } = await import('@/lib/prisma');
-  const adminConfig = await prisma.systemSetting.findFirst({
-    where: {
-      key: 'llm_config',
-      user: { role: 'admin' }
-    },
-    include: { user: true }
-  });
+  try {
+    const adminConfig = await prisma.systemSetting.findFirst({
+      where: {
+        key: 'llm_config',
+        user: { role: 'admin' }
+      },
+      include: { user: true }
+    });
 
-  if (adminConfig) {
-    return JSON.parse(adminConfig.value) as LLMConfig;
+    if (adminConfig) {
+      return JSON.parse(adminConfig.value) as LLMConfig;
+    }
+  } catch (e) {
+    console.error('[Config] Database check failed');
   }
   return null;
 }
@@ -293,43 +239,38 @@ export async function getSystemConfig() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  if (!hasValidDb) {
-    return { provider: 'deepseek', apiKey: '********', isManaged: true };
-  }
-
   const { prisma } = await import('@/lib/prisma');
-  // Fetch user from DB to get role using unique ID lookup
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, role: true }
-  });
-
-  if (!dbUser) return null;
-
-  // If Admin, return THEIR config.
-  if (dbUser.role === 'admin') {
-    const setting = await prisma.systemSetting.findUnique({
-      where: {
-        userId_key: {
-          userId: dbUser.id,
-          key: 'llm_config'
-        }
-      }
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true }
     });
-    return setting ? JSON.parse(setting.value) : null;
-  } else {
-    // For others, return masked global config if it exists
-    const globalConfig = await getGlobalLLMConfig();
-    if (globalConfig) {
-      return { provider: globalConfig.provider, apiKey: '********', isManaged: true };
+
+    if (!dbUser) return null;
+
+    if (dbUser.role === 'admin') {
+      const setting = await prisma.systemSetting.findUnique({
+        where: {
+          userId_key: {
+            userId: dbUser.id,
+            key: 'llm_config'
+          }
+        }
+      });
+      return setting ? JSON.parse(setting.value) : null;
+    } else {
+      const globalConfig = await getGlobalLLMConfig();
+      if (globalConfig) {
+        return { provider: globalConfig.provider, apiKey: '********', isManaged: true };
+      }
     }
+  } catch (e) {
+    console.error('[Config] Resolve failed');
   }
   return null;
 }
 
 export async function saveSystemConfig(config: LLMConfig) {
-  if (!hasValidDb) throw new Error("Demo Mode: Cannot save configuration");
-
   const { userId } = await auth();
   if (!userId) {
     throw new Error("Unauthorized: Invalid session");
@@ -368,14 +309,9 @@ export async function saveSystemConfig(config: LLMConfig) {
 }
 
 export async function upgradeSubscription(planId: string, email?: string) {
-  if (!hasValidDb) {
-    return { success: true, plan: planId.toUpperCase() }; // Simulated success
-  }
-
   const { userId } = await auth();
   const { prisma } = await import('@/lib/prisma');
 
-  // Fetch user from Clerk or use provided email
   let targetEmail = email;
   if (userId && !targetEmail) {
     const clerkUser = await currentUser();
@@ -386,41 +322,30 @@ export async function upgradeSubscription(planId: string, email?: string) {
     throw new Error("Unauthorized: No email provided for subscription upgrade.");
   }
 
-  // Find or Create User (Simulated "Guest" Account Provisioning)
   let user = await prisma.user.findUnique({
     where: { email: targetEmail },
     include: { organization: true }
   });
 
   if (!user) {
-    // Create a user on the fly if they don't exist
     user = await prisma.user.create({
       data: {
-        id: userId || undefined, // Link to Clerk user if available
+        id: userId || undefined,
         email: targetEmail,
         name: targetEmail.split('@')[0],
-        role: 'admin', // First user is admin
+        role: 'admin',
       },
       include: { organization: true }
     });
   }
 
-  // Determine limits based on plan
   let limit = 5;
   let planName = 'FREE';
 
-  if (planId === 'solo') {
-    limit = 20;
-    planName = 'SOLO';
-  } else if (planId === 'business') {
-    limit = 100;
-    planName = 'BUSINESS';
-  } else if (planId === 'enterprise') {
-    limit = 999999;
-    planName = 'ENTERPRISE';
-  }
+  if (planId === 'solo') limit = 20, planName = 'SOLO';
+  else if (planId === 'business') limit = 100, planName = 'BUSINESS';
+  else if (planId === 'enterprise') limit = 999999, planName = 'ENTERPRISE';
 
-  // Update or Create Organization
   if (user.orgId) {
     await prisma.organization.update({
       where: { id: user.orgId },
@@ -433,7 +358,6 @@ export async function upgradeSubscription(planId: string, email?: string) {
       }
     });
   } else {
-    // Create new org if user doesn't have one
     const newOrg = await prisma.organization.create({
       data: {
         name: `${user.name || 'User'}'s Organization`,
@@ -442,7 +366,6 @@ export async function upgradeSubscription(planId: string, email?: string) {
         users: { connect: { id: user.id } }
       }
     });
-    // Force update user role to admin of their new org
     await prisma.user.update({
       where: { id: user.id },
       data: { role: 'admin', orgId: newOrg.id }
@@ -451,4 +374,5 @@ export async function upgradeSubscription(planId: string, email?: string) {
 
   return { success: true, plan: planName };
 }
+
 

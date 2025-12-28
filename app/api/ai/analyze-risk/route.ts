@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { analyzeRisk } from '@/lib/ai/grc-intelligence';
 import { RiskScoringRequest } from '@/lib/ai/types';
 import { safeError } from '@/lib/security';
+import { getIsolationContext } from '@/lib/isolation';
 
 /**
  * POST /api/ai/analyze-risk
@@ -10,9 +10,9 @@ import { safeError } from '@/lib/security';
  */
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context) {
+            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
         }
 
         const body: RiskScoringRequest = await request.json();
@@ -24,7 +24,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const analysis = await analyzeRisk(body);
+        // Pass organization context if the AI service is updated to use it
+        const analysis = await analyzeRisk({
+            ...body,
+            industryContext: body.industryContext || 'General'
+        });
 
         return NextResponse.json({
             success: true,

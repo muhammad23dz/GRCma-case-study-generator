@@ -13,8 +13,6 @@ import {
     Pipeline,
     Vulnerability,
     SyncResult,
-    generateDemoPipelines,
-    generateDemoVulnerabilities,
 } from './types';
 
 // =============================================================================
@@ -439,10 +437,5 @@ export async function syncConnector(connector: ConnectorConfig): Promise<SyncRes
     }
 }
 
-// Demo mode - returns simulated data when no real connectors configured
-export function getDemoData(): { pipelines: Pipeline[]; vulnerabilities: Vulnerability[] } {
-    return {
-        pipelines: generateDemoPipelines(),
-        vulnerabilities: generateDemoVulnerabilities(),
-    };
-}
+// Demo mode removed
+

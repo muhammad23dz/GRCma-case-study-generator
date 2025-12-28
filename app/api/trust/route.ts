@@ -13,34 +13,25 @@ export async function POST(req: Request) {
         // Simulating artificial delay for "fluidity" feel (loading state)
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        let request;
-        try {
-            // Cast to any to avoid "Property 'trustRequest' does not exist" lint
-            // if the Prisma client hasn't been regenerated yet.
-            request = await (prisma as any).trustRequest.create({
-                data: {
-                    email,
-                    company: company || '',
-                    reason: reason || 'Direct Download',
-                    ipAddress: '127.0.0.1' // In real app, get from headers
-                }
-            });
-        } catch (e) {
-            // Fallback if Prisma client isn't updated or DB is unreachable
-            console.warn('Prisma create failed (likely schema mismatch), returning mock success', e);
-            request = { id: 'mock-id', email, status: 'approved' };
-        }
+        // Create the trust request record
+        const request = await (prisma as any).trustRequest.create({
+            data: {
+                email,
+                company: company || '',
+                reason: reason || 'Direct Access',
+                ipAddress: '127.0.0.1' // In a production environment, resolve from headers
+            }
+        });
 
-        // Simulate sending email logic here
-        // await sendEmail({ to: email, template: 'trust-center-access', ... });
-        console.log(`[TrustCenter] Sent demo link to ${email}`);
+        console.log(`[TrustCenter] Access granted for ${email}`);
 
         return NextResponse.json({
             success: true,
-            message: 'Demo sent. We have sent a secure demo link to your email.',
+            message: 'Access granted. A secure link has been generated for your session.',
             requestId: request.id,
-            demoUrl: '/dashboard' // Direct access for instant enablement
+            accessUrl: '/dashboard'
         });
+
 
     } catch (error) {
         console.error('Trust request error:', error);

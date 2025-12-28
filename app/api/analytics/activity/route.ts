@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
-// GET /api/analytics/activity - Get recent audit activity
+// GET /api/analytics/activity - Get recent audit activity for the organization
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const logs = await prisma.auditLog.findMany({
-            take: 10,
+            where: {
+                organizationId: context.orgId
+            },
+            take: 20,
             orderBy: { timestamp: 'desc' },
             select: {
                 id: true,
@@ -25,9 +29,9 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        return NextResponse.json({ logs });
+        return NextResponse.json({ activity: logs });
     } catch (error: any) {
-        console.error('Error fetching activity:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Activity Analytics');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

@@ -61,9 +61,7 @@ export async function query(prompt: string, systemPrompt?: string): Promise<stri
     const model = PROVIDER_MODELS[provider] || 'gpt-4o-mini';
 
     if (!apiKey) {
-        console.warn(`[LLM Service] No API key found for provider '${provider}', returning demo response`);
-        // Return a demo JSON response based on what's being asked
-        return generateDemoResponse(prompt);
+        throw new Error(`[LLM Service] Critical Configuration Error: No API key found for provider '${provider}'. Real AI operations cannot proceed.`);
     }
 
     console.log(`[LLM Service] Query - Provider: ${provider}, Model: ${model}`);
@@ -101,89 +99,10 @@ export async function query(prompt: string, systemPrompt?: string): Promise<stri
         return content;
     } catch (error: any) {
         console.error('[LLM Service] API Error:', error.message);
-        // Return demo response on error instead of throwing
-        return generateDemoResponse(prompt);
+        throw error;
     }
 }
 
-/**
- * Generate demo AI responses when API is unavailable
- */
-function generateDemoResponse(prompt: string): string {
-    const promptLower = prompt.toLowerCase();
-
-    // Export generic expert templates for common GRC tasks
-    if (promptLower.includes('risk') && promptLower.includes('analyze')) {
-        return JSON.stringify({
-            likelihood: 3,
-            impact: 4,
-            riskScore: 12,
-            riskLevel: 'High',
-            likelihoodRationale: 'Analysis based on ISO 31000 benchmarks and industry-specific threat modeling for this asset class.',
-            impactRationale: 'Potential for significant disruption to Trust Services Criteria, specifically Availability and Confidentiality.',
-            suggestedCategory: 'Operational Risk',
-            recommendedControls: [
-                'ISO 27001 A.12.6.1: Management of technical vulnerabilities',
-                'NIST CSF PR.AC-1: Access Control Policy and Implementation',
-                'SOC 2 CC7.2: Threat Detection and Response'
-            ],
-            confidence: 90
-        });
-    }
-
-    if (promptLower.includes('control') && promptLower.includes('suggest')) {
-        return JSON.stringify({
-            controls: [
-                {
-                    title: 'Access Control Reinforcement (A.9.2)',
-                    description: 'Strengthening identity management using Multi-Factor Authentication (MFA) and Just-In-Time (JIT) access.',
-                    category: 'Identity',
-                    controlType: 'preventive',
-                    implementationGuidance: '1. Audit existing perms. 2. Enable MFA. 3. Implement periodic access reviews.',
-                    effortEstimate: 'Medium',
-                    effectivenessRating: 5,
-                    frameworkMappings: ['ISO 27001 A.9', 'SOC 2 CC6.1'],
-                    priority: 1
-                },
-                {
-                    title: 'Continuous Monitoring (A.12.4)',
-                    description: 'Real-time telemetry and alerting for security-critical events across the cloud infrastructure.',
-                    category: 'Monitoring',
-                    controlType: 'detective',
-                    implementationGuidance: '1. Configure SIEM. 2. Define high-fidelity alerts. 3. Establish SOC procedures.',
-                    effortEstimate: 'High',
-                    effectivenessRating: 5,
-                    frameworkMappings: ['NIST CSF DE.CM', 'ISO 27001 A.12.4'],
-                    priority: 2
-                }
-            ],
-            gapAnalysis: 'Identified gaps in administrative access governance and audit log retention.',
-            implementationRoadmap: 'Phase 1: Identity (4 weeks), Phase 2: Visibility (8 weeks).',
-            totalEffortEstimate: '12 weeks'
-        });
-    }
-
-    if (promptLower.includes('policy') && promptLower.includes('draft')) {
-        return JSON.stringify({
-            title: 'Information Security Management System (ISMS) Policy',
-            content: `# ISMS Policy \n\n## 1. Overview\nThis policy defines the high-level security objectives for the organization...\n\n## 2. Controls\nBased on ISO 27001 Annex A, we implement...`,
-            sections: [
-                { title: 'Governance', content: 'Leadership commitment and ISMS objectives.', order: 1 },
-                { title: 'Risk Treatment', content: 'Our methodology for identifying and managing risks.', order: 2 }
-            ],
-            frameworksCovered: ['ISO 27001', 'GDPR', 'SOC 2'],
-            suggestedReviewSchedule: 'Annual',
-            relatedPolicies: ['Acceptable Use Policy', 'Data Classification Policy']
-        });
-    }
-
-    return JSON.stringify({
-        message: 'Expert Analysis Offline',
-        recommendation: 'Please configure production LLM keys (DEEPSEEK_API_KEY, GITHUB_TOKEN) to enable live GRC Intelligence.',
-        isDemo: true,
-        expertStatus: 'Ready'
-    });
-}
 
 
 /**

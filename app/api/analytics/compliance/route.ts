@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
-// GET /api/analytics/compliance - Calculate compliance score based on control effectiveness
+// GET /api/analytics/compliance - Calculate compliance score based on control effectiveness for the organization
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const context = await getIsolationContext();
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
-
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
-        const userEmail = dbUser?.email || '';
 
         // 1. Get all Frameworks
         const frameworks = await prisma.framework.findMany({
@@ -37,19 +35,24 @@ export async function GET(request: NextRequest) {
                 continue;
             }
 
-            // 2. Get controls for this framework via Mappings
-            // Controls are linked to Frameworks via FrameworkMapping
+            // 2. Get controls for this framework that belong to the organization
             const mappings = await prisma.frameworkMapping.findMany({
                 where: {
                     frameworkId: framework.id,
                     control: {
-                        owner: userEmail
+                        organizationId: context.orgId
                     }
                 },
                 include: {
                     control: {
                         include: {
-                            riskControls: true
+                            riskControls: {
+                                where: {
+                                    risk: {
+                                        organizationId: context.orgId
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -58,12 +61,11 @@ export async function GET(request: NextRequest) {
             const controls = mappings.map(m => m.control);
 
             if (controls.length === 0) {
-                // If user has no controls mapped to this framework
                 complianceScores.push({
                     frameworkId: framework.id,
                     name: framework.name,
                     score: 0,
-                    totalControls: framework._count.requirements, // Use defined requirements as baseline
+                    totalControls: framework._count.requirements,
                     effectiveControls: 0
                 });
                 continue;
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error('Error calculating compliance:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Compliance Analytics');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

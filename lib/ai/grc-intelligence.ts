@@ -1,6 +1,7 @@
 /**
  * GRC Engineering AI Service
  * AI-powered intelligent GRC automation
+ * HARDENED: Removed demo fallbacks, strictly relies on LLM service.
  */
 
 import { query } from '@/lib/llm/llm-service';
@@ -80,30 +81,14 @@ Scoring Guide:
 - Impact: 1=Negligible, 2=Minor, 3=Moderate, 4=Major, 5=Severe
 - Risk Level: 1-4=Low, 5-9=Medium, 10-16=High, 17-25=Critical`;
 
-    try {
-        const response = await query(prompt, RISK_ANALYST_PROMPT);
-        const parsed = JSON.parse(extractJSON(response));
+    const response = await query(prompt, RISK_ANALYST_PROMPT);
+    const parsed = JSON.parse(extractJSON(response));
 
-        // Ensure calculated fields are correct
-        parsed.riskScore = parsed.likelihood * parsed.impact;
-        parsed.riskLevel = calculateRiskLevel(parsed.riskScore);
+    // Ensure calculated fields are correct
+    parsed.riskScore = parsed.likelihood * parsed.impact;
+    parsed.riskLevel = calculateRiskLevel(parsed.riskScore);
 
-        return parsed;
-    } catch (error) {
-        console.error('AI Risk Analysis failed:', error);
-        // Return fallback with reasonable defaults
-        return {
-            likelihood: 3,
-            impact: 3,
-            riskScore: 9,
-            riskLevel: 'Medium',
-            likelihoodRationale: 'Unable to perform AI analysis. Default assessment provided.',
-            impactRationale: 'Manual review recommended.',
-            suggestedCategory: 'Operational',
-            recommendedControls: ['Implement monitoring', 'Review access controls', 'Document procedures'],
-            confidence: 0,
-        };
-    }
+    return parsed;
 }
 
 // ============================================
@@ -132,20 +117,8 @@ Respond with this exact JSON format:
   "explanation": "<why this categorization>"
 }`;
 
-    try {
-        const response = await query(prompt, GRC_EXPERT_PROMPT);
-        return JSON.parse(extractJSON(response));
-    } catch (error) {
-        console.error('AI Categorization failed:', error);
-        return {
-            primaryCategory: categories[0] || 'General',
-            subcategory: '',
-            tags: [],
-            relatedFrameworks: [],
-            confidence: 0,
-            explanation: 'AI categorization unavailable. Manual categorization recommended.',
-        };
-    }
+    const response = await query(prompt, GRC_EXPERT_PROMPT);
+    return JSON.parse(extractJSON(response));
 }
 
 // ============================================
@@ -187,18 +160,8 @@ Respond with this exact JSON format:
   "totalMatches": <number of results>
 }`;
 
-    try {
-        const response = await query(prompt, GRC_EXPERT_PROMPT);
-        return JSON.parse(extractJSON(response));
-    } catch (error) {
-        console.error('AI Smart Search failed:', error);
-        return {
-            results: [],
-            interpretation: 'Search unavailable',
-            suggestedRefinements: [],
-            totalMatches: 0,
-        };
-    }
+    const response = await query(prompt, GRC_EXPERT_PROMPT);
+    return JSON.parse(extractJSON(response));
 }
 
 // ============================================
@@ -231,20 +194,8 @@ Create a complete policy with all standard sections. Respond with this exact JSO
   "relatedPolicies": ["<related policy 1>", "<related policy 2>"]
 }`;
 
-    try {
-        const response = await query(prompt, POLICY_WRITER_PROMPT);
-        return JSON.parse(extractJSON(response));
-    } catch (error) {
-        console.error('AI Policy Drafting failed:', error);
-        return {
-            title: `${request.policyType} - Draft`,
-            content: '# Policy Draft\n\nAI policy generation unavailable. Please create manually.',
-            sections: [],
-            frameworksCovered: [],
-            suggestedReviewSchedule: 'Annual',
-            relatedPolicies: [],
-        };
-    }
+    const response = await query(prompt, POLICY_WRITER_PROMPT);
+    return JSON.parse(extractJSON(response));
 }
 
 // ============================================
@@ -283,25 +234,15 @@ Provide 5-10 recommended controls. Respond with this exact JSON format:
   "totalEffortEstimate": "<Overall effort estimate>"
 }`;
 
-    try {
-        const response = await query(prompt, GRC_EXPERT_PROMPT);
-        const parsed = JSON.parse(extractJSON(response));
+    const response = await query(prompt, GRC_EXPERT_PROMPT);
+    const parsed = JSON.parse(extractJSON(response));
 
-        // Sort by priority
-        if (parsed.controls) {
-            parsed.controls.sort((a: any, b: any) => a.priority - b.priority);
-        }
-
-        return parsed;
-    } catch (error) {
-        console.error('AI Control Suggestions failed:', error);
-        return {
-            controls: [],
-            gapAnalysis: 'AI analysis unavailable.',
-            implementationRoadmap: 'Manual assessment recommended.',
-            totalEffortEstimate: 'Unknown',
-        };
+    // Sort by priority
+    if (parsed.controls) {
+        parsed.controls.sort((a: any, b: any) => a.priority - b.priority);
     }
+
+    return parsed;
 }
 
 // ============================================
@@ -327,21 +268,8 @@ Provide a comprehensive incident analysis. Respond with this exact JSON format:
   "estimatedRecoveryTime": "<Time estimate>"
 }`;
 
-    try {
-        const response = await query(prompt, GRC_EXPERT_PROMPT);
-        return JSON.parse(extractJSON(response));
-    } catch (error) {
-        console.error('AI Incident Analysis failed:', error);
-        return {
-            rootCauseAnalysis: 'AI analysis unavailable.',
-            impactAssessment: 'Manual assessment required.',
-            containmentSteps: [],
-            remediationSteps: [],
-            preventiveControls: [],
-            lessonsLearned: [],
-            estimatedRecoveryTime: 'Unknown',
-        };
-    }
+    const response = await query(prompt, GRC_EXPERT_PROMPT);
+    return JSON.parse(extractJSON(response));
 }
 
 // ============================================
@@ -374,19 +302,8 @@ Analyze gaps against the framework requirements. Respond with this exact JSON fo
   "estimatedTimeToCompliance": "<Overall estimate>"
 }`;
 
-    try {
-        const response = await query(prompt, GRC_EXPERT_PROMPT);
-        return JSON.parse(extractJSON(response));
-    } catch (error) {
-        console.error('AI Gap Analysis failed:', error);
-        return {
-            overallComplianceScore: 0,
-            gaps: [],
-            prioritizedRoadmap: 'AI analysis unavailable.',
-            quickWins: [],
-            estimatedTimeToCompliance: 'Unknown',
-        };
-    }
+    const response = await query(prompt, GRC_EXPERT_PROMPT);
+    return JSON.parse(extractJSON(response));
 }
 
 // ============================================

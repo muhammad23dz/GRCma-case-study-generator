@@ -5,11 +5,20 @@
 
 const isProd = process.env.NODE_ENV === 'production';
 
+export type DeploymentErrorType =
+    | 'DB_CONNECTION_FAILED'
+    | 'LLM_SERVICE_UNAVAILABLE'
+    | 'AUTH_CONTEXT_MISSING'
+    | 'INTERNAL_ERROR'
+    | 'RATE_LIMIT_EXCEEDED';
+
 /**
  * Safe error response - returns generic message in production
  * Always logs full error server-side for debugging
  */
-export function safeError(error: unknown, context?: string): { message: string; status: number } {
+export function safeError(error: unknown, context?: string): { message: string; status: number; code?: DeploymentErrorType } {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
     // Always log full error server-side
     if (context) {
         console.error(`[${context}] Error:`, error);
@@ -17,25 +26,46 @@ export function safeError(error: unknown, context?: string): { message: string; 
         console.error('[API Error]', error);
     }
 
-    // In production, return generic message
+    let code: DeploymentErrorType = 'INTERNAL_ERROR';
+    let status = 500;
+
+    // Detect Infrastructure Errors
+    if (errorMsg.includes('Prisma') || errorMsg.includes('database') || errorMsg.includes('connection')) {
+        code = 'DB_CONNECTION_FAILED';
+        status = 503; // Service Unavailable
+    } else if (errorMsg.includes('LLM') || errorMsg.includes('OpenAI') || errorMsg.includes('API key') || errorMsg.includes('503')) {
+        code = 'LLM_SERVICE_UNAVAILABLE';
+        status = 503;
+    } else if (errorMsg.includes('Unauthorized') || errorMsg.includes('context')) {
+        code = 'AUTH_CONTEXT_MISSING';
+        status = 401;
+    }
+
+    // In production, return generic message but include error code for support
     if (isProd) {
         return {
-            message: 'An error occurred processing your request',
-            status: 500
+            message: code === 'INTERNAL_ERROR'
+                ? 'An error occurred processing your request'
+                : `Resource unavailable: ${code.replace(/_/g, ' ')}`,
+            status,
+            code
         };
     }
 
     // In development, return actual message for debugging
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return { message, status: 500 };
+    return {
+        message: errorMsg,
+        status,
+        code
+    };
 }
 
 /**
  * Creates a standardized error response
  */
 export function errorResponse(error: unknown, context?: string) {
-    const { message, status } = safeError(error, context);
-    return { error: message, status };
+    const { message, status, code } = safeError(error, context);
+    return { error: message, status, code };
 }
 
 /**
@@ -89,7 +119,9 @@ export function checkRateLimit(
  * Get client IP from request headers
  */
 export function getClientIP(request: Request): string {
-    return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-        || request.headers.get('x-real-ip')
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) return forwarded.split(',')[0].trim();
+
+    return request.headers.get('x-real-ip')
         || 'unknown';
 }

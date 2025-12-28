@@ -14,7 +14,7 @@ const createVendorSchema = z.object({
     riskScore: z.number().int().min(0).max(100).default(50)
 });
 
-// GET /api/vendors - List vendors for current user
+// GET /api/vendors - List vendors for current organization
 export async function GET() {
     try {
         const context = await getIsolationContext();
@@ -22,11 +22,8 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Expert Tier Isolation
         const vendors = await prisma.vendor.findMany({
-            where: {
-                ...getIsolationFilter(context, 'Vendor')
-            },
+            where: getIsolationFilter(context, 'Vendor'),
             include: {
                 vendorRisks: {
                     include: {
@@ -47,12 +44,17 @@ export async function GET() {
     }
 }
 
-// POST /api/vendors - Create new vendor with risk assessment
+// POST /api/vendors - Create new vendor with automated risk assessment
 export async function POST(request: NextRequest) {
     try {
         const context = await getIsolationContext();
         if (!context) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
+        }
+
+        const orgId = context.orgId;
+        if (!orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 403 });
         }
 
         const body = await request.json();
@@ -76,34 +78,20 @@ export async function POST(request: NextRequest) {
                 services,
                 contactEmail,
                 owner: context.email,
-                organizationId: context.orgId || undefined, // Org-scoped IAM support
+                organizationId: orgId,
                 status: 'active',
                 riskScore: riskScore || 50
             }
         });
 
         // GRC Automation: Create vendor risk assessment if high criticality
-        if (criticality === 'high' || criticality === 'critical') {
-            const vendorRisk = await prisma.risk.create({
-                data: {
-                    category: 'Third-Party',
-                    narrative: `Third-party risk for ${name}: ${services || 'various services'}. Vendor criticality: ${criticality}.`,
-                    likelihood: criticality === 'critical' ? 4 : 3,
-                    impact: criticality === 'critical' ? 4 : 3,
-                    score: criticality === 'critical' ? 16 : 9,
-                    status: 'open',
-                    owner: context.email,
-                    organizationId: context.orgId || undefined // Inherit org context
-                }
-            });
-
-            await prisma.vendorRisk.create({
-                data: {
-                    vendorId: vendor.id,
-                    riskId: vendorRisk.id,
-                    riskType: 'security'
-                }
-            });
+        // Using the centralized automation library for consistency
+        try {
+            const { assessVendorRisk } = await import('@/lib/grc-automation');
+            const normalizedCriticality = criticality.charAt(0).toUpperCase() + criticality.slice(1);
+            await assessVendorRisk(vendor.id, name, normalizedCriticality, context.email, orgId);
+        } catch (automationError) {
+            console.error('[Vendors] GRC Automation failed:', automationError);
         }
 
         return NextResponse.json({ vendor }, { status: 201 });

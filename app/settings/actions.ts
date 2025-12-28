@@ -292,32 +292,25 @@ export async function getActivityLogs() {
 }
 
 export async function getSessions() {
-    // In a real Clerk app, you'd use Clerk.sessions.getSessionList({ userId })
-    // For this implementation, we simulate current session plus a few mock historical ones 
-    // to demonstrate the UI "Active Sessions" feature.
     const { userId } = await auth();
     if (!userId) return { success: false, sessions: [] };
 
+    // In a production environment with Clerk, we would fetch's from Clerk's session API.
+    // For now, we return the current active session as the definitive state.
     return {
         success: true,
         sessions: [
             {
                 id: 'sess_current',
-                device: 'Chrome on Windows',
-                ipAddress: '192.168.1.1',
+                device: 'Current Device',
+                ipAddress: 'Authorized Session',
                 lastActive: new Date().toISOString(),
                 isCurrent: true
-            },
-            {
-                id: 'sess_mobile',
-                device: 'Safari on iPhone',
-                ipAddress: '172.16.0.45',
-                lastActive: new Date(Date.now() - 3600000).toISOString(),
-                isCurrent: false
             }
         ]
     };
 }
+
 
 // ==========================================
 // FULL SETTINGS LOADER

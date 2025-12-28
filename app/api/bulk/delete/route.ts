@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Check if we have a valid DATABASE_URL
-const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
+import { safeError } from '@/lib/security';
 
 // Shared logic for deletion with expert-level isolation
 async function performDeletion(module: string, ids?: string[]) {
     const { getIsolationContext, getIsolationFilter } = await import('@/lib/isolation');
     const context = await getIsolationContext();
-    if (!context) throw new Error('Unauthorized');
-
-    if (!hasValidDb) {
-        console.warn(`[Bulk Delete] No valid DATABASE_URL for module: ${module}, returning demo success`);
-        return 0;
-    }
+    if (!context) throw new Error('Unauthorized or Organization context missing');
 
     const { prisma } = await import('@/lib/prisma');
 
@@ -48,7 +41,6 @@ async function performDeletion(module: string, ids?: string[]) {
     let result;
     switch (module) {
         case 'controls':
-            // Also delete related mappings/tests to avoid foreign key issues if applicable
             result = await prisma.control.deleteMany({ where: finalWhere });
             break;
         case 'risks': result = await prisma.risk.deleteMany({ where: finalWhere }); break;
@@ -86,8 +78,8 @@ export async function POST(request: NextRequest) {
         const deleteCount = await performDeletion(module, ids);
         return NextResponse.json({ success: true, deleted: deleteCount, module });
     } catch (error: any) {
-        console.error('Error in bulk delete:', error);
-        return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 500 });
+        const { message, status, code } = safeError(error, 'Bulk Delete POST');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }
 
@@ -104,7 +96,7 @@ export async function DELETE(request: NextRequest) {
         const deleteCount = await performDeletion(module);
         return NextResponse.json({ success: true, deleted: deleteCount, module });
     } catch (error: any) {
-        console.error('Error in delete all:', error);
-        return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 500 });
+        const { message, status, code } = safeError(error, 'Bulk Delete DELETE');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

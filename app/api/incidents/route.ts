@@ -81,10 +81,13 @@ export async function POST(request: NextRequest) {
         // GRC Automation: Feedback loop to Risks
         try {
             const { linkIncidentToRisks } = await import('@/lib/grc-automation');
-            await linkIncidentToRisks(incident.id, title, description, severity, context.email);
+            if (context.orgId) {
+                await linkIncidentToRisks(incident.id, title, description, severity, context.email, context.orgId);
+            }
         } catch (error) {
             console.error('[Incidents] Automation failure:', error);
         }
+
 
         return NextResponse.json({ incident });
     } catch (error: any) {

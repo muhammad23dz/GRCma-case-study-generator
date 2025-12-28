@@ -73,9 +73,9 @@ export async function GET(request: NextRequest) {
                     pendingChanges: 0,
                 },
                 connectors: {
-                    total: connectors.length || 4,
-                    connected: connectors.filter(c => c.status === 'connected').length || 3,
-                    errors: connectors.filter(c => c.status === 'error').length || 0,
+                    total: connectors.length,
+                    connected: connectors.filter(c => c.status === 'connected').length,
+                    errors: connectors.filter(c => c.status === 'error').length,
                 },
                 // Real resource counts
                 resources: {
