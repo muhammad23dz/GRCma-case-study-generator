@@ -33,7 +33,21 @@ export function safeError(error: unknown, context?: string): { message: string; 
     if (errorMsg.includes('Prisma') || errorMsg.includes('database') || errorMsg.includes('connection') || errorMsg.includes('DATABASE_URL')) {
         code = 'DB_CONNECTION_FAILED';
         status = 503; // Service Unavailable
-    } else if (errorMsg.includes('LLM') || errorMsg.includes('OpenAI') || errorMsg.includes('API key') || errorMsg.includes('503')) {
+    } else if (
+        errorMsg.includes('LLM') ||
+        errorMsg.includes('OpenAI') ||
+        errorMsg.includes('API key') ||
+        errorMsg.includes('No API key') ||
+        errorMsg.includes('parse') ||
+        errorMsg.includes('JSON') ||
+        errorMsg.includes('ECONNREFUSED') ||
+        errorMsg.includes('ETIMEDOUT') ||
+        errorMsg.includes('fetch') ||
+        errorMsg.includes('network') ||
+        errorMsg.includes('503') ||
+        errorMsg.includes('429') ||
+        errorMsg.includes('rate limit')
+    ) {
         code = 'LLM_SERVICE_UNAVAILABLE';
         status = 503;
     } else if (errorMsg.includes('Infrastructure')) {

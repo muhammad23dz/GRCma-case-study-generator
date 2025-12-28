@@ -1,7 +1,15 @@
 import { LLMConfig } from '@/types';
 
 // Check if we have a valid DATABASE_URL at module load time
-const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
+const dbUrl = process.env.DATABASE_URL || '';
+const hasValidDb = dbUrl.length > 0 && (
+    dbUrl.startsWith('postgres://') ||
+    dbUrl.startsWith('postgresql://') ||
+    dbUrl.startsWith('prisma://') ||
+    dbUrl.startsWith('mysql://') ||
+    dbUrl.startsWith('file:') ||
+    dbUrl.includes('@')
+);
 
 /**
  * Helper to get the first available API key and its provider
