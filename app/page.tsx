@@ -1,7 +1,7 @@
 'use client';
 
-import TrustPage from '@/app/trust/page';
+import LandingView from '@/components/LandingView';
 
 export default function LandingPage() {
-  return <TrustPage />;
+  return <LandingView />;
 }

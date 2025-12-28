@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateReportService } from '@/lib/services/report-generator';
 import { getLLMConfig } from '@/lib/llm-config';
+import { safeError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,12 +10,14 @@ export async function POST(request: NextRequest) {
     try {
         const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
+
+        // This check is technically redundant if getIsolationContext throws, 
+        // but kept for safety if it returns null (e.g. valid auth but no clerkId somehow)
         if (!context) {
-            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
         }
 
         const userId = context.userId;
-        const userEmail = context.email;
 
         const body = await request.json();
 
@@ -44,18 +47,19 @@ export async function POST(request: NextRequest) {
         const llmConfig = await getLLMConfig(userId);
 
         if (!llmConfig?.apiKey) {
-            return NextResponse.json({ error: 'LLM Configuration missing: API Key required for generation.' }, { status: 503 });
+            return NextResponse.json({
+                error: 'Resource unavailable: LLM SERVICE UNAVAILABLE',
+                code: 'LLM_SERVICE_UNAVAILABLE'
+            }, { status: 503 });
         }
 
         // Use the service directly
         const report = await generateReportService(input, context, llmConfig);
 
-
         return NextResponse.json(report);
 
     } catch (error: any) {
-        console.error('AI Generation API Error:', error);
-        return NextResponse.json({ error: 'Generation Service Error: ' + (error.message || 'Processing failed') }, { status: 500 });
+        const { message, status, code } = safeError(error, 'AI Generation API');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }
-

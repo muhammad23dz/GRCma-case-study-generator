@@ -108,7 +108,7 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
 
         if (!hasValidDb) {
             console.error('[Isolation] Internal Error: DATABASE_URL is not configured. Real operations cannot proceed.');
-            return null;
+            throw new Error('Infrastructure Missing: DATABASE_URL required for organization context');
         }
 
         const { prisma } = await import('./prisma');
@@ -171,13 +171,13 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
                 });
             } catch (createErr) {
                 console.error('[Isolation] Failed to auto-provision user:', createErr);
-                return null;
+                throw new Error('Infrastructure Error: Failed to initialize user records');
             }
         }
 
         if (!dbUser) {
             console.error('[Isolation] Unauthorized: User record not found in system.');
-            return null;
+            throw new Error('Unauthorized: Authentication required');
         }
 
         return {
@@ -190,7 +190,12 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
         };
     } catch (error) {
         console.error('[Isolation] Critical error resolving context:', error);
-        return null;
+        // If it's already one of our descriptive errors, rethrow it
+        if (error instanceof Error && (error.message.includes('Infrastructure') || error.message.includes('Unauthorized'))) {
+            throw error;
+        }
+        // Otherwise wrap it
+        throw new Error('Infrastructure Error: Context resolution failed');
     }
 }
 
