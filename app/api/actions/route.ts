@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { grcLLM } from '@/lib/llm/grc-service';
 import { z } from 'zod';
 import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // Input Validation Schema
 const createActionSchema = z.object({
@@ -60,8 +61,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ actions: mappedActions });
     } catch (error: any) {
-        console.error('[Actions] GET Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Actions GET API');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }
 
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ action }, { status: 201 });
     } catch (error: any) {
-        console.error('[Actions] POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'Actions POST API');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }

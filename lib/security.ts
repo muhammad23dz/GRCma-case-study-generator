@@ -30,13 +30,16 @@ export function safeError(error: unknown, context?: string): { message: string; 
     let status = 500;
 
     // Detect Infrastructure Errors
-    if (errorMsg.includes('Prisma') || errorMsg.includes('database') || errorMsg.includes('connection')) {
+    if (errorMsg.includes('Prisma') || errorMsg.includes('database') || errorMsg.includes('connection') || errorMsg.includes('DATABASE_URL')) {
         code = 'DB_CONNECTION_FAILED';
         status = 503; // Service Unavailable
     } else if (errorMsg.includes('LLM') || errorMsg.includes('OpenAI') || errorMsg.includes('API key') || errorMsg.includes('503')) {
         code = 'LLM_SERVICE_UNAVAILABLE';
         status = 503;
-    } else if (errorMsg.includes('Unauthorized') || errorMsg.includes('context')) {
+    } else if (errorMsg.includes('Infrastructure')) {
+        code = 'INTERNAL_ERROR';
+        status = 500;
+    } else if (errorMsg.includes('Unauthorized') || (errorMsg.includes('context') && !errorMsg.includes('Infrastructure'))) {
         code = 'AUTH_CONTEXT_MISSING';
         status = 401;
     }

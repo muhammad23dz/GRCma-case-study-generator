@@ -26,6 +26,8 @@ export default function ActionsClient() {
 
     const [actions, setActions] = useState<Action[]>([]);
     const [loading, setLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
@@ -71,12 +73,15 @@ export default function ActionsClient() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setCreating(true);
+        setErrorMessage(null);
         try {
             const res = await fetch('/api/actions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
+            const data = await res.json();
             if (res.ok) {
                 setShowModal(false);
                 setFormData({
@@ -89,9 +94,14 @@ export default function ActionsClient() {
                     severity: 'medium'
                 });
                 fetchActions();
+            } else {
+                setErrorMessage(data.error || 'Failed to create task. Please try again.');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating action:', error);
+            setErrorMessage('Network error. Please check your connection.');
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -321,17 +331,32 @@ export default function ActionsClient() {
                                     </div>
                                 </div>
                             </div>
+                            {/* Error Display */}
+                            {errorMessage && (
+                                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                                    {errorMessage}
+                                </div>
+                            )}
                             <div className="flex gap-4 mt-8">
                                 <button
                                     type="submit"
-                                    className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all font-bold shadow-lg shadow-emerald-500/20"
+                                    disabled={creating}
+                                    className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    Create Task
+                                    {creating ? (
+                                        <>
+                                            <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        'Create Task'
+                                    )}
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-bold"
+                                    onClick={() => { setShowModal(false); setErrorMessage(null); }}
+                                    disabled={creating}
+                                    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-bold disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
@@ -339,8 +364,7 @@ export default function ActionsClient() {
                         </form>
                     </div>
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 }

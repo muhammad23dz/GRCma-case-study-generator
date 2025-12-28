@@ -104,7 +104,7 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
         console.log('[Isolation] Auth check - clerkId:', clerkId, 'email:', email);
 
         // Check if we have a valid DATABASE_URL
-        const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres');
+        const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres') || process.env.DATABASE_URL?.startsWith('file:');
 
         if (!hasValidDb) {
             console.error('[Isolation] Internal Error: DATABASE_URL is not configured. Real operations cannot proceed.');
@@ -176,7 +176,7 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
         }
 
         if (!dbUser) {
-            console.error('[Isolation] Unauthorized: User record not found in system.');
+            console.error(`[Isolation] Unauthorized: User record not found for clerkId: ${clerkId} and email: ${email}. Authentication required.`);
             throw new Error('Unauthorized: Authentication required');
         }
 
