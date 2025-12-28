@@ -48,7 +48,7 @@ next-env.d.ts
 # uploads
 /public/uploads/
 
-/lib/generated/prisma
+/lib/generated/
 
 # clerk configuration (can include secrets)
 /.clerk/

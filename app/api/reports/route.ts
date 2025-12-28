@@ -64,8 +64,6 @@ export async function POST(request: NextRequest) {
 
         try {
             await logAudit({
-                userId: context.userId,
-                orgId: context.orgId,
                 entity: 'Report',
                 entityId: report.id,
                 action: 'CREATE',

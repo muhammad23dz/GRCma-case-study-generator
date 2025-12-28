@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getIsolationContext } from '@/lib/isolation';
+import { safeError } from '@/lib/security';
 
 // POST /api/grc/push - Push assessment data to dashboard (creates GRC entities)
 export async function POST(request: NextRequest) {
     try {
-        const { getIsolationContext } = await import('@/lib/isolation');
         const context = await getIsolationContext();
-        if (!context) {
-            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
+        if (!context || !context.orgId) {
+            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 401 });
         }
 
         const userEmail = context.email;
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
             }
         });
     } catch (error: any) {
-        console.error('Error pushing to dashboard:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const { message, status, code } = safeError(error, 'GRC Push');
+        return NextResponse.json({ error: message, code }, { status });
     }
 }
