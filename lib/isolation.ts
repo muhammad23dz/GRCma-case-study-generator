@@ -103,11 +103,19 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
 
         console.log('[Isolation] Auth check - clerkId:', clerkId, 'email:', email);
 
-        // Check if we have a valid DATABASE_URL
-        const hasValidDb = process.env.DATABASE_URL?.startsWith('postgres') || process.env.DATABASE_URL?.startsWith('file:');
+        // Check if we have a valid DATABASE_URL - support common schemes
+        const dbUrl = process.env.DATABASE_URL || '';
+        const hasValidDb = dbUrl.length > 0 && (
+            dbUrl.startsWith('postgres://') ||
+            dbUrl.startsWith('postgresql://') ||
+            dbUrl.startsWith('prisma://') ||
+            dbUrl.startsWith('mysql://') ||
+            dbUrl.startsWith('file:') ||
+            dbUrl.includes('@') // Connection strings typically have user@host
+        );
 
         if (!hasValidDb) {
-            console.error('[Isolation] Internal Error: DATABASE_URL is not configured. Real operations cannot proceed.');
+            console.error('[Isolation] Internal Error: DATABASE_URL is not configured or invalid. Value:', dbUrl ? '[REDACTED]' : 'MISSING');
             throw new Error('Infrastructure Missing: DATABASE_URL required for organization context');
         }
 
