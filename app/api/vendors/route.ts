@@ -49,13 +49,11 @@ export async function POST(request: NextRequest) {
     try {
         const context = await getIsolationContext();
         if (!context) {
-            return NextResponse.json({ error: 'Unauthorized: Infrastructure context required.' }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized: Please sign in to add vendors.' }, { status: 401 });
         }
 
-        const orgId = context.orgId;
-        if (!orgId) {
-            return NextResponse.json({ error: 'Unauthorized: Organization context required.' }, { status: 403 });
-        }
+        // orgId is optional - personal users can still create vendors using owner isolation
+        const orgId = context.orgId || undefined;
 
         const body = await request.json();
 
@@ -84,14 +82,16 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        // GRC Automation: Create vendor risk assessment if high criticality
-        // Using the centralized automation library for consistency
-        try {
-            const { assessVendorRisk } = await import('@/lib/grc-automation');
-            const normalizedCriticality = criticality.charAt(0).toUpperCase() + criticality.slice(1);
-            await assessVendorRisk(vendor.id, name, normalizedCriticality, context.email, orgId);
-        } catch (automationError) {
-            console.error('[Vendors] GRC Automation failed:', automationError);
+        // GRC Automation: Create vendor risk assessment if org context available
+        // Personal users skip automation (org-level feature)
+        if (orgId) {
+            try {
+                const { assessVendorRisk } = await import('@/lib/grc-automation');
+                const normalizedCriticality = criticality.charAt(0).toUpperCase() + criticality.slice(1);
+                await assessVendorRisk(vendor.id, name, normalizedCriticality, context.email, orgId);
+            } catch (automationError) {
+                console.error('[Vendors] GRC Automation failed:', automationError);
+            }
         }
 
         return NextResponse.json({ vendor }, { status: 201 });

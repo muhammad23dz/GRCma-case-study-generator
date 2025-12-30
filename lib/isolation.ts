@@ -88,6 +88,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 /**
  * Resolves the current user's identity and provides a consistent context for data isolation.
  * Automatically handles the mapping between Clerk IDs and Prisma DB IDs.
+ * RESILIENT: Falls back to Clerk-only context if database is unavailable.
  */
 export async function getIsolationContext(): Promise<IsolationContext | null> {
     try {
@@ -115,32 +116,23 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
         );
 
         if (!hasValidDb) {
-            console.error('[Isolation] Internal Error: DATABASE_URL is not configured or invalid. Value:', dbUrl ? '[REDACTED]' : 'MISSING');
-            throw new Error('Infrastructure Missing: DATABASE_URL required for organization context');
+            console.warn('[Isolation] No valid DATABASE_URL - using Clerk-only context');
+            return {
+                userId: clerkId,
+                clerkId,
+                email,
+                orgId: null,
+                role: 'user'
+            };
         }
 
-        const { prisma } = await import('./prisma');
+        // Try to resolve from database, with fallback
+        try {
+            const { prisma } = await import('./prisma');
 
-        // Robust DB User Resolution
-        let dbUser = await prisma.user.findUnique({
-            where: { id: clerkId },
-            select: {
-                id: true,
-                email: true,
-                orgId: true,
-                role: true,
-                organization: {
-                    select: {
-                        securitySettings: true
-                    }
-                }
-            }
-        });
-
-        // Fallback search by email if ID doesn't match
-        if (!dbUser && email) {
-            dbUser = await prisma.user.findUnique({
-                where: { email },
+            // Robust DB User Resolution
+            let dbUser = await prisma.user.findUnique({
+                where: { id: clerkId },
                 select: {
                     id: true,
                     email: true,
@@ -153,18 +145,11 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
                     }
                 }
             });
-        }
 
-        if (!dbUser && email) {
-            try {
-                // Auto-provision user record if authenticated via Clerk but missing in DB
-                dbUser = await prisma.user.create({
-                    data: {
-                        id: clerkId,
-                        email,
-                        name,
-                        role: 'user'
-                    },
+            // Fallback search by email if ID doesn't match
+            if (!dbUser && email) {
+                dbUser = await prisma.user.findUnique({
+                    where: { email },
                     select: {
                         id: true,
                         email: true,
@@ -177,25 +162,82 @@ export async function getIsolationContext(): Promise<IsolationContext | null> {
                         }
                     }
                 });
-            } catch (createErr) {
-                console.error('[Isolation] Failed to auto-provision user:', createErr);
-                throw new Error('Infrastructure Error: Failed to initialize user records');
             }
-        }
 
-        if (!dbUser) {
-            console.error(`[Isolation] Unauthorized: User record not found for clerkId: ${clerkId} and email: ${email}. Authentication required.`);
-            throw new Error('Unauthorized: Authentication required');
-        }
+            if (!dbUser && email) {
+                try {
+                    // Auto-provision user record if authenticated via Clerk but missing in DB
+                    dbUser = await prisma.user.create({
+                        data: {
+                            id: clerkId,
+                            email,
+                            name,
+                            role: 'user'
+                        },
+                        select: {
+                            id: true,
+                            email: true,
+                            orgId: true,
+                            role: true,
+                            organization: {
+                                select: {
+                                    securitySettings: true
+                                }
+                            }
+                        }
+                    });
+                    console.log('[Isolation] Auto-provisioned user:', email);
+                } catch (createErr: any) {
+                    // If table doesn't exist or other DB error, fall back to Clerk-only context
+                    if (createErr.code === 'P2021' || createErr.message?.includes('does not exist')) {
+                        console.warn('[Isolation] User table not found - using Clerk-only context');
+                        return {
+                            userId: clerkId,
+                            clerkId,
+                            email,
+                            orgId: null,
+                            role: 'user'
+                        };
+                    }
+                    console.error('[Isolation] Failed to auto-provision user:', createErr);
+                    throw createErr;
+                }
+            }
 
-        return {
-            userId: dbUser.id,
-            clerkId,
-            email: dbUser.email || email,
-            orgId: dbUser.orgId,
-            role: dbUser.role || 'user',
-            securitySettings: dbUser.organization?.securitySettings as any
-        };
+            if (!dbUser) {
+                // No DB user and couldn't create - use Clerk-only context
+                console.warn('[Isolation] No DB user found - using Clerk-only context');
+                return {
+                    userId: clerkId,
+                    clerkId,
+                    email,
+                    orgId: null,
+                    role: 'user'
+                };
+            }
+
+            return {
+                userId: dbUser.id,
+                clerkId,
+                email: dbUser.email || email,
+                orgId: dbUser.orgId,
+                role: dbUser.role || 'user',
+                securitySettings: dbUser.organization?.securitySettings as any
+            };
+        } catch (dbError: any) {
+            // Database connection or table doesn't exist - fall back to Clerk-only
+            if (dbError.code === 'P2021' || dbError.message?.includes('does not exist') || dbError.code === 'P1001') {
+                console.warn('[Isolation] Database unavailable - using Clerk-only context');
+                return {
+                    userId: clerkId,
+                    clerkId,
+                    email,
+                    orgId: null,
+                    role: 'user'
+                };
+            }
+            throw dbError;
+        }
     } catch (error) {
         console.error('[Isolation] Critical error resolving context:', error);
         // If it's already one of our descriptive errors, rethrow it
