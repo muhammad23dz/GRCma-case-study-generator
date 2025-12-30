@@ -74,13 +74,13 @@ export async function GET(request: NextRequest) {
         const controlsWithEvidence = await prisma.control.count({
             where: { ...userFilter, evidences: { some: {} } }
         });
-        const controlCompliance = totalControls > 0 ? (controlsWithEvidence / totalControls) : 1;
+        const controlCompliance = totalControls > 0 ? (controlsWithEvidence / totalControls) : 0;
 
         const totalGaps = await prisma.gap.count({ where: userFilter });
         const resolvedGaps = await prisma.gap.count({ where: { ...userFilter, status: 'resolved' } });
-        const gapClosure = totalGaps > 0 ? (resolvedGaps / totalGaps) : 1;
+        const gapClosure = totalGaps > 0 ? (resolvedGaps / totalGaps) : 0;
 
-        const policyCompliance = totalRequiredPolicies > 0 ? (approvedPolicies / totalRequiredPolicies) : 1;
+        const policyCompliance = totalRequiredPolicies > 0 ? (approvedPolicies / totalRequiredPolicies) : 0;
 
         const weightedScore = (
             (controlCompliance * 40) +
@@ -98,8 +98,8 @@ export async function GET(request: NextRequest) {
         const controlsWithDocs = await prisma.control.count({
             where: { ...userFilter, description: { not: "" } }
         });
-        const docFactor = totalControls > 0 ? (controlsWithDocs / totalControls) * 40 : 40;
-        const evidenceFactor = totalControls > 0 ? (controlsWithEvidence / totalControls) * 60 : 60;
+        const docFactor = totalControls > 0 ? (controlsWithDocs / totalControls) * 40 : 0;
+        const evidenceFactor = totalControls > 0 ? (controlsWithEvidence / totalControls) * 60 : 0;
         const auditReadiness = Math.round(docFactor + evidenceFactor);
 
         // Grouped Analytics
