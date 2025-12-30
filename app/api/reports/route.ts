@@ -1,28 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
-import { logAudit } from '@/lib/audit-log';
-import { safeError } from '@/lib/security';
 
-// GET /api/reports - Get user's saved assessment reports
 export const dynamic = 'force-dynamic';
 
+// GET /api/reports - Get user's saved assessment reports
 export async function GET(request: NextRequest) {
-    try {
-        const context = await getIsolationContext();
+    console.log('[Reports GET] Fetching reports...');
 
-        if (!context || !context.userId) {
-            return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    try {
+        // Authenticate via Clerk directly
+        const { userId: clerkId } = await auth();
+
+        if (!clerkId) {
+            return NextResponse.json({
+                error: 'Please sign in to view reports.',
+                reports: []
+            }, { status: 401 });
         }
 
-        // Use standard isolation filter
-        const filter = getIsolationFilter(context, 'Report');
+        console.log('[Reports GET] Authenticated user:', clerkId);
 
+        // Fetch reports by clerkId (stored as userId in reports)
         const reports = await prisma.report.findMany({
-            where: filter,
+            where: { userId: clerkId },
             orderBy: { timestamp: 'desc' },
             take: 50
         });
+
+        console.log('[Reports GET] Found', reports.length, 'reports');
 
         const parsedReports = reports.map(report => ({
             ...report,
@@ -32,19 +38,25 @@ export async function GET(request: NextRequest) {
         const response = NextResponse.json({ reports: parsedReports });
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         return response;
-    } catch (error: unknown) {
-        const { message, status, code } = safeError(error, 'Reports GET');
-        return NextResponse.json({ error: message, code }, { status });
+
+    } catch (error: any) {
+        console.error('[Reports GET] Error:', error);
+        return NextResponse.json({ error: 'Failed to fetch reports', reports: [] }, { status: 500 });
     }
 }
 
 // POST /api/reports - Save a new assessment report
 export async function POST(request: NextRequest) {
-    try {
-        const context = await getIsolationContext();
+    console.log('[Reports POST] Saving report...');
 
-        if (!context || !context.userId) {
-            return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    try {
+        // Authenticate via Clerk directly
+        const { userId: clerkId } = await auth();
+
+        if (!clerkId) {
+            return NextResponse.json({
+                error: 'Please sign in to save reports.'
+            }, { status: 401 });
         }
 
         const body = await request.json();
@@ -54,28 +66,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Report sections are required.' }, { status: 400 });
         }
 
-        // Use resolved context.userId consistently
+        // Save report with clerkId as userId
         const report = await prisma.report.create({
             data: {
-                userId: context.userId,
-                sections: sections || {}
+                userId: clerkId,
+                sections: sections
             }
         });
 
-        try {
-            await logAudit({
-                entity: 'Report',
-                entityId: report.id,
-                action: 'CREATE',
-                changes: JSON.stringify({ timestamp: report.timestamp })
-            });
-        } catch (auditError) {
-            console.warn('[Reports POST] Audit log failed:', auditError);
-        }
+        console.log('[Reports POST] Report saved with ID:', report.id);
 
         return NextResponse.json({ report, success: true });
-    } catch (error: unknown) {
-        const { message, status, code } = safeError(error, 'Reports POST');
-        return NextResponse.json({ error: message, code }, { status });
+
+    } catch (error: any) {
+        console.error('[Reports POST] Error:', error);
+        return NextResponse.json({ error: 'Failed to save report' }, { status: 500 });
     }
 }
