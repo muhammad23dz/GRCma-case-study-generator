@@ -39,7 +39,14 @@ export default function LandingView() {
             <PremiumBackground />
             <Header />
 
-            <div className="relative z-10 px-8 pt-40 pb-32">
+            {/* Beta Demo Banner */}
+            <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#C1272D] via-[#C1272D] to-[#006233] py-2 text-center">
+                <p className="text-white text-sm font-bold tracking-wide">
+                    🚀 BETA DEMO — Free Version — Experience the Future of GRC
+                </p>
+            </div>
+
+            <div className="relative z-10 px-8 pt-48 pb-32">
                 <div className="max-w-[1400px] mx-auto">
                     {/* Hero Section */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-start mb-40">
