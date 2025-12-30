@@ -1,11 +1,11 @@
 /**
  * Config as Code Service
  * Export/Import GRC resources as YAML/JSON configuration files
- * HARDENED: Strictly scoped via isolation layer
+ * HARDENED: Supports both organization and personal ownership scopes
  */
 
 import { prisma } from '@/lib/prisma';
-import { getIsolationContext } from '@/lib/isolation';
+import { getIsolationContext, IsolationContext } from '@/lib/isolation';
 import {
     ConfigFormat,
     ConfigExportRequest,
@@ -18,25 +18,40 @@ import {
 import * as yaml from 'yaml';
 
 // =============================================================================
+// Helper: Get scope filter based on context
+// =============================================================================
+
+function getScopeFilter(context: IsolationContext): { organizationId?: string; owner?: string } {
+    // If user has an organization, scope by org
+    if (context.orgId) {
+        return { organizationId: context.orgId };
+    }
+    // Fallback: scope by owner email for personal accounts
+    return { owner: context.email };
+}
+
+// =============================================================================
 // Export Functions
 // =============================================================================
 
 export async function exportConfig(request: ConfigExportRequest): Promise<ConfigExportResult> {
     const context = await getIsolationContext();
-    if (!context || !context.orgId) {
-        throw new Error("Unauthorized: Infrastructure context and organization required for export.");
+    if (!context) {
+        throw new Error("Unauthorized: Authentication required for export.");
     }
 
-    const orgId = context.orgId;
+    const scopeFilter = getScopeFilter(context);
     const config: Record<string, any> = {};
     const resourceCounts: Record<string, number> = {};
+
+    console.log('[Config Export] Scope:', context.orgId ? `Org: ${context.orgId}` : `Personal: ${context.email}`);
 
     // Fetch requested resources
     for (const resource of request.resources) {
         switch (resource) {
             case 'controls':
                 const controls = await prisma.control.findMany({
-                    where: { organizationId: orgId },
+                    where: scopeFilter,
                     include: { mappings: { include: { framework: true } } },
                 });
                 config.controls = controls.map(c => ({
@@ -56,7 +71,7 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
 
             case 'policies':
                 const policies = await prisma.policy.findMany({
-                    where: { organizationId: orgId }
+                    where: scopeFilter
                 });
                 config.policies = policies.map(p => ({
                     id: p.id,
@@ -87,7 +102,7 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
 
             case 'risks':
                 const risks = await prisma.risk.findMany({
-                    where: { organizationId: orgId }
+                    where: scopeFilter
                 });
                 config.risks = risks.map(r => ({
                     id: r.id,
@@ -108,7 +123,7 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
 
             case 'vendors':
                 const vendors = await prisma.vendor.findMany({
-                    where: { organizationId: orgId }
+                    where: scopeFilter
                 });
                 config.vendors = vendors.map(v => ({
                     id: v.id,
@@ -150,11 +165,18 @@ export async function exportConfig(request: ConfigExportRequest): Promise<Config
 
 export async function importConfig(request: ConfigImportRequest): Promise<ConfigImportResult> {
     const context = await getIsolationContext();
-    if (!context || !context.orgId) {
-        throw new Error("Unauthorized: Infrastructure context and organization required for import.");
+    if (!context) {
+        throw new Error("Unauthorized: Authentication required for import.");
+    }
+
+    // For import, we require an organization for now (to maintain data integrity)
+    if (!context.orgId) {
+        throw new Error("Organization required: Please join or create an organization to import configurations.");
     }
 
     const orgId = context.orgId;
+    console.log('[Config Import] Importing to organization:', orgId);
+
     const changes: ConfigChange[] = [];
     const errors: ConfigError[] = [];
     const summary = { created: 0, updated: 0, deleted: 0, unchanged: 0 };
@@ -178,6 +200,7 @@ export async function importConfig(request: ConfigImportRequest): Promise<Config
     }
 
     // Validate and process each resource type
+    // Pass context for flexible org/personal ownership
     if (config.controls) {
         await processControls(config.controls, orgId, changes, errors, summary, request.dryRun, request.overwriteExisting);
     }
