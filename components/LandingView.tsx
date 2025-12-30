@@ -56,21 +56,22 @@ export default function LandingView() {
                                     GRC<br />
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-500">Platform</span>
                                 </h1>
-                                <p className="text-xl text-slate-400 max-w-lg leading-relaxed font-light mb-8">
-                                    I built this platform to help startups and small teams achieve a strong security posture without the complexity of enterprise tools. Powered by AI, it generates risk assessments, suggests controls, and drafts policies aligned with ISO 27001, SOC 2, NIST, and GDPR—so you can focus on building your product.
+                                <p className="text-xl text-slate-400 max-w-md leading-relaxed font-light mb-8">
+                                    A unified Governance, Risk, and Compliance management system.
+                                    16 integrated modules including AI Intelligence and DevSecOps automation.
                                 </p>
                                 <ul className="space-y-3 text-slate-300">
                                     <li className="flex items-center gap-3">
                                         <CheckCircle2 className="w-5 h-5 text-[#006233]" />
-                                        <span>AI-generated assessments tailored to your context</span>
+                                        <span>Map controls to ISO 27001, SOC 2, NIST, GDPR</span>
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle2 className="w-5 h-5 text-[#006233]" />
-                                        <span>Compliance frameworks made simple for startups</span>
+                                        <span>Quantitative risk assessment with treatment tracking</span>
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle2 className="w-5 h-5 text-[#006233]" />
-                                        <span>Free beta access—no credit card required</span>
+                                        <span>Evidence collection for audit preparation</span>
                                     </li>
                                 </ul>
                             </div>
