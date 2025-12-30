@@ -39,19 +39,18 @@ export default function LandingView() {
             <PremiumBackground />
             <Header />
 
-            {/* Beta Demo Banner */}
-            <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#C1272D] via-[#C1272D] to-[#006233] py-2 text-center">
-                <p className="text-white text-sm font-bold tracking-wide">
-                    🚀 BETA DEMO — Free Version — Experience the Future of GRC
-                </p>
-            </div>
-
-            <div className="relative z-10 px-8 pt-48 pb-32">
+            <div className="relative z-10 px-8 pt-40 pb-32">
                 <div className="max-w-[1400px] mx-auto">
                     {/* Hero Section */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-start mb-40">
                         <div className="relative">
-                            <div className="absolute top-0 left-0 w-12 h-1 bg-[#C1272D] mb-8"></div>
+                            {/* Beta Badge */}
+                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full mb-6">
+                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Beta • Free Access</span>
+                            </div>
+
+                            <div className="absolute top-12 left-0 w-12 h-1 bg-[#C1272D] mb-8"></div>
                             <div className="pt-8">
                                 <h1 className="text-6xl md:text-7xl font-black mb-8 leading-[0.9] tracking-tighter">
                                     GRC<br />
