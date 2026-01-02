@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 // GET /api/vendors/[id]
 export async function GET(
@@ -9,15 +10,18 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { id } = await params;
 
-        const vendor = await prisma.vendor.findUnique({
-            where: { id },
+        const vendor = await prisma.vendor.findFirst({
+            where: {
+                id,
+                ...getIsolationFilter(context, 'Vendor')
+            },
             include: {
                 assessments: { orderBy: { assessmentDate: 'desc' } },
                 vendorRisks: { include: { risk: true } },
@@ -27,7 +31,7 @@ export async function GET(
         });
 
         if (!vendor) {
-            return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Vendor not found or access denied' }, { status: 404 });
         }
 
         // Generate Radar Metrics (Simulated based on criticality/risk)
@@ -53,11 +57,11 @@ export async function GET(
 // DELETE /api/vendors/[id]
 export async function DELETE(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -69,16 +73,26 @@ export async function DELETE(
             return NextResponse.json({ error: 'Forbidden: Only Admins can delete vendors' }, { status: 403 });
         }
 
-        const { id } = await context.params;
+        const { id } = await routeContext.params;
+        const isolationFilter = getIsolationFilter(context, 'Vendor');
 
         // Transaction to clean up orphans (Evidence has no Cascade in Schema)
         await prisma.$transaction(async (tx) => {
-            // 1. Delete linked Evidence (or set vendorId null, but usually delete is preferred for cleanup)
+            // First verify the vendor exists and belongs to the user/org
+            const vendor = await tx.vendor.findFirst({
+                where: { id, ...isolationFilter }
+            });
+
+            if (!vendor) {
+                throw new Error('Vendor not found or access denied');
+            }
+
+            // 1. Delete linked Evidence
             await tx.evidence.deleteMany({
                 where: { vendorId: id }
             });
 
-            // 2. Delete Vendor (Cascades to Assessments/VendorRisks per schema)
+            // 2. Delete Vendor
             await tx.vendor.delete({
                 where: { id }
             });

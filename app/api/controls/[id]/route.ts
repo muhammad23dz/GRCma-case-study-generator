@@ -3,21 +3,25 @@ import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 export async function GET(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await context.params;
+        const { id } = await routeContext.params;
 
-        const control = await prisma.control.findUnique({
-            where: { id },
+        const control = await prisma.control.findFirst({
+            where: {
+                id,
+                ...getIsolationFilter(context, 'Control')
+            },
             include: {
                 policyControls: {
                     include: {
@@ -40,7 +44,7 @@ export async function GET(
         });
 
         if (!control) {
-            return NextResponse.json({ error: 'Control not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Control not found or access denied' }, { status: 404 });
         }
 
         return NextResponse.json({ control });
@@ -52,31 +56,26 @@ export async function GET(
 
 export async function DELETE(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await prisma.user.findFirst({ where: { id: userId }, select: { email: true } });
-        const userEmail = dbUser?.email || '';
+        const { id } = await routeContext.params;
 
-        const { id } = await context.params;
-
-        const control = await prisma.control.findUnique({
-            where: { id },
-            select: { owner: true }
+        const control = await prisma.control.findFirst({
+            where: {
+                id,
+                ...getIsolationFilter(context, 'Control')
+            },
+            select: { id: true, owner: true }
         });
 
         if (!control) {
-            return NextResponse.json({ error: 'Control not found' }, { status: 404 });
-        }
-
-        // Strict ownership check
-        if (control.owner && control.owner !== userEmail) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Control not found or access denied' }, { status: 404 });
         }
 
         await prisma.control.delete({ where: { id } });

@@ -2,22 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 // GET /api/changes/[id]
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await params;
+        const { id } = await routeContext.params;
 
-        const change = await prisma.change.findUnique({
-            where: { id },
+        const change = await prisma.change.findFirst({
+            where: {
+                id,
+                ...getIsolationFilter(context, 'Change')
+            },
             include: {
                 approvals: true,
                 tasks: true,
@@ -29,7 +33,7 @@ export async function GET(
         });
 
         if (!change) {
-            return NextResponse.json({ error: 'Change not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Change not found or access denied' }, { status: 404 });
         }
 
         return NextResponse.json({ change });
@@ -42,28 +46,27 @@ export async function GET(
 // DELETE /api/changes/[id]
 export async function DELETE(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const role = user?.publicMetadata?.role as string || 'user';
+        const { id } = await routeContext.params;
+        const isolationFilter = getIsolationFilter(context, 'Change');
 
-        const { id } = await context.params;
-
-        const change = await prisma.change.findUnique({
-            where: { id },
+        const change = await prisma.change.findFirst({
+            where: { id, ...isolationFilter },
             select: { requestedBy: true }
         });
 
         if (!change) {
-            return NextResponse.json({ error: 'Change not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Change not found or access denied' }, { status: 404 });
         }
 
+        const { role } = context;
         const { canDeleteRecords } = await import('@/lib/permissions');
 
         // RBAC: Strict Admin Only for Hard Deletion

@@ -3,35 +3,35 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit-log';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 export async function DELETE(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
+        const role = user?.publicMetadata?.role as string || 'user';
 
-        const { id } = await context.params;
+        const { id } = await routeContext.params;
+        const isolationFilter = getIsolationFilter(context, 'Risk');
 
-        const risk = await prisma.risk.findUnique({
-            where: { id },
-            select: { owner: true }
+        const risk = await prisma.risk.findFirst({
+            where: { id, ...isolationFilter },
+            select: { id: true, owner: true }
         });
 
         if (!risk) {
-            return NextResponse.json({ error: 'Risk not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Risk not found or access denied' }, { status: 404 });
         }
 
-        // Strict ownership check
-        if (risk.owner && risk.owner !== userEmail) {
-            // Check permissions
-            const role = user?.publicMetadata?.role as string || 'user';
+        // Strict ownership check (Admin/Manager can bypass)
+        if (risk.owner && risk.owner !== context.email) {
             const { canDeleteRecords } = await import('@/lib/permissions');
             if (!canDeleteRecords(role)) {
                 return NextResponse.json({ error: 'Forbidden: Insufficient Privileges to Delete Risk' }, { status: 403 });

@@ -17,10 +17,25 @@ export async function GET(request: NextRequest) {
         }
         // This endpoint can be partially public
         const { searchParams } = new URL(request.url);
-        const organizationSlug = searchParams.get('org');
+        const organizationId = searchParams.get('org'); // Changed from organizationSlug for database consistency
 
-        // Get public compliance stats
+        if (!organizationId) {
+            return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
+        }
+
+        // Verify organization exists (Optional but recommended)
+        const organization = await prisma.organization.findUnique({
+            where: { id: organizationId },
+            select: { id: true, name: true }
+        });
+
+        if (!organization) {
+            return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+        }
+
+        // Get public compliance stats ISOLATED by organizationId
         const controls = await prisma.control.findMany({
+            where: { organizationId },
             select: {
                 id: true,
                 controlType: true,
@@ -33,11 +48,21 @@ export async function GET(request: NextRequest) {
         });
 
         const frameworks = await prisma.framework.findMany({
+            where: {
+                mappings: {
+                    some: {
+                        control: { organizationId }
+                    }
+                }
+            },
             include: {
                 requirements: {
                     select: { id: true }
                 },
                 mappings: {
+                    where: {
+                        control: { organizationId }
+                    },
                     select: { id: true }
                 }
             }
@@ -60,13 +85,19 @@ export async function GET(request: NextRequest) {
 
         // Get trust requests status
         const trustRequests = await prisma.trustRequest.findMany({
-            where: { status: 'pending' },
+            where: {
+                status: 'pending',
+                // organizationId // Note: TrustRequest model might need organizationId in schema
+            },
             select: { id: true }
         });
 
         // Get recent policies (public titles only)
         const policies = await prisma.policy.findMany({
-            where: { status: 'active' },
+            where: {
+                status: 'active',
+                organizationId
+            },
             select: {
                 id: true,
                 title: true,
@@ -81,7 +112,8 @@ export async function GET(request: NextRequest) {
         const certifications = await prisma.evidence.findMany({
             where: {
                 evidenceType: 'certification',
-                status: 'approved'
+                status: 'approved',
+                organizationId
             },
             select: {
                 id: true,

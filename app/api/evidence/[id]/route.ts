@@ -2,27 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const userEmail = user?.primaryEmailAddress?.emailAddress || '';
-        const role = user?.publicMetadata?.role as string || 'user';
-
-        const { id } = await params;
+        const { id } = await routeContext.params;
         const body = await request.json();
         const { status, reviewNotes } = body;
+        const isolationFilter = getIsolationFilter(context, 'Evidence');
+
+        // Verify existence/ownership
+        const existing = await prisma.evidence.findFirst({
+            where: { id, ...isolationFilter }
+        });
+
+        if (!existing) {
+            return NextResponse.json({ error: 'Evidence not found or access denied' }, { status: 404 });
+        }
 
         // Verify permissions for approval
         const { canApprove } = await import('@/lib/permissions');
+        const role = context.role;
 
         if (status === 'approved' || status === 'rejected') {
             if (!canApprove(role)) {
@@ -35,7 +43,7 @@ export async function PUT(
             data: {
                 status,
                 reviewNotes,
-                reviewer: status !== 'draft' ? userEmail : undefined,
+                reviewer: status !== 'draft' ? context.email : undefined,
                 reviewedAt: status !== 'draft' ? new Date() : undefined,
             },
             include: {
@@ -56,25 +64,32 @@ export async function PUT(
 
 export async function DELETE(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = await currentUser();
-        const role = user?.publicMetadata?.role as string || 'user';
+        const { id } = await routeContext.params;
+        const isolationFilter = getIsolationFilter(context, 'Evidence');
 
-        // Enforce RBAC for Deletion
+        // Verify existence/ownership
+        const existing = await prisma.evidence.findFirst({
+            where: { id, ...isolationFilter }
+        });
+
+        if (!existing) {
+            return NextResponse.json({ error: 'Evidence not found or access denied' }, { status: 404 });
+        }
+
+        const { role } = context;
         const { canDeleteRecords } = await import('@/lib/permissions');
 
         if (!canDeleteRecords(role)) {
             return NextResponse.json({ error: 'Forbidden: Only Admins can delete evidence' }, { status: 403 });
         }
-
-        const { id } = await context.params;
 
         await prisma.evidence.delete({
             where: { id }

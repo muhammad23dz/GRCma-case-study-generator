@@ -2,21 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { safeError } from '@/lib/security';
+import { getIsolationContext, getIsolationFilter } from '@/lib/isolation';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await params;
+        const { id } = await routeContext.params;
 
-        const policy = await prisma.policy.findUnique({
-            where: { id },
+        const policy = await prisma.policy.findFirst({
+            where: {
+                id,
+                ...getIsolationFilter(context, 'Policy')
+            },
             include: {
                 policyControls: {
                     include: {
@@ -33,7 +37,7 @@ export async function GET(
         });
 
         if (!policy) {
-            return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Policy not found or access denied' }, { status: 404 });
         }
 
         return NextResponse.json({ policy });
@@ -45,25 +49,27 @@ export async function GET(
 
 export async function DELETE(
     request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    routeContext: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const context = await getIsolationContext();
+        if (!context) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const user = await currentUser();
         const role = user?.publicMetadata?.role as string || 'user';
 
-        const { id } = await context.params;
-        const policy = await prisma.policy.findUnique({
-            where: { id },
-            select: { owner: true }
+        const { id } = await routeContext.params;
+        const isolationFilter = getIsolationFilter(context, 'Policy');
+
+        const policy = await prisma.policy.findFirst({
+            where: { id, ...isolationFilter },
+            select: { id: true, owner: true }
         });
 
         if (!policy) {
-            return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Policy not found or access denied' }, { status: 404 });
         }
 
         const { canDeleteRecords } = await import('@/lib/permissions');
